@@ -6200,6 +6200,7 @@ def ensure_uid(entity)
  if uid.empty?
   uid="MST-#{entity.persistent_id}-#{Time.now.to_i}"
   entity.set_attribute(DICT,'element_uid',uid)
+  entity.set_attribute(DICT,'uid_owner_pid',entity.persistent_id) if entity.get_attribute(DICT,'uid_owner_pid',nil).nil?   # ADR-0515 §1
  end
  uid
 end
@@ -6324,6 +6325,7 @@ def finalize_bim_identity(entity, model=Sketchup.active_model)
  t=entity.get_attribute(DICT,'element_type','').to_s
  return entity if t.empty?
  ensure_uid(entity)
+ entity.set_attribute(DICT,'uid_owner_pid',entity.persistent_id) if entity.get_attribute(DICT,'uid_owner_pid',nil).nil?   # ADR-0515 §1
  # Multi-ANO default organization: every newly finalized physical BIM element
  # inherits the current project/active ANO only when those fields are blank.
  prj=model.get_attribute(DICT,'project_name','').to_s
@@ -6369,46 +6371,60 @@ def finalize_bim_identity(entity, model=Sketchup.active_model)
  entity
 end
 
-def standardize_model_metadata
- model=Sketchup.active_model; all=[];collect_elements(model.entities,all); changed=0
- elems=all.select{|e|%w[steel_pipe_pile head_beam flat_precast channel_precast crane_precast deck_slab curb pile_infill_concrete crown_wall bored_pile].include?(e.get_attribute(DICT,'element_type','').to_s)}
- # Preserve existing type IDs by signature; assign a new stable ID only to unseen signatures.
- registry={}
+# R-2 / K04: saf — yazmaz; yalnız eksik anahtarlar için [[varlık,anahtar,değer]] döner (mevcut değer, revision ve boş yer tutucular yazılmaz)
+def mst_standardize_changes(model=Sketchup.active_model)
+ all=[];collect_elements(model.entities,all);ch=[]
+ elems=all.select{|e|%w[steel_pipe_pile head_beam flat_precast channel_precast crane_precast deck_slab curb pile_infill_concrete crown_wall bored_pile].include?(e.get_attribute(DICT,'element_type','').to_s)}.sort_by(&:persistent_id)
+ blank=lambda{|e,k|e.get_attribute(DICT,k,'').to_s.strip.empty?}
+ # Preserve existing type IDs by signature (first owner by persistent_id); a new stable ID only for unseen signatures.
+ registry={};sigs={};ctr={}
  elems.each do |e|
-  sig=element_signature(e);tid=e.get_attribute(DICT,'library_type_id','').to_s
-  registry[sig]=tid unless tid.empty?
+  sig=sigs[e]=element_signature(e);tid=e.get_attribute(DICT,'library_type_id','').to_s.strip;tid=e.get_attribute(DICT,'type_id','').to_s.strip if tid.empty?
+  registry[sig]||=tid unless tid.empty?
  end
- model.start_operation('MST BIM Data Core Standardize',true)
  elems.each do |e|
-  t=e.get_attribute(DICT,'element_type','').to_s
-  uid=ensure_uid(e);sig=element_signature(e)
-  tid=registry[sig]
-  if tid.to_s.empty?
-   tid=next_library_type_id(model,bim_type_prefix(t));registry[sig]=tid
+  t=e.get_attribute(DICT,'element_type','').to_s;sig=sigs[e]
+  ch << [e,'element_uid',"MST-#{e.persistent_id}-#{Time.now.to_i}"] << [e,'uid_owner_pid',e.persistent_id] if blank.call(e,'element_uid')
+  ch << [e,'type_signature',sig] if blank.call(e,'type_signature')
+  lt=e.get_attribute(DICT,'library_type_id','').to_s.strip;ti=e.get_attribute(DICT,'type_id','').to_s.strip
+  if lt.empty? && ti.empty?
+   tid=registry[sig]
+   if tid.to_s.empty?
+    pf=bim_type_prefix(t);key="type_counter_#{pf}";ctr[key]=(ctr[key] || model.get_attribute(DICT,key,0).to_i)+1
+    tid="#{pf}-T#{ctr[key].to_s.rjust(2,'0')}";registry[sig]=tid
+   end
+   ch << [e,'library_type_id',tid] << [e,'type_id',tid]
+  elsif lt.empty?
+   ch << [e,'library_type_id',ti]
+  elsif ti.empty?
+   ch << [e,'type_id',lt]
   end
-  e.set_attribute(DICT,'element_uid',uid)
-  e.set_attribute(DICT,'type_signature',sig)
-  e.set_attribute(DICT,'library_type_id',tid)
-  e.set_attribute(DICT,'type_id',tid) # canonical BIM key; legacy key retained for compatibility
-  e.set_attribute(DICT,'project',e.get_attribute(DICT,'project','').to_s)
-  e.set_attribute(DICT,'ano',e.get_attribute(DICT,'ano','').to_s)
-  e.set_attribute(DICT,'axis',e.get_attribute(DICT,'axis','').to_s)
-  e.set_attribute(DICT,'zone',e.get_attribute(DICT,'zone','').to_s)
-  e.set_attribute(DICT,'parent_uid',e.get_attribute(DICT,'parent_uid','').to_s)
-  e.set_attribute(DICT,'schema_version','2.0')
-  e.set_attribute(DICT,'revision','v0.20.0')
-  changed+=1
+  ch << [e,'schema_version','2.0'] if blank.call(e,'schema_version')
  end
- model.set_attribute(DICT,'bim_schema_version','2.0')
- model.set_attribute(DICT,'bim_core_revision','v0.20.0')
- commit_with_dependencies(model)
- changed
-rescue=>ex
- model.abort_operation rescue nil;raise ex
+ ctr.each{|k,v|ch << [model,k,v]}
+ ch << [model,'bim_schema_version','2.0'] if model.get_attribute(DICT,'bim_schema_version','').to_s.strip.empty?
+ ch << [model,'bim_core_revision','v0.20.0'] if model.get_attribute(DICT,'bim_core_revision','').to_s.strip.empty?
+ ch
 end
 
-def element_library
- changed=standardize_model_metadata
+# R-2 / K04, K28: değişiklik yoksa işlem açmaz ve 0 döner; own_op=false → çağıranın işlemi içinde (start/commit yok)
+def standardize_model_metadata(own_op=true)
+ model=Sketchup.active_model;op=false
+ ch=mst_standardize_changes(model)
+ return 0 if ch.empty?
+ if own_op
+  model.start_operation('MST BIM Data Core Standardize',true);op=true
+ end
+ ch.each{|e,k,v|e.set_attribute(DICT,k,v)}
+ if own_op
+  commit_with_dependencies(model);op=false
+ end
+ ch.map{|e,_,_|e}.uniq.count{|e|e!=model}
+rescue=>ex
+ model.abort_operation if op;raise ex
+end
+
+def element_library(changed=nil)
  all=[];collect_elements(Sketchup.active_model.entities,all)
  elems=all.select{|e|%w[steel_pipe_pile head_beam flat_precast channel_precast crane_precast deck_slab curb crown_wall bored_pile].include?(e.get_attribute(DICT,'element_type').to_s)}
  groups=elems.group_by{|e|e.get_attribute(DICT,'library_type_id','').to_s}
@@ -6418,21 +6434,21 @@ def element_library
   ids=arr.map{|x|element_visible_id(x)}.join(', ')
   sig=e.get_attribute(DICT,'type_signature',element_signature(e)).to_s
   mat=e.get_attribute(DICT,'steel_grade',e.get_attribute(DICT,'concrete_class','-')).to_s
-  rows<<"<tr><td><b>#{html_escape(tid)}</b></td><td>#{html_escape(bim_type_label(t))}</td><td>#{html_escape(mat)}</td><td class='num'>#{arr.length}</td><td>#{html_escape(ids)}</td><td class='sig'>#{html_escape(sig)}</td></tr>"
+  rows<<"<tr><td><b>#{html_escape(tid.empty? ? '(Type ID yok)' : tid)}</b></td><td>#{html_escape(bim_type_label(t))}</td><td>#{html_escape(mat)}</td><td class='num'>#{arr.length}</td><td>#{html_escape(ids)}</td><td class='sig'>#{html_escape(sig)}</td></tr>"
  end
  rfq=rockfill_qto_data
  rfq[:materials].each_with_index do |r,i|
   rows<<"<tr><td><b>RF-T#{(i+1).to_s.rjust(2,'0')}</b></td><td>Dolgu / Taş</td><td>#{html_escape(r[:name])}</td><td class='num'>#{rfq[:sections].length}</td><td>Kesit zinciri</td><td class='sig'>rockfill|#{html_escape(r[:code])}|#{format('%.3f',r[:density])}t/m³ • #{format('%.3f',r[:volume_m3])}m³ • #{format('%.3f',r[:tonnage_t])}t</td></tr>"
  end
  library_type_count=groups.length + rfq[:materials].length
- html="<html><head><meta charset='utf-8'><style>body{font-family:Arial;background:#f3f7fa;color:#18364a;margin:0}.top{padding:18px 22px;background:#fff;border-bottom:1px solid #cadce7;display:flex;justify-content:space-between}.badge{background:#e6f4ff;color:#0874c9;border:1px solid #b9ddf5;border-radius:18px;padding:7px 12px;font-size:11px;font-weight:700}h2{margin:0;color:#073f73}.wrap{padding:18px}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.kpi{background:#fff;border:1px solid #cadce7;border-radius:8px;padding:12px}.kpi small{color:#6b8799}.kpi b{display:block;font-size:20px;color:#074a7c;margin-top:4px}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #cadce7}th,td{padding:9px;border-bottom:1px solid #e7eef3;text-align:left;font-size:12px}th{background:#eaf3f8;color:#42677f;position:sticky;top:0}.num{text-align:right}.sig{font-size:10px;color:#6d8798}.note{margin-top:10px;font-size:11px;color:#607d8b}</style></head><body><div class='top'><div><h2>BIM Element Library</h2><div>Fiziksel eleman ≠ eleman tipi • kalıcı UID + stabil Type ID</div></div><div class='badge'>BIM DATA CORE v2.0</div></div><div class='wrap'><div class='kpis'><div class='kpi'><small>Fiziksel Eleman</small><b>#{elems.length}</b></div><div class='kpi'><small>Eleman Tipi</small><b>#{library_type_count}</b></div><div class='kpi'><small>Standardize Edilen</small><b>#{changed}</b></div></div><table><tr><th>Type ID</th><th>Eleman</th><th>Malzeme</th><th>Adet</th><th>Fiziksel ID'ler</th><th>Tip İmzası</th></tr>#{rows}</table><div class='note'>Type ID artık pencere her açıldığında yeniden numaralanmaz. Aynı tip imzası aynı Type ID'yi korur. Fiziksel element_uid değerleri revizyonlarda korunur.</div></div></body></html>"
+ html="<html><head><meta charset='utf-8'><style>body{font-family:Arial;background:#f3f7fa;color:#18364a;margin:0}.top{padding:18px 22px;background:#fff;border-bottom:1px solid #cadce7;display:flex;justify-content:space-between}.badge{background:#e6f4ff;color:#0874c9;border:1px solid #b9ddf5;border-radius:18px;padding:7px 12px;font-size:11px;font-weight:700}h2{margin:0;color:#073f73}.wrap{padding:18px}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.kpi{background:#fff;border:1px solid #cadce7;border-radius:8px;padding:12px}.kpi small{color:#6b8799}.kpi b{display:block;font-size:20px;color:#074a7c;margin-top:4px}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #cadce7}th,td{padding:9px;border-bottom:1px solid #e7eef3;text-align:left;font-size:12px}th{background:#eaf3f8;color:#42677f;position:sticky;top:0}.num{text-align:right}.sig{font-size:10px;color:#6d8798}.note{margin-top:10px;font-size:11px;color:#607d8b}</style></head><body><div class='top'><div><h2>BIM Element Library</h2><div>Fiziksel eleman ≠ eleman tipi • kalıcı UID + stabil Type ID</div></div><div class='badge'>BIM DATA CORE v2.0</div></div><div class='wrap'><div class='kpis'><div class='kpi'><small>Fiziksel Eleman</small><b>#{elems.length}</b></div><div class='kpi'><small>Eleman Tipi</small><b>#{library_type_count}</b></div><div class='kpi'><small>Standardize Edilen</small><b>#{changed.nil? ? '—' : changed}</b></div></div><table><tr><th>Type ID</th><th>Eleman</th><th>Malzeme</th><th>Adet</th><th>Fiziksel ID'ler</th><th>Tip İmzası</th></tr>#{rows}</table><div class='note'>Type ID artık pencere her açıldığında yeniden numaralanmaz. Aynı tip imzası aynı Type ID'yi korur. Fiziksel element_uid değerleri revizyonlarda korunur.</div></div></body></html>"
  d=mst_html_dialog('element_library',dialog_title:'Marine Structures - BIM Element Library v0.31.6',width:1180,height:680,resizable:true);d.set_html(EngineeringUI.decorate(html));d.show;@library_dialog=d
 end
 
 def bim_data_core_report
  changed=standardize_model_metadata
  UI.messagebox("BIM Data Core v2.0 tamamlandı.\n\n#{changed} Marine Structures elemanı standardize edildi.\n• Kalıcı element_uid\n• Stabil type_id / library_type_id\n• Project / Ano / Axis / Zone alanları\n• Parent UID altyapısı\n• Schema v2.0")
- element_library
+ element_library(changed)   # K28: kütüphane yazmaz; tek işlem standardize'da
 end
 
 def rebuild_pile_geometry(g,dmm,tmm,vertical_len,rx,ry)
@@ -7465,7 +7481,29 @@ def repair_bim_identity
  missing_uids=elems.select{|e|e.get_attribute(DICT,'element_uid','').to_s.strip.empty?}
  uid_groups=elems.group_by{|e|e.get_attribute(DICT,'element_uid','').to_s.strip}.reject{|k,a|k.empty?||a.length<2}
  id_groups=elems.group_by{|e|[e.get_attribute(DICT,'element_type','').to_s,element_visible_id(e)]}.reject{|k,a|k[1].start_with?('PID-')||a.length<2}
- msg="BIM Identity Repair\n\n#{missing_uids.length} eksik UID, #{id_groups.length} mükerrer fiziksel ID grubu, #{uid_groups.length} mükerrer UID grubu bulundu.\n\nType ID'lere ve geometriye dokunulmaz. Fiziksel ID/UID benzersizleştirilir ve dependency metadata aynı işlem içinde yenilenir.\n\nDevam edilsin mi?"
+ # ADR-0515 §1 / K06: asıl öğe mst_uid_owner ile (kayıtlı sahip / UID içindeki PID / en eski PID); öbürleri kopya
+ uid_plan=uid_groups.map{|u,arr|own,why=mst_uid_owner(arr);[u,own,arr-[own],why]}
+ pairs=uid_plan.flat_map{|u,own,cps,why|cps.map{|c|"#{element_visible_id(own)} (PID #{own.persistent_id}) → #{element_visible_id(c)} (PID #{c.persistent_id}) · #{why}"}}
+ # Tretuvar: yalnız kopya tretuvar, XY merkezi (model uzayı) tam bir kopya döşemenin sınır kutusu içindeyse kopya döşemeye bağlanır
+ deck_copies=Hash.new{|h,k|h[k]=[]};uid_plan.each{|u,own,cps,why|cps.each{|c|deck_copies[u] << c if c.get_attribute(DICT,'element_type','').to_s=='deck_slab'}}
+ curb_moves=[];curb_check=[]
+ uid_plan.each do |u,own,cps,why|
+  cps.each do |c|
+   next unless c.get_attribute(DICT,'element_type','').to_s=='curb'
+   ds=deck_copies.fetch(c.get_attribute(DICT,'parent_uid','').to_s,[]);next if ds.empty?
+   x,y=mst_world_box_center(c)
+   hit=ds.select{|d|b=mst_world_box(d);x>=b['x'][0] && x<=b['x'][1] && y>=b['y'][0] && y<=b['y'][1]}
+   hit.length==1 ? curb_moves << [c,hit.first] : curb_check << c
+  end
+ end
+ msg="BIM Identity Repair\n\n#{missing_uids.length} eksik UID, #{id_groups.length} mükerrer fiziksel ID grubu, #{uid_groups.length} mükerrer UID grubu bulundu.\n\nType ID'lere ve geometriye dokunulmaz. Fiziksel ID/UID benzersizleştirilir ve dependency metadata aynı işlem içinde yenilenir."
+ unless pairs.empty?
+  msg+="\n\nAsıl → kopya (karar yolu):\n"+pairs.first(10).join("\n")+(pairs.length>10 ? "\n… #{pairs.length-10} kopya daha" : '')
+  msg+="\nKopyaya yeni UID verilir; asıl UID copied_from_uid olarak saklanır. Kopyanın ilerleme kaydı devralınmış (onaysız) olarak saklanır, durumu 'Planlandı' olur."
+  msg+="\n#{curb_moves.length} kopya tretuvar kopya döşemeye bağlanacak." unless curb_moves.empty?
+  msg+="\nDoğrulanmalı (tretuvar bağı değiştirilmez): "+curb_check.first(10).map{|c|element_visible_id(c)}.join(', ') unless curb_check.empty?
+ end
+ msg+="\n\nDevam edilsin mi?"
  return unless UI.messagebox(msg,MB_YESNO)==IDYES
  model.start_operation('MST BIM Identity Repair',true)
  renamed=0;uid_fixed=0
@@ -7473,13 +7511,23 @@ def repair_bim_identity
   ensure_uid(e)
   uid_fixed+=1
  end
- # Repair duplicate UIDs: first instance remains canonical, later instances get stable unique UIDs.
- uid_groups.each_value do |arr|
-  arr[1..-1].each do |e|
+ # Repair duplicate UIDs: the owner keeps the UID; copies get a stable unique UID and keep the source UID.
+ uid_plan.each do |u,own,cps,why|
+  cps.each do |e|
    e.set_attribute(DICT,'element_uid',"MST-#{e.persistent_id}-#{Time.now.to_i}-R")
+   e.set_attribute(DICT,'copied_from_uid',u);e.set_attribute(DICT,'uid_owner_pid',e.persistent_id)
+   pj=e.get_attribute(DICT,'progress_items_json','').to_s
+   if !pj.empty? && e.get_attribute(DICT,'progress_inherited_json',nil).nil?
+    e.set_attribute(DICT,'progress_inherited_json',pj);e.delete_attribute(DICT,'progress_items_json')
+   end
+   ps=e.get_attribute(DICT,'progress_status','').to_s
+   if !ps.empty? && ps!='Planlandı' && e.get_attribute(DICT,'progress_inherited_status',nil).nil?
+    e.set_attribute(DICT,'progress_inherited_status',ps);e.set_attribute(DICT,'progress_status','Planlandı')
+   end
    uid_fixed+=1
   end
  end
+ curb_moves.each{|c,d|c.set_attribute(DICT,'parent_uid',d.get_attribute(DICT,'element_uid','').to_s)}
  # Physical IDs are unique per element type. Keep the first occurrence and renumber only duplicates.
  used_by_type=Hash.new{|h,k|h[k]={}}
  elems.each{|e|id=element_visible_id(e);used_by_type[e.get_attribute(DICT,'element_type','').to_s][id]=true unless id.start_with?('PID-')}
@@ -7502,7 +7550,7 @@ def repair_bim_identity
   end
  end
  model.set_attribute(DICT,'identity_repair_revision','v0.21.1');commit_with_dependencies(model)
- UI.messagebox("BIM Identity Repair tamamlandı.\n\n#{renamed} fiziksel Element ID yeniden numaralandırıldı.\n#{uid_fixed} eksik/mükerrer UID onarıldı.\nType ID ve geometri korunmuştur.\n\nİşlemin tamamı tek Ctrl+Z ile geri alınabilir.")
+ UI.messagebox("BIM Identity Repair tamamlandı.\n\n#{renamed} fiziksel Element ID yeniden numaralandırıldı.\n#{uid_fixed} eksik/mükerrer UID onarıldı.#{curb_moves.empty? ? '' : "\n#{curb_moves.length} kopya tretuvar kopya döşemeye bağlandı."}\nType ID ve geometri korunmuştur.\n\nİşlemin tamamı tek Ctrl+Z ile geri alınabilir.")
  model_audit
 rescue=>ex
  model.abort_operation rescue nil;UI.messagebox("BIM Identity Repair hatası: #{ex.message}")
@@ -7937,7 +7985,7 @@ def model_audit
   end
   checks+=1;uid=e.get_attribute(DICT,'element_uid','').to_s.strip
   add_issue.call('ERROR',e,'BIM Kimliği','Element UID eksik.','BIM Data Core ile metadata standardize edin.') if uid.empty?
-  if !uid.empty? && by_uid[uid]; add_issue.call('ERROR',e,'BIM Kimliği',"Mükerrer UID: #{uid}",'BIM Identity Repair çalıştırın.'); else by_uid[uid]=e unless uid.empty?;end
+  if !uid.empty? && by_uid[uid]; own,_why=mst_uid_owner(elems.select{|x|x.get_attribute(DICT,'element_uid','').to_s.strip==uid}); add_issue.call('ERROR',e,'BIM Kimliği',"Mükerrer UID: #{uid} (kopya olası: #{element_visible_id(own==e ? by_uid[uid] : e)})",'BIM Identity Repair çalıştırın.'); else by_uid[uid]=e unless uid.empty?;end
   by_pid[e.persistent_id]=e
   id=element_visible_id(e);key=[e.get_attribute(DICT,'element_type','').to_s,id];by_visible[key]<<e
   tid=e.get_attribute(DICT,'type_id',e.get_attribute(DICT,'library_type_id','')).to_s.strip;by_type_id[tid]<<e unless tid.empty?
@@ -8236,13 +8284,14 @@ def mst_dependency_impacts(root)
 end
 
 def mst_dependency_payload(e)
+  # R-2: görüntüleme salt okur (UID üretmez)
   return {'ok'=>false,'message'=>'Önce bir Marine Structures elemanı seçin.'} unless e
   rows=mst_dependency_tree(e); parents=mst_direct_parents(e)
   counts=Hash.new(0); items=rows.map do |x,depth|
     t=x.get_attribute(DICT,'element_type','').to_s; counts[t]+=1
-    {'id'=>element_visible_id(x),'type'=>t,'depth'=>depth,'uid'=>ensure_uid(x)}
+    {'id'=>element_visible_id(x),'type'=>t,'depth'=>depth,'uid'=>x.get_attribute(DICT,'element_uid','').to_s}
   end
-  {'ok'=>true,'root_id'=>element_visible_id(e),'root_type'=>e.get_attribute(DICT,'element_type','').to_s,'root_uid'=>ensure_uid(e),'affected_count'=>items.length,'counts'=>counts,'items'=>items,'parents'=>parents.map{|x|{'id'=>element_visible_id(x),'type'=>x.get_attribute(DICT,'element_type','').to_s,'uid'=>ensure_uid(x)}},'impacts'=>mst_dependency_impacts(e),'schema'=>'2.0'}
+  {'ok'=>true,'root_id'=>element_visible_id(e),'root_type'=>e.get_attribute(DICT,'element_type','').to_s,'root_uid'=>e.get_attribute(DICT,'element_uid','').to_s,'affected_count'=>items.length,'counts'=>counts,'items'=>items,'parents'=>parents.map{|x|{'id'=>element_visible_id(x),'type'=>x.get_attribute(DICT,'element_type','').to_s,'uid'=>x.get_attribute(DICT,'element_uid','').to_s}},'impacts'=>mst_dependency_impacts(e),'schema'=>'2.0'}
 end
 
 def send_dependency_analysis(dialog=@d)
@@ -8251,29 +8300,36 @@ def send_dependency_analysis(dialog=@d)
 end
 
 def stamp_dependency_metadata
-  all=mst_all_elements; model=Sketchup.active_model
-  standardize_model_metadata
-  model.start_operation('MST Dependency Engine 2.0',true)
+  all=mst_all_elements; model=Sketchup.active_model; op=false
+  # R-2 / K05, K28: önce değişiklik listesi (yazmaz); tek işlem; parent_uid / support_*_uid yalnız boşsa; dependency_* ve revision commit_with_dependencies'e bırakılır
+  ch=mst_standardize_changes(model);pend={};ch.each{|e,k,v|pend[e]=v if k=='element_uid'}
+  uid_of=lambda do |x|
+    u=x.get_attribute(DICT,'element_uid','').to_s;u=pend[x].to_s if u.empty?
+    if u.empty?;u="MST-#{x.persistent_id}-#{Time.now.to_i}";pend[x]=u;ch << [x,'element_uid',u];ch << [x,'uid_owner_pid',x.persistent_id] if x.get_attribute(DICT,'uid_owner_pid',nil).nil?;end
+    u
+  end
+  blank=lambda{|e,k|e.get_attribute(DICT,k,'').to_s.strip.empty?}
   all.each do |e|
-    ensure_uid(e); deps=mst_direct_dependencies(e,all); parents=mst_direct_parents(e,all)
-    e.set_attribute(DICT,'dependency_child_uids',deps.map{|x|ensure_uid(x)}.join(','))
-    e.set_attribute(DICT,'dependency_child_ids',deps.map{|x|element_visible_id(x)}.join(','))
-    e.set_attribute(DICT,'dependency_parent_uids',parents.map{|x|ensure_uid(x)}.join(','))
-    e.set_attribute(DICT,'dependency_parent_ids',parents.map{|x|element_visible_id(x)}.join(','))
-    e.set_attribute(DICT,'parent_uid',ensure_uid(parents.first)) if parents.length==1
+    uid_of.call(e); parents=mst_direct_parents(e,all)
+    ch << [e,'parent_uid',uid_of.call(parents.first)] if parents.length==1 && blank.call(e,'parent_uid')
     if %w[flat_precast channel_precast crane_precast].include?(e.get_attribute(DICT,'element_type','').to_s)
       l=mst_element_by_pid(e.get_attribute(DICT,'support_left_pid',0),all); r=mst_element_by_pid(e.get_attribute(DICT,'support_right_pid',0),all)
-      e.set_attribute(DICT,'support_left_uid',ensure_uid(l)) if l
-      e.set_attribute(DICT,'support_right_uid',ensure_uid(r)) if r
+      ch << [e,'support_left_uid',uid_of.call(l)] if l && blank.call(e,'support_left_uid')
+      ch << [e,'support_right_uid',uid_of.call(r)] if r && blank.call(e,'support_right_uid')
     end
-    e.set_attribute(DICT,'dependency_schema','2.0'); e.set_attribute(DICT,'revision','v0.20.0')
   end
-  model.set_attribute(DICT,'dependency_schema_version','2.0'); model.set_attribute(DICT,'dependency_revision','v0.18.0')
-  commit_with_dependencies(model); send_dependency_analysis
+  if ch.empty? && dependency_changes(model).empty?
+    send_dependency_analysis
+    UI.messagebox("Dependency Engine 2.0: değişiklik gerekmedi.\n\n#{all.length} eleman tarandı; kayıtlı UID, ilişki ve revizyon bilgileri zaten güncel.")
+    return
+  end
+  model.start_operation('MST Dependency Engine 2.0',true);op=true
+  ch.each{|e,k,v|e.set_attribute(DICT,k,v)}
+  commit_with_dependencies(model);op=false; send_dependency_analysis
   linked=all.count{|e|!e.get_attribute(DICT,'dependency_child_uids','').to_s.empty? || !e.get_attribute(DICT,'dependency_parent_uids','').to_s.empty?}
   UI.messagebox("Dependency Engine 2.0 tamamlandı.\n\n#{all.length} eleman tarandı.\n#{linked} elemanda ilişki bulundu.\n\nZincir: Kazık → BK → PD/Kanal → Döşeme → Tretuvar\nUID tabanlı parent/child ve support ilişkileri yazıldı.\n\nBu sürüm etki analizi yapar; bağlı geometriyi otomatik değiştirmez.")
 rescue=>ex
-  model.abort_operation rescue nil; UI.messagebox("Dependency Engine 2.0 hatası: #{ex.message}")
+  (model.abort_operation if op) rescue nil; UI.messagebox("Dependency Engine 2.0 hatası: #{ex.message}")
 end
 # ===== end v0.18.0 =====
 
@@ -9093,8 +9149,20 @@ def rockfill_library
  JSON.parse(raw) rescue ROCKFILL_DEFAULTS.map(&:dup)
 end
 
+# R-4 / K20: kayıtlı JSON (model DICT) boş değil ve okunamıyor/tipi yanlışsa true; okuyucular varsayılana döner, yazıcılar bunu kullanır
+def mst_json_attr_bad?(model,key,klass)
+ raw=model.get_attribute(DICT,key,'').to_s
+ return false if raw.strip.empty?
+ !(JSON.parse(raw) rescue nil).is_a?(klass)
+end
+def mst_json_attr_guard!(model,key,klass,label)
+ raise "#{label} kaydı (#{key}) okunamadı; mevcut kaydın üzerine yazılmadı, değişiklik kaydedilmedi." if mst_json_attr_bad?(model,key,klass)
+ true
+end
+
 def rockfill_save_library(json,dialog)
  a=JSON.parse(json); raise 'Malzeme kütüphanesi boş olamaz.' unless a.is_a?(Array)&&!a.empty?
+ mst_json_attr_guard!(Sketchup.active_model,ROCKFILL_LIBRARY_KEY,Array,'Dolgu malzeme kütüphanesi')
  a.each{|x| raise 'Malzeme kodu ve adı boş olamaz.' if x['code'].to_s.strip.empty?||x['name'].to_s.strip.empty?; raise 'Yoğunluk sıfırdan büyük olmalıdır.' unless x['density'].to_f>0}
  Sketchup.active_model.set_attribute(DICT,ROCKFILL_LIBRARY_KEY,JSON.generate(a)); dialog.execute_script("rockfillLibraryLoaded(#{JSON.generate(a)})")
 rescue=>e; UI.messagebox("Dolgu kütüphanesi hatası: #{e.message}"); end
@@ -9129,6 +9197,7 @@ rescue=>e; UI.messagebox("Dolgu kesit zinciri hatası: #{e.message}"); end
 
 def rockfill_autosave_library(json)
  a=JSON.parse(json); raise 'Kütüphane verisi geçersiz.' unless a.is_a?(Array)
+ mst_json_attr_guard!(Sketchup.active_model,ROCKFILL_LIBRARY_KEY,Array,'Dolgu malzeme kütüphanesi')
  Sketchup.active_model.set_attribute(DICT,ROCKFILL_LIBRARY_KEY,JSON.generate(a))
 rescue=>e
  puts "Marine Structures rockfill library autosave: #{e.message}"
@@ -9249,15 +9318,20 @@ rescue JSON::ParserError
 end
 
 def revision_save_snapshots(arr)
-  Sketchup.active_model.set_attribute(REVISION_DICT,'snapshots',JSON.generate(arr.last(20)))
+  # R-1 / K02: arşiv kırpılmaz (revizyon yalnız ileri yazılır)
+  Sketchup.active_model.set_attribute(REVISION_DICT,'snapshots',JSON.generate(arr))
 end
 
 def revision_diff(prev,curr)
-  pm=Hash[Array(prev).map{|x|[x['uid'].to_s,x]}]; cm=Hash[Array(curr).map{|x|[x[:uid].to_s,x]}]
+  pl=Array(prev);cl=Array(curr);pg=pl.group_by{|x|x['uid'].to_s};cg=cl.group_by{|x|x[:uid].to_s}
+  # ADR-0515 §1 / K06: tekrarlanan UID'de (kopya) eşleşme PID ile; iki tarafta ortak en küçük PID UID'yi taşır, öbürleri "UID~PID-n"
+  anchor={};(pg.keys|cg.keys).each{|u|next if Array(pg[u]).length<=1 && Array(cg[u]).length<=1;anchor[u]=(Array(pg[u]).map{|x|x['pid'].to_i}&Array(cg[u]).map{|x|x[:pid].to_i}).min}
+  dk=lambda{|u,pid|!anchor.key?(u) || anchor[u]==pid.to_i ? u : "#{u}~PID-#{pid}"}
+  pm=Hash[pl.map{|x|[dk.call(x['uid'].to_s,x['pid']),x]}]; cm=Hash[cl.map{|x|[dk.call(x[:uid].to_s,x[:pid]),x]}]
   added=[];deleted=[];changed=[];same=[]
   cm.each do |uid,n|
     o=pm[uid]
-    if o.nil?; added << n; next; end
+    if o.nil?; added << (uid==n[:uid].to_s ? n : n.merge(uid:uid)); next; end
     fields=%w[concrete_m3 rebar_t formwork_m2 steel_t]
     diffs={}
     fields.each do |k|
@@ -9347,15 +9421,10 @@ rescue=>error
   dialog.execute_script("revisionError(#{JSON.generate(error.message)})") if dialog
 end
 
-def revision_create_snapshot(dialog=@d)
-  snaps=revision_snapshots; curr=revision_current_snapshot
-  n=snaps.length+1
-  snap={'revision'=>format('Rev.%02d',n),'created_at'=>Time.now.strftime('%d.%m.%Y %H:%M'),'elements'=>curr.map{|x|Hash[x.map{|k,v|[k.to_s,v]}]}}
-  snaps << snap; revision_save_snapshots(snaps)
-  Sketchup.active_model.set_attribute(REVISION_DICT,'last_revision',snap['revision'])
-  revision_send(dialog)
-rescue=>ex
-  UI.messagebox("Snapshot oluşturulamadı: #{ex.message}")
+# R-1 / K02, K03: saf kurucu (yazmaz); numara = kayıtlı en büyük Rev.NN + 1. Kaydı boq_pro.rb sarmalayıcısı tek işlemde yapar.
+def revision_create_snapshot(snaps=revision_snapshots,curr=revision_current_snapshot)
+  n=snaps.map{|s|s.is_a?(Hash) ? s['revision'].to_s[/Rev\.(\d+)/,1].to_i : 0}.max.to_i+1
+  {'revision'=>format('Rev.%02d',n),'created_at'=>Time.now.strftime('%d.%m.%Y %H:%M'),'elements'=>curr.map{|x|Hash[x.map{|k,v|[k.to_s,v]}]}}
 end
 
 def revision_select(raw,dialog=@d)
@@ -10034,6 +10103,8 @@ def show_dialog
   name=d['name'].to_s.strip;raise 'Yapı adı boş olamaz' if name.empty?;raise 'Geçersiz yapı adı' unless name.match?(/\A[\p{L}\p{N}_-]+\z/)
   rows=mst_structures_for_system(sys,model);raise 'Bu yapı zaten mevcut' if rows.include?(name)
   src=d['source'].to_s;raise 'Kopyalanacak yapı bulunamadı' if !src.empty? && !rows.include?(src)
+  mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı') unless src.empty?
+  mst_json_attr_guard!(model,'structure_zones_json',Hash,'Yapı / bölge listesi')
   mst_save_structures_for_system(sys,rows+[name],model)
   if !src.empty?
     grids=mst_axis_grids(model);old=grids[mst_axis_grid_key(src,src)];old=mst_axis_grid_for(src,model,src) unless old.is_a?(Hash);grids[mst_axis_grid_key(name,name)]=JSON.parse(JSON.generate(old)) if old.is_a?(Hash)
@@ -10054,6 +10125,7 @@ def show_dialog
   model.start_operation('MST Delete Empty Structure',true)
   begin
     mst_save_structures_for_system(sys,rows.reject{|x|x==name},model)
+    mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı')
     grids=mst_axis_grids(model);grids.delete(mst_axis_grid_key(name,name));model.set_attribute(DICT,'axis_grids_json',JSON.generate(grids))
     mst_set_active_system_structure(sys,mst_structures_for_system(sys,model).first,model)
     model.set_attribute(DICT,'project_system_type',sys)
@@ -10395,6 +10467,7 @@ end
 
 def mst_add_structure_zone(ano,name,model=Sketchup.active_model)
   name=name.to_s.strip;raise 'Yapı / Bölge adı boş olamaz.' if name.empty?
+  mst_json_attr_guard!(model,'structure_zones_json',Hash,'Yapı / bölge listesi')
   h=mst_structure_zones(model);a=mst_structure_zones_for(ano,model)
   raise "#{name} zaten mevcut." if a.any?{|x|x.casecmp(name)==0}
   a << name;h[ano.to_s]=a;model.set_attribute(DICT,'structure_zones_json',JSON.generate(h))
@@ -10411,6 +10484,7 @@ def mst_copy_structure_zone(ano,source,name,model=Sketchup.active_model)
   source=source.to_s.strip; name=name.to_s.strip
   raise 'Kaynak Yapı / Bölge seçilmedi.' if source.empty?
   raise 'Yeni Yapı / Bölge adı boş olamaz.' if name.empty?
+  mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı')
   mst_add_structure_zone(ano,name,model)
   h=mst_axis_grids(model)
   src=h[mst_axis_grid_key(ano,source)]
@@ -10424,6 +10498,7 @@ end
 def mst_delete_structure_zone(ano,name,model=Sketchup.active_model)
   name=name.to_s.strip
   raise 'Yapı / Bölge seçilmedi.' if name.empty?
+  mst_json_attr_guard!(model,'structure_zones_json',Hash,'Yapı / bölge listesi');mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı')
   rows=mst_structure_zones_for(ano,model)
   raise 'ANA YAPI silinemez.' if name=='ANA YAPI'
   used=mst_all_elements.any?{|e| e.respond_to?(:get_attribute) && e.get_attribute(DICT,'ano','').to_s==ano.to_s && e.get_attribute(DICT,'structure_zone','').to_s==name}
@@ -10486,6 +10561,7 @@ end
 
 def mst_save_axis_grid(data,model=Sketchup.active_model)
   ano=data['ano'].to_s.strip
+  mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı')
   zone=data['zone'].to_s.strip; zone=mst_active_structure_zone(ano,model) if zone.empty?
   raise 'ANO seçimi boş olamaz.' if ano.empty?
   valid=mst_ano_layouts(model).any?{|r|r['name'].to_s==ano}
@@ -10859,7 +10935,8 @@ def mst_structures_for_system(system,model=Sketchup.active_model)
   end
   a=a.uniq
   h[system]=a
-  model.set_attribute(DICT,'system_structures_json',JSON.generate(h))
+  # K20: okuma yolu; kayıt bozuksa varsayılan liste yalnız bellekte döner, kayıt ezilmez
+  model.set_attribute(DICT,'system_structures_json',JSON.generate(h)) unless mst_json_attr_bad?(model,'system_structures_json',Hash)
   key="active_structure__#{system}"
   cur=model.get_attribute(DICT,key,'').to_s
   model.set_attribute(DICT,key,a.first) unless a.include?(cur)
@@ -10867,6 +10944,7 @@ def mst_structures_for_system(system,model=Sketchup.active_model)
 end
 
 def mst_save_structures_for_system(system,rows,model=Sketchup.active_model)
+  mst_json_attr_guard!(model,'system_structures_json',Hash,'Sistem / yapı listesi')
   system=system.to_s.upcase; h=mst_system_structures(model)
   h[system]=rows.map{|x|x.to_s.strip}.reject(&:empty?).uniq
   model.set_attribute(DICT,'system_structures_json',JSON.generate(h))
@@ -11342,6 +11420,9 @@ end
 
 def mst_copy_dicts!(from,to)
  (from.attribute_dictionaries || []).each{|dict|dict.each_pair{|k,v|to.set_attribute(dict.name,k,v)}}
+ # ADR-0515 §1: öğe yeni varlıkla değiştirildi; kaynak asıl sahipse (veya kayıt yoksa) sahiplik yeni varlığa geçer
+ own=from.get_attribute(DICT,'uid_owner_pid',nil)
+ to.set_attribute(DICT,'uid_owner_pid',to.persistent_id) if !from.get_attribute(DICT,'element_uid','').to_s.empty? && (own.nil? || own.to_i==from.persistent_id)
  to.name=from.name if to.respond_to?(:name=)
  to.layer=from.layer if from.layer
  to.material=from.material if from.material
@@ -12307,6 +12388,7 @@ end
 
 # Original grid/project save, unchanged in behaviour (extracted for reuse).
 def mst_axis_manager_save_payload(x,model)
+  [['system_structures_json','Sistem / yapı listesi'],['axis_grids_json','Aks ağı'],['structure_placements_json','Yapı yerleşimleri']].each{|k,l|mst_json_attr_guard!(model,k,Hash,l)}   # K20
   model.set_attribute(DICT,'project_name',x['project'].to_s.strip)
   sys=x['system'].to_s.upcase
   model.set_attribute(DICT,'project_system_type',sys)

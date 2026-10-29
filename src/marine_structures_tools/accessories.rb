@@ -234,14 +234,37 @@ rescue
   []
 end
 
+# R-4 / K27: yazmadan önce okuma — dosya yok/boş → [], bozuk → hata (dosyanın üzerine yazılmaz)
+def user_accessory_items_for_write
+  path=user_accessory_index_path
+  return [] unless File.exist?(path)
+  raw=File.read(path,encoding:'UTF-8')
+  return [] if raw.strip.empty?
+  data=(JSON.parse(raw) rescue nil)
+  raise "Aksesuar kütüphanesi dosyası okunamadı; mevcut dosyanın üzerine yazılmadı.\n#{path}\nDosyayı yedekleyip düzeltin veya taşıyın, sonra yeniden deneyin." unless data.is_a?(Array)
+  data
+end
+
+# Atomik yazım (boq_library.rb write_storage deseni): geçici dosya + doğrulama + rename
 def user_accessory_write(items)
-  File.write(user_accessory_index_path,JSON.pretty_generate(items))
+  raw=JSON.pretty_generate(items)
+  path=user_accessory_index_path
+  temporary=path+'.'+SecureRandom.uuid+'.tmp'
+  begin
+    File.open(temporary,'wb') { |f| f.write(raw); f.flush; f.fsync }
+    raise 'Aksesuar kütüphanesi yazılırken doğrulama başarısız.' unless File.binread(temporary)==raw.b
+    File.rename(temporary,path)
+    raise 'Aksesuar kütüphanesi geri okunamadı.' unless File.binread(path)==raw.b
+  ensure
+    File.delete(temporary) if File.exist?(temporary)
+  end
 end
 
 def user_accessory_register_selected
   model=Sketchup.active_model
   obj=model.selection.find{|e|e.is_a?(Sketchup::ComponentInstance)||e.is_a?(Sketchup::Group)}
   raise 'Önce kütüphaneye kaydedilecek bir Component veya Group seçin.' unless obj
+  items=user_accessory_items_for_write   # K27: bozuk kütüphanede SKP kaydedilmeden durulur
   cats=USER_ACCESSORY_CATEGORIES.keys
   labels=USER_ACCESSORY_CATEGORIES.values
   defaults=[labels.first,obj.name.to_s.empty? ? (obj.respond_to?(:definition) ? obj.definition.name.to_s : 'Aksesuar') : obj.name.to_s,'','','','','']
@@ -262,7 +285,7 @@ def user_accessory_register_selected
   item={'id'=>id,'name'=>name,'category'=>category,'category_name'=>USER_ACCESSORY_CATEGORIES[category],
         'manufacturer'=>ans[2].to_s.strip,'model'=>ans[3].to_s.strip,'capacity'=>ans[4].to_s.strip,
         'energy'=>ans[5].to_s.strip,'reaction'=>ans[6].to_s.strip,'file'=>path,'created_at'=>Time.now.strftime('%Y-%m-%d %H:%M')}
-  items=user_accessory_items; items << item; user_accessory_write(items); item
+  items << item; user_accessory_write(items); item
 end
 
 def user_accessory_place(id)
@@ -295,7 +318,7 @@ def user_accessory_place(id)
 end
 
 def user_accessory_delete(id)
-  items=user_accessory_items
+  items=user_accessory_items_for_write
   item=items.find{|x|x['id'].to_s==id.to_s}
   raise 'Kütüphane kaydı bulunamadı.' unless item
   File.delete(item['file'].to_s) if File.exist?(item['file'].to_s)

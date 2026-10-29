@@ -397,6 +397,14 @@ def prog2_items(e)
  h=(JSON.parse(e.get_attribute(DICT,PROG2_KEY,'{}').to_s) rescue {})
  h.is_a?(Hash) ? h : {}
 end
+# R-4 / K19: yazmadan önce okuma — yok/boş → {}, bozuk → hata (onay geçmişinin üzerine yazılmaz)
+def prog2_items_for_write(e)
+ raw=e.get_attribute(DICT,PROG2_KEY,nil)
+ return {} if raw.nil? || raw.to_s.strip.empty?
+ h=(JSON.parse(raw.to_s) rescue nil)
+ raise "#{element_visible_id(e)}: ilerleme kaydı (#{PROG2_KEY}) okunamadı; onay geçmişinin üzerine yazılmadı. Bu elemana ilerleme girilmeden önce kayıt düzeltilmelidir." unless h.is_a?(Hash)
+ h
+end
 # kayıt: {'claim'=>%, 'claim_date', 'claim_by', 'ok'=>[[tarih,%,kişi], …]} — onay geçmişi tarihe göre okunur
 def prog2_norm(r)
  return nil unless r.is_a?(Hash)
@@ -611,6 +619,12 @@ def progress_payload(period_no=nil)
  p
 end
 
+# ADR-0515 §1(c) / K06: mükerrer UID (kopyalanmış eleman) varsa revizyon/hakediş öncesi sorulur; yazmaz
+def mst_dup_uid_continue?
+ a=[];collect_elements(Sketchup.active_model.entities,a)
+ n=a.select{|e|e.respond_to?(:get_attribute) && %w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab deck_topping curb crown_wall bored_pile accessory].include?(e.get_attribute(DICT,'element_type','').to_s)}.group_by{|e|e.get_attribute(DICT,'element_uid','').to_s.strip}.count{|k,v|!k.empty? && v.length>1}
+ n.zero? || UI.messagebox("Modelde #{n} mükerrer UID var (kopyalanmış eleman). Revizyon/hakediş farkı yanıltıcı olabilir. Önce Model Kontrolü → BIM Identity Repair önerilir. Yine de devam edilsin mi?",MB_YESNO)==IDYES
+end
 def progress_save(raw=nil,dialog=@d)
  d=(raw.is_a?(String) && !raw.strip.empty? ? (JSON.parse(raw) rescue {}) : (raw.is_a?(Hash) ? raw : {}))
  date=d['date'].to_s.strip;date=boq2_today if date.empty?
@@ -620,6 +634,10 @@ def progress_save(raw=nil,dialog=@d)
  pd=d.key?('price_diff') ? boq2_num(d['price_diff']) : 0.0
  raise 'Fiyat farkı sayı olmalı.' if pd.nil?
  model=Sketchup.active_model
+ unless mst_dup_uid_continue?
+  progress_send(dialog)
+  return nil
+ end
  rows=progress_live_rows(date)
  neg=rows.select{|r|r[:current_period]< -1e-9}
  if !neg.empty? && !d['accept_negative']
@@ -746,7 +764,7 @@ def prog2_apply(raw)
    base=prog2_base(key)
    es=(row ? prog2_row_entities(row) : boq_trace_entities(key)).select{|e|pids[e.persistent_id]}
    es.each do |e|
-    h=prog2_items(e)
+    h=prog2_items_for_write(e)
     if clear
      h.delete(base)
     else
@@ -832,20 +850,34 @@ def boq2_boq_digest
                         'unit_price'=>(r[:unit_price].nil? ? nil : r[:unit_price].to_f)}}
 end
 alias_method :revision_create_snapshot_base, :revision_create_snapshot unless method_defined?(:revision_create_snapshot_base)
+# R-1 (K02, K03, K26): arşiv okunamazsa işlem açılmaz; fark yoksa revizyon oluşmaz; snapshot + keşif + last_revision tek işlem (tek Ctrl+Z)
 def revision_create_snapshot(dialog=@d)
- n0=revision_snapshots.length
- revision_create_snapshot_base(nil)
- snaps=revision_snapshots
- # yalnız yeni snapshot oluştuysa ona keşif eklenir (hata hâlinde eski snapshot'a dokunulmaz)
- if snaps.length>n0 && snaps.last
-  begin
-   snaps.last['boq']=boq2_boq_digest;snaps.last['currency']=boq2_currency
-   revision_save_snapshots(snaps)
-  rescue => e
-   puts "MST BOQ2 snapshot keşfi eklenemedi: #{e.message}"
+ model=Sketchup.active_model;op=false
+ snaps=begin;revision_snapshots;rescue => ex;UI.messagebox("Revizyon kaydedilemedi: #{ex.message}");return nil;end
+ return nil unless mst_dup_uid_continue?
+ curr=revision_current_snapshot;boq=boq2_boq_digest;prev=snaps.last
+ if prev
+  df=revision_diff(prev['elements'],curr)
+  if df[:added].empty? && df[:deleted].empty? && df[:changed].empty? && (prev['boq'].nil? || boq2_boq_diff(prev['boq'],boq).empty?)
+   UI.messagebox("Son revizyondan (#{prev['revision']}) bu yana modelde ve keşif miktarlarında değişiklik yok; yeni revizyon oluşturulmadı.")
+   revision_send(dialog)
+   return nil
   end
  end
+ model.start_operation('MST Revizyon Kaydı',true);op=true
+ snap=revision_create_snapshot_base(snaps,curr)
+ snap['boq']=boq;snap['currency']=boq2_currency
+ snaps << snap;revision_save_snapshots(snaps)
+ model.set_attribute(REVISION_DICT,'last_revision',snap['revision'])
+ model.commit_operation;op=false
+ mb=model.get_attribute(REVISION_DICT,'snapshots','').to_s.bytesize/1048576.0
+ UI.messagebox(format("Revizyon arşivi büyüdü (%d kayıt, %.1f MB); eski kayıtlar otomatik silinmez.",snaps.length,mb)) if snaps.length>20 || mb>5.0
  revision_send(dialog)
+ snap['revision']
+rescue => ex
+ model.abort_operation if op
+ UI.messagebox("Revizyon kaydedilemedi: #{ex.message}")
+ nil
 end
 def boq2_boq_diff(prev_boq,curr_boq)
  pm=Hash[Array(prev_boq).map{|r|[r['source'],r]}];cm=Hash[Array(curr_boq).map{|r|[r['source'],r]}]

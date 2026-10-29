@@ -481,7 +481,7 @@ def mst_rt_history_push!(e)
  ent={'at'=>Time.now.strftime('%Y-%m-%d %H:%M'),'mode'=>e.get_attribute(DICT,'rebar_mode','').to_s,'source'=>(e.get_attribute(DICT,'rebar_source','').to_s.empty? ? e.get_attribute(DICT,'rebar_mode','').to_s : e.get_attribute(DICT,'rebar_source','').to_s),
       'kg'=>e.get_attribute(DICT,'rebar_kg',e.get_attribute(DICT,'rebar_t',0).to_f*1000.0).to_f,'sched'=>sj}
  return false if h.last && h.last['sched']==sj && (h.last['kg']-ent['kg']).abs<0.01
- h << ent;h=h.last(MST_RT_HISTORY_MAX)
+ h << ent   # R-1: geçmiş kırpılmaz (MST_RT_HISTORY_MAX yalnız sabit olarak kalır)
  e.set_attribute(DICT,'rebar_history_json',JSON.generate(h))
  true
 end

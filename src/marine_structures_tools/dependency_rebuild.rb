@@ -59,9 +59,29 @@ module MAG
                   else
                     (by_uid[uid] || []).select { |e| decks.include?(e) }
                   end
+        # ADR-0515 §1 / K06: copied deck shares the UID; link the owner only when
+        # it is decided by the stored owner or the PID inside the UID (no oldest-PID guess).
+        if matches.length > 1
+          owner, reason = mst_uid_owner(matches)
+          matches = reason == 'en eski PID' ? [] : [owner]
+        end
         link.call(matches.first, curb) if matches.length == 1
       end
       [all, children, parents, by_uid]
+    end
+
+    # ADR-0515 §1 / K06 (read-only): owner of a duplicated element_uid.
+    # Returns [element, reason]; reason: 'kayıtlı sahip' (uid_owner_pid == own
+    # persistent_id, single), 'UID içindeki PID' (MST-<pid>- matches, single)
+    # or 'en eski PID' (smallest persistent_id).
+    def mst_uid_owner(candidates)
+      list = Array(candidates).select { |e| e.respond_to?(:persistent_id) }
+      return [nil, nil] if list.empty?
+      stored = list.select { |e| e.get_attribute(DICT, 'uid_owner_pid', nil).to_i == e.persistent_id }
+      return [stored.first, 'kayıtlı sahip'] if stored.length == 1
+      in_uid = list.select { |e| e.get_attribute(DICT, 'element_uid', '').to_s[/\AMST-(\d+)-/, 1].to_i == e.persistent_id }
+      return [in_uid.first, 'UID içindeki PID'] if in_uid.length == 1
+      [list.min_by(&:persistent_id), 'en eski PID']
     end
 
     def dependency_changes(model)
