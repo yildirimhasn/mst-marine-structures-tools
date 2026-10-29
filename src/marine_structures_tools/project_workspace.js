@@ -1,0 +1,164 @@
+(function(global){
+ 'use strict';
+ var state={records:[],token:null,expanded:new Set(),focus:[],selected:[],scope:false,ready:false,query:'',filters:{type:'',structure:'',axis:'',status:'all'}};
+ var viewCache=null,focusCache=null,searchTimer=null,page=0,revealKey=null;
+ var fields={project:'Proje',system:'Sistem',structure:'Yapı',axis:'Aks',library_type_id:'Tip kimliği',concrete_class:'Beton sınıfı',steel_grade:'Çelik kalitesi',diameter_mm:'Çap (mm)',thickness_mm:'Et kalınlığı (mm)',length_m:'Boy (m)',width_m:'Genişlik (m)',height_m:'Yükseklik (m)'};
+ var metrics={concrete_m3:'Beton',steel_t:'Boru çeliği',rebar_t:'Donatı',formwork_m2:'Kalıp'};
+ function el(id){return document.getElementById(id);}
+ function clear(node){while(node.firstChild)node.removeChild(node.firstChild);}
+ function text(tag,value,cls){var n=document.createElement(tag);n.textContent=value;if(cls)n.className=cls;return n;}
+ function labels(r){var f=r.fields;return [f.project||'Proje atanmamış',f.system||'Sistem atanmamış',f.structure||'Yapı atanmamış',f.axis||'Aks atanmamış',r.label];}
+ function searchable(r){return [r.id,r.uid,r.label,'Ø'+(r.fields.diameter_mm||''),'t'+(r.fields.thickness_mm||'')].concat(Object.keys(r.fields).map(function(k){return r.fields[k];})).join(' ').toLocaleLowerCase('tr-TR');}
+ function unassigned(value){return value===null||value===undefined||String(value).trim()==='';}
+ function visible(records,query,filters){var terms=(query||'').trim().toLocaleLowerCase('tr-TR').split(/\s+/).filter(Boolean);filters=filters||{};return records.filter(function(r){
+  var haystack=searchable(r);if(!terms.every(function(term){return haystack.includes(term);}))return false;
+  if(filters.type&&r.type!==filters.type)return false;
+  if(filters.structure&&r.fields.structure!==filters.structure)return false;
+  if(filters.axis&&r.fields.axis!==filters.axis)return false;
+  var values=Object.keys(r.quantities||{}).map(function(k){return r.quantities[k];});
+  if(filters.status==='issues'&&!(r.issues||[]).length)return false;
+  if(filters.status==='incomplete'&&!Object.keys(metrics).some(function(k){var q=(r.quantities||{})[k];return !q||q.state==='missing'||q.state==='invalid';}))return false;
+  if(filters.status==='estimated'&&!values.some(function(q){return q&&q.state==='estimated';}))return false;
+  if(filters.status==='unassigned'&&!unassigned(r.fields.structure)&&!unassigned(r.fields.axis))return false;
+  return true;
+ });}
+ function view(){var signature=JSON.stringify([state.query,state.filters]);if(!viewCache||viewCache.source!==state.records||viewCache.signature!==signature){var records=visible(state.records,state.query,state.filters);page=0;viewCache={rows:null,source:state.records,signature:signature,records:records,tree:build(records),keys:new Set(records.map(function(r){return r.key;}))};}return viewCache;}
+ function filtered(){return view().records;}
+ function cancelSearch(accept){if(searchTimer!==null)clearTimeout(searchTimer);searchTimer=null;if(accept)state.query=el('pwSearch').value;}
+ function searchChanged(){cancelSearch(false);el('pwInspectResults').disabled=true;el('pwCount').textContent='Arama güncelleniyor…';searchTimer=setTimeout(function(){searchTimer=null;state.query=el('pwSearch').value;renderTree();},140);}
+ function activeFilters(){return !!(state.query.trim()||state.filters.type||state.filters.structure||state.filters.axis||state.filters.status!=='all');}
+ function fillFilter(id,key,label){var node=el(id),previous=node.value;clear(node);var option=text('option',label);option.value='';node.appendChild(option);var representatives=new Map();state.records.forEach(function(r){var value=key==='type'?r.type:r.fields[key];if(!unassigned(value)&&!representatives.has(value))representatives.set(value,r);});var values=Array.from(representatives.keys()).sort(function(a,b){return String(a).localeCompare(String(b),'tr',{numeric:true});});values.forEach(function(value){var row=representatives.get(value),item=text('option',key==='type'?row.label:String(value));item.value=value;node.appendChild(item)});node.value=values.includes(previous)?previous:'';state.filters[key]=node.value;}
+ function updateFilters(){fillFilter('pwTypeFilter','type','Tüm türler');fillFilter('pwStructureFilter','structure','Tüm yapılar');fillFilter('pwAxisFilter','axis','Tüm akslar');}
+ function resetFilters(){state.query='';state.filters={type:'',structure:'',axis:'',status:'all'};el('pwSearch').value='';['pwTypeFilter','pwStructureFilter','pwAxisFilter'].forEach(function(id){el(id).value=''});el('pwIssueFilter').value='all';}
+ function build(records){
+  var root={children:[],keys:[],index:{}};
+  records.forEach(function(r){
+   var node=root,path=[];
+   labels(r).forEach(function(label){
+    path.push(String(label));var key='g:'+JSON.stringify(path);
+    if(!node.index[key]){node.index[key]={key:key,label:String(label),children:[],keys:[],index:{}};node.children.push(node.index[key]);}
+    node=node.index[key];node.keys.push(r.key);
+   });
+   node.children.push({key:'e:'+r.key,label:r.id,record:r,keys:[r.key],children:[]});
+  });
+  function sort(n){n.children.sort(function(a,b){return a.label.localeCompare(b.label,'tr',{numeric:true});});n.children.forEach(sort);}
+  sort(root);return root;
+ }
+ function quantitySummary(values,unit){
+  var counts={calculated:0,estimated:0,missing:0,invalid:0,not_applicable:0},sums={calculated:0,estimated:0};
+  values.forEach(function(q){var status=q&&typeof q==='object'?q.state:'missing';if(!Object.prototype.hasOwnProperty.call(counts,status))status='invalid';if(['calculated','estimated','not_applicable'].includes(status)&&(typeof q.value!=='number'||!Number.isFinite(q.value)||q.value<0||(status==='not_applicable'&&q.value!==0)))status='invalid';counts[status]++;if(status==='calculated'||status==='estimated')sums[status]+=q.value;});
+  var total=sums.calculated+sums.estimated,overflow=!Number.isFinite(total),incomplete=counts.missing>0||counts.invalid>0||overflow;
+  return {value:incomplete?null:total,unit:unit,incomplete:incomplete,estimated:counts.estimated>0,counts:counts,calculated_value:Number.isFinite(sums.calculated)?sums.calculated:null,estimated_value:Number.isFinite(sums.estimated)?sums.estimated:null,overflow:overflow};
+ }
+ function summarize(records){
+  var common=Object.keys(fields).map(function(k){
+   var values=records.map(function(r){return r.fields[k];}),mixed=values.length>0&&!values.every(function(v){return v===values[0];});
+   return {key:k,label:fields[k],value:mixed?null:values[0],mixed:mixed};
+  }),totals={};
+  Object.keys(metrics).forEach(function(k){
+   var values=records.map(function(r){return r.quantities[k];});
+   totals[k]=quantitySummary(values,k==='concrete_m3'?'m³':k==='formwork_m2'?'m²':'t');
+  });
+  return {count:records.length,keys:records.map(function(r){return r.key;}),common:common,totals:totals,issues:Array.from(new Set(records.reduce(function(a,r){return a.concat(r.issues||[]);},[])))};
+ }
+ function focusRows(){if(!focusCache||focusCache.source!==state.records||focusCache.keys!==state.focus){var keys=new Set(state.focus);focusCache={source:state.records,keys:state.focus,rows:state.records.filter(function(r){return keys.has(r.key);})};}return focusCache.rows;}
+ function renderProperties(summary){
+  summary=summary||summarize(focusRows());var count=summary.count;
+  el('pwTitle').textContent=state.scope?'Kapsam Özellikleri':'Eleman Özellikleri';
+  el('pwSelection').textContent=count?(state.scope?'İncelenen kapsam: ':'Seçim: ')+count+' eleman'+(count>1?' · Ortak ve farklı değerler aşağıda gösterilir.':''):'Ağaçtan bir kapsam veya modelden bir eleman seçin.';
+  el('pwModelSelection').textContent='Model: '+state.selected.length+' seçili';
+  el('pwShow').disabled=!state.ready||!count;el('pwHealth').disabled=!state.ready||!count;var editable=focusRows().length===1&&['steel_pipe_pile','head_beam','flat_precast','channel_precast'].includes(focusRows()[0].type);el('pwEdit').disabled=!state.ready||!editable;el('pwEdit').textContent=editable?'Elemanı Düzenle':'Düzenleme Hazır Değil';el('pwQTO').disabled=!state.ready;var concreteTypes=['head_beam','flat_precast','channel_precast','crane_precast','deck_slab','curb'];el('pwElevation').disabled=!state.ready||!focusRows().length||!focusRows().every(function(r){return ['head_beam','flat_precast','channel_precast','crane_precast','deck_slab'].includes(r.type)});el('pwMaterial').disabled=!state.ready||!focusRows().length||!focusRows().every(function(r){return concreteTypes.includes(r.type)});
+  var container=el('pwMetrics');clear(container);
+  Object.keys(metrics).forEach(function(k){
+   var value=summary.totals[k],card=document.createElement('div');
+   card.appendChild(text('small',metrics[k]));card.appendChild(text('b',!count?'—':value.overflow?'Sayısal sınır aşıldı':value.incomplete?'Toplam tamamlanmadı':value.counts&&value.counts.not_applicable===count?'Uygulanmaz':Number(value.value).toLocaleString('tr-TR',{maximumFractionDigits:3})+' '+value.unit+(value.estimated?' · Tahmini içerir':'')));if(count&&value.counts){var c=value.counts;function amount(n){return n===null?'Sayısal sınır aşıldı':Number(n).toLocaleString('tr-TR',{maximumFractionDigits:3})+' '+value.unit;}card.appendChild(text('small','Hesaplanmış: '+amount(value.calculated_value)+' · '+c.calculated+' eleman'));card.appendChild(text('small','Tahmini: '+amount(value.estimated_value)+' · '+c.estimated+' eleman'));if(c.missing||c.invalid)card.appendChild(text('small','Eksik: '+c.missing+' · Geçersiz: '+c.invalid+' eleman'));if(c.not_applicable)card.appendChild(text('small','Uygulanmaz: '+c.not_applicable+' eleman'));if(value.incomplete)card.appendChild(text('small',value.overflow?'Sayısal toplam sınırı aşıldı; toplam gösterilmiyor.':'Yalnız mevcut geçerli miktarlar gösteriliyor; kapsam toplamı tamamlanmadı.'));}container.appendChild(card);
+  });
+  container=el('pwIssues');clear(container);
+  (summary.issues||[]).forEach(function(issue){container.appendChild(text('p',issue));});
+  container=el('pwProperties');clear(container);
+  (summary.common||[]).forEach(function(item){
+   container.appendChild(text('dt',item.label));
+   container.appendChild(text('dd',!count?'—':item.mixed?'Farklı değerler':item.value===null||item.value===undefined||item.value===''?'Atanmamış':String(item.value),item.mixed?'mixed':''));
+  });
+  container=el('pwElements');clear(container);
+  focusRows().slice(0,300).forEach(function(r){var button=text('button',r.id+' · '+r.label);button.onclick=function(){setFocus([r.key],false);action(false,false);};container.appendChild(button);});
+  if(count>300)container.appendChild(text('p','İlk 300 eleman gösteriliyor. Ağacı arayarak kapsamı daraltın.'));
+ }
+ function setFocus(keys,scope){state.focus=keys;state.scope=scope;renderProperties();renderTree();}
+ function treeRows(cached){if(!cached.rows){var result=[];function visit(node,depth,context){result.push({node:node,depth:depth,context:context});if(node.children.length&&(state.expanded.has(node.key)||state.query))node.children.forEach(function(child){visit(child,depth+1,context.concat(node.label));});}cached.tree.children.forEach(function(node){visit(node,0,[])});cached.rows=result;}return cached.rows;}
+ function invalidateRows(){if(viewCache)viewCache.rows=null;}
+ function renderTree(){
+  var cached=view(),records=cached.records,root=cached.tree,selected=new Set(state.selected),container=el('pwTree');clear(container);
+  el('pwInspectResults').disabled=!state.ready||!records.length||searchTimer!==null;var outside=state.focus.filter(function(key){return !cached.keys.has(key);}).length;el('pwCount').textContent=records.length+' / '+state.records.length+' eleman'+(activeFilters()?' · Filtre sonucu':'')+(outside?' · İncelenen seçimde '+outside+' eleman filtre dışında.':'');
+  function add(node,parent,depth,context){
+   var group=node.children.length>0,line=text('div','','pw-line'),toggle=text('button',group?(state.expanded.has(node.key)||state.query?'▾':'▸'):'·','pw-toggle');
+   toggle.type='button';
+   if(group){toggle.setAttribute('aria-label',node.label+' alt satırlarını aç veya kapat');toggle.setAttribute('aria-expanded',String(state.expanded.has(node.key)||!!state.query));toggle.onclick=function(){invalidateRows();if(state.expanded.has(node.key))state.expanded.delete(node.key);else state.expanded.add(node.key);renderTree();};}
+   else{toggle.disabled=true;toggle.setAttribute('aria-hidden','true');}
+   var button=text('button','','pw-node');button.type='button';button.appendChild(text('span',node.label||'Adsız eleman'));
+   if(group)button.appendChild(text('small',String(node.keys.length)));
+   else if(node.record.issues.length)button.appendChild(text('small','!'));
+   button.title=node.record?context.concat([node.record.id,node.record.uid||'Kimlik eksik',node.record.nested?'İç içe yerleşim':'Ana düzey']).join(' · '):node.label+' · '+node.keys.length+' eleman';
+   button.onclick=function(){setFocus(node.keys,group);if(!group)action(false,false);};
+   if(!group&&selected.has(node.record.key)){line.classList.add('selected');button.setAttribute('aria-pressed','true');}
+   line.style.marginLeft=(depth*13)+'px';line.appendChild(toggle);line.appendChild(button);parent.appendChild(line);
+  }
+  if(!records.length)container.appendChild(text('p',activeFilters()?'Bu arama ve filtrelere uygun eleman bulunamadı.':'Modelde desteklenen yapı elemanı bulunamadı.','note'));
+  var rows=treeRows(cached),size=300;
+  if(revealKey){var index=rows.findIndex(function(row){return row.node.record&&row.node.record.key===revealKey;});if(index>=0)page=Math.floor(index/size);revealKey=null;}
+  page=Math.min(page,Math.max(0,Math.ceil(rows.length/size)-1));var start=page*size,end=Math.min(start+size,rows.length);
+  if(rows.length>size){container.appendChild(text('p','Ağaç satırları: '+(start+1)+'–'+end+' / '+rows.length+'. Kapsam ve miktarlar bütün sonuçları kullanır.','note'));if(rows[start].context.length)container.appendChild(text('p','Sayfa başlangıcı: '+rows[start].context.join(' › '),'note'));}
+  function pageControls(){var controls=text('div','','pw-toolbar'),previous=text('button','Önceki Satırlar'),next=text('button','Sonraki Satırlar');previous.disabled=page===0;next.disabled=end===rows.length;previous.onclick=function(){if(previous.disabled)return;page--;renderTree();container.scrollTop=0;};next.onclick=function(){if(next.disabled)return;page++;renderTree();container.scrollTop=0;};controls.appendChild(previous);controls.appendChild(next);container.appendChild(controls);}
+  if(rows.length>size)pageControls();
+  rows.slice(start,end).forEach(function(row){add(row.node,container,row.depth,row.context);});
+  if(rows.length>size)pageControls();
+
+ }
+ function reveal(keys){
+  invalidateRows();revealKey=keys[0]||null;var wanted=new Set(keys);state.records.filter(function(r){return wanted.has(r.key);}).forEach(function(r){
+   var path=[];labels(r).forEach(function(label){path.push(String(label));state.expanded.add('g:'+JSON.stringify(path));});
+  });
+ }
+ function refresh(){
+  cancelSearch(true);state.ready=false;el('pwStatus').textContent='Model okunuyor…';renderProperties();renderTree();
+  if(global.sketchup&&sketchup.project_workspace_refresh)sketchup.project_workspace_refresh();
+  else error('SketchUp bağlantısı hazır değil.');
+ }
+ function action(zoom,edit){
+  if(!state.ready||!state.focus.length)return;
+  var request={model_token:state.token,keys:state.focus,zoom:!!zoom,edit:!!edit};
+  if(global.sketchup&&sketchup.project_workspace_action)sketchup.project_workspace_action(JSON.stringify(request));
+ }
+ function loaded(data){
+  cancelSearch(true);viewCache=null;focusCache=null;page=0;revealKey=null;
+  if(state.token&&state.token!==data.model_token){state.focus=[];state.selected=[];state.expanded.clear();state.scope=false;resetFilters();}state.records=data.records||[];state.token=data.model_token;updateFilters();state.ready=true;state.selected=(data.selection&&data.selection.keys)||[];
+  if(state.selected.length){state.focus=state.selected.slice();state.scope=false;reveal(state.selected);}
+  else{var available=new Set(state.records.map(function(r){return r.key;}));state.focus=state.focus.filter(function(key){return available.has(key);});}
+  if(!state.expanded.size)view().tree.children.forEach(function(n){state.expanded.add(n.key);});
+  el('pwStatus').textContent=state.records.length+' yapı elemanı okundu.'+(data.duplicate_uid_count?' '+data.duplicate_uid_count+' kimlik birden fazla fiziksel yerleşimde kullanılıyor; kontrol gerekli.':'')+' Özellikler okunur; düzenleme için elemanı seçin.';
+  renderTree();renderProperties();
+ }
+ function selection(data,token){
+  if(token!==state.token){error('Aktif model değişti. Modeli Yenile düğmesine basın.',true);return;}
+  state.selected=data.keys||[];state.focus=state.selected.slice();state.scope=false;reveal(state.selected);renderTree();renderProperties(data);
+ }
+ function error(message,stale){if(stale){cancelSearch(true);state.ready=false;}el('pwStatus').textContent=message;renderProperties();renderTree();}
+ function navigate(id){
+  var buttons=document.querySelectorAll('.tabs button'),button=Array.from(buttons).find(function(b){return (b.getAttribute('onclick')||'').includes("T('"+id+"'");});
+  if(button){T(id,button);if(id==='editor')refreshEditor();}
+ }
+ function init(){
+  if(!el('project_workspace'))return;
+  el('pwSearch').addEventListener('input',searchChanged);
+  [['pwTypeFilter','type'],['pwStructureFilter','structure'],['pwAxisFilter','axis'],['pwIssueFilter','status']].forEach(function(pair){el(pair[0]).addEventListener('change',function(){cancelSearch(true);state.filters[pair[1]]=this.value;renderTree();});});
+  el('pwClearFilters').onclick=function(){cancelSearch(false);resetFilters();renderTree();};
+  el('pwInspectResults').onclick=function(){if(!state.ready||searchTimer!==null)return;var rows=filtered();if(rows.length)setFocus(rows.map(function(r){return r.key;}),true);};
+  el('pwExpand').onclick=function(){cancelSearch(true);invalidateRows();page=0;function visit(n){if(n.children.length)state.expanded.add(n.key);n.children.forEach(visit);}visit(view().tree);renderTree();};
+  el('pwCollapse').onclick=function(){cancelSearch(true);invalidateRows();page=0;state.expanded.clear();renderTree();};
+  el('pwElevation').onclick=function(){if(state.ready&&state.focus.length)sketchup.elevation_sync(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwMaterial').onclick=function(){if(state.ready&&state.focus.length)sketchup.material_change(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwHealth').onclick=function(){if(!state.ready||!state.focus.length)return;sketchup.scoped_model_health(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwShow').onclick=function(){action(true,false);};el('pwEdit').onclick=function(){action(false,true);};el('pwQTO').onclick=function(){navigate('qto');};
+  refresh();
+ }
+ global.MSTProjectWorkspace={refresh:refresh,build:build,visible:visible,summarize:summarize,quantitySummary:quantitySummary};
+ global.projectWorkspaceLoaded=loaded;global.projectWorkspaceSelection=selection;global.projectWorkspaceError=error;global.projectWorkspaceOpenPileEditor=function(){navigate('pile');if(global.sketchup&&sketchup.pile_load_selected_for_edit)sketchup.pile_load_selected_for_edit();var panel=document.getElementById('pile_inline_edit');if(panel)panel.scrollIntoView({block:'center'});};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})(window);

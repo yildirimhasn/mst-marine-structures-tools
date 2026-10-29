@@ -1,0 +1,1653 @@
+{
+  "version": "0.34.5",
+  "note": "Manufacturer Geometry Library. Geometry provenance is explicit. Manufacturer Drawing/Catalogue-Derived only where public manufacturer dimensions are available; otherwise Generic BIM Geometry.",
+  "manufacturers": {
+    "fender": {
+      "ShibataFenderTeam": {
+        "families": {
+          "SPC Cone": {
+            "variant": "Konik / Cone",
+            "source": "SFT SPC Cone Fender catalogue",
+            "models": {
+              "SPC 300": {
+                "height": 0.3,
+                "width": 0.5,
+                "model": "SPC 300",
+                "anchor_count": 4,
+                "anchor_dia": 20,
+                "weight_kg": 34,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 500,
+                "dim_d_mm": 262,
+                "dim_t_mm": 18,
+                "dim_E_mm": 38,
+                "bolt_circle_outer_mm": 440,
+                "bolt_circle_inner_mm": 210,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 350": {
+                "height": 0.35,
+                "width": 0.575,
+                "model": "SPC 350",
+                "anchor_count": 4,
+                "anchor_dia": 20,
+                "weight_kg": 52,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 575,
+                "dim_d_mm": 306,
+                "dim_t_mm": 20,
+                "dim_E_mm": 38,
+                "bolt_circle_outer_mm": 510,
+                "bolt_circle_inner_mm": 245,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 400": {
+                "height": 0.4,
+                "width": 0.65,
+                "model": "SPC 400",
+                "anchor_count": 4,
+                "anchor_dia": 20,
+                "weight_kg": 74,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 650,
+                "dim_d_mm": 350,
+                "dim_t_mm": 20,
+                "dim_E_mm": 38,
+                "bolt_circle_outer_mm": 585,
+                "bolt_circle_inner_mm": 280,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 500": {
+                "height": 0.5,
+                "width": 0.82,
+                "model": "SPC 500",
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 148,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 820,
+                "dim_d_mm": 435,
+                "dim_t_mm": 22,
+                "dim_E_mm": 45,
+                "bolt_circle_outer_mm": 730,
+                "bolt_circle_inner_mm": 350,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 600": {
+                "height": 0.6,
+                "width": 0.9,
+                "model": "SPC 600",
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 243,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 900,
+                "dim_d_mm": 525,
+                "dim_t_mm": 23,
+                "dim_E_mm": 45,
+                "bolt_circle_outer_mm": 810,
+                "bolt_circle_inner_mm": 420,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 700": {
+                "height": 0.7,
+                "width": 1.12,
+                "model": "SPC 700",
+                "anchor_count": 4,
+                "anchor_dia": 30,
+                "weight_kg": 396,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 1120,
+                "dim_d_mm": 615,
+                "dim_t_mm": 26,
+                "dim_E_mm": 72,
+                "bolt_circle_outer_mm": 1020,
+                "bolt_circle_inner_mm": 490,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 800": {
+                "height": 0.8,
+                "width": 1.28,
+                "model": "SPC 800",
+                "anchor_count": 6,
+                "anchor_dia": 30,
+                "weight_kg": 577,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 1280,
+                "dim_d_mm": 700,
+                "dim_t_mm": 31,
+                "dim_E_mm": 72,
+                "bolt_circle_outer_mm": 1165,
+                "bolt_circle_inner_mm": 560,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 900": {
+                "height": 0.9,
+                "width": 1.45,
+                "model": "SPC 900",
+                "anchor_count": 6,
+                "anchor_dia": 30,
+                "weight_kg": 846,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 1450,
+                "dim_d_mm": 785,
+                "dim_t_mm": 36,
+                "dim_E_mm": 72,
+                "bolt_circle_outer_mm": 1313,
+                "bolt_circle_inner_mm": 630,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1000": {
+                "height": 1.0,
+                "width": 1.6,
+                "model": "SPC 1000",
+                "anchor_count": 6,
+                "anchor_dia": 36,
+                "weight_kg": 1114,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 1600,
+                "dim_d_mm": 875,
+                "dim_t_mm": 38,
+                "dim_E_mm": 82,
+                "bolt_circle_outer_mm": 1460,
+                "bolt_circle_inner_mm": 700,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1100": {
+                "height": 1.1,
+                "width": 1.76,
+                "model": "SPC 1100",
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1525,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 1760,
+                "dim_d_mm": 963,
+                "dim_t_mm": 40,
+                "dim_E_mm": 92,
+                "bolt_circle_outer_mm": 1605,
+                "bolt_circle_inner_mm": 770,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1150": {
+                "height": 1.15,
+                "width": 1.85,
+                "model": "SPC 1150",
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1731,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 1850,
+                "dim_d_mm": 1010,
+                "dim_t_mm": 41,
+                "dim_E_mm": 92,
+                "bolt_circle_outer_mm": 1550,
+                "bolt_circle_inner_mm": 805,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1200": {
+                "height": 1.2,
+                "width": 1.92,
+                "model": "SPC 1200",
+                "anchor_count": 8,
+                "anchor_dia": 42,
+                "weight_kg": 1951,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 1920,
+                "dim_d_mm": 1050,
+                "dim_t_mm": 46,
+                "dim_E_mm": 92,
+                "bolt_circle_outer_mm": 1750,
+                "bolt_circle_inner_mm": 840,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1300": {
+                "height": 1.3,
+                "width": 2.08,
+                "model": "SPC 1300",
+                "anchor_count": 8,
+                "anchor_dia": 48,
+                "weight_kg": 2446,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 2080,
+                "dim_d_mm": 1140,
+                "dim_t_mm": 50,
+                "dim_E_mm": 105,
+                "bolt_circle_outer_mm": 1900,
+                "bolt_circle_inner_mm": 910,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1400": {
+                "height": 1.4,
+                "width": 2.24,
+                "model": "SPC 1400",
+                "anchor_count": 8,
+                "anchor_dia": 48,
+                "weight_kg": 2987,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 2240,
+                "dim_d_mm": 1230,
+                "dim_t_mm": 53,
+                "dim_E_mm": 105,
+                "bolt_circle_outer_mm": 2040,
+                "bolt_circle_inner_mm": 980,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1600": {
+                "height": 1.6,
+                "width": 2.56,
+                "model": "SPC 1600",
+                "anchor_count": 8,
+                "anchor_dia": 48,
+                "weight_kg": 4409,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 2560,
+                "dim_d_mm": 1400,
+                "dim_t_mm": 64,
+                "dim_E_mm": 105,
+                "bolt_circle_outer_mm": 2330,
+                "bolt_circle_inner_mm": 1120,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 1800": {
+                "height": 1.8,
+                "width": 2.88,
+                "model": "SPC 1800",
+                "anchor_count": 10,
+                "anchor_dia": 56,
+                "weight_kg": 6618,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 2880,
+                "dim_d_mm": 1575,
+                "dim_t_mm": 74,
+                "dim_E_mm": 120,
+                "bolt_circle_outer_mm": 2620,
+                "bolt_circle_inner_mm": 1260,
+                "catalog_verified": "Manufacturer current web table"
+              },
+              "SPC 2000": {
+                "height": 2.0,
+                "width": 3.09,
+                "model": "SPC 2000",
+                "anchor_count": 10,
+                "anchor_dia": 56,
+                "weight_kg": 9560,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Manufacturer Technical Drawing",
+                "geometry_note": "ShibataFenderTeam current SPC manufacturer drawing/table",
+                "geometry_shape": "cone",
+                "dim_D_mm": 3090,
+                "dim_d_mm": 1750,
+                "dim_t_mm": 80,
+                "dim_E_mm": 120,
+                "bolt_circle_outer_mm": 2920,
+                "bolt_circle_inner_mm": 1400,
+                "catalog_verified": "Manufacturer current web table"
+              }
+            },
+            "geometry_source": "Manufacturer Technical Drawing / current manufacturer web table",
+            "geometry_shape": "cone"
+          },
+          "CSS Cell": {
+            "variant": "Hücre / Cell",
+            "source": "SFT CSS Cell Fender catalogue",
+            "models": {
+              "CSS 300": {
+                "height": 0.3,
+                "width": 0.39,
+                "model": "CSS 300",
+                "anchor_count": 4,
+                "anchor_dia": 16,
+                "weight_kg": 21,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 400": {
+                "height": 0.4,
+                "width": 0.65,
+                "model": "CSS 400",
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 75,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 500": {
+                "height": 0.5,
+                "width": 0.65,
+                "model": "CSS 500",
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 110,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 600": {
+                "height": 0.6,
+                "width": 0.78,
+                "model": "CSS 600",
+                "anchor_count": 4,
+                "anchor_dia": 30,
+                "weight_kg": 197,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 800": {
+                "height": 0.8,
+                "width": 1.05,
+                "model": "CSS 800",
+                "anchor_count": 6,
+                "anchor_dia": 30,
+                "weight_kg": 432,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 1000": {
+                "height": 1.0,
+                "width": 1.23,
+                "model": "CSS 1000",
+                "anchor_count": 6,
+                "anchor_dia": 36,
+                "weight_kg": 760,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 1150": {
+                "height": 1.15,
+                "width": 1.44,
+                "model": "CSS 1150",
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1205,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 1250": {
+                "height": 1.25,
+                "width": 1.6,
+                "model": "CSS 1250",
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1550,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 1450": {
+                "height": 1.45,
+                "width": 1.82,
+                "model": "CSS 1450",
+                "anchor_count": 6,
+                "anchor_dia": 48,
+                "weight_kg": 2350,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 1600": {
+                "height": 1.6,
+                "width": 1.96,
+                "model": "CSS 1600",
+                "anchor_count": 8,
+                "anchor_dia": 48,
+                "weight_kg": 2940,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 1700": {
+                "height": 1.7,
+                "width": 2.1,
+                "model": "CSS 1700",
+                "anchor_count": 8,
+                "anchor_dia": 56,
+                "weight_kg": 3700,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 2000": {
+                "height": 2.0,
+                "width": 2.2,
+                "model": "CSS 2000",
+                "anchor_count": 8,
+                "anchor_dia": 64,
+                "weight_kg": 5310,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 2250": {
+                "height": 2.25,
+                "width": 2.55,
+                "model": "CSS 2250",
+                "anchor_count": 10,
+                "anchor_dia": 64,
+                "weight_kg": 7400,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 2500": {
+                "height": 2.5,
+                "width": 2.95,
+                "model": "CSS 2500",
+                "anchor_count": 10,
+                "anchor_dia": 64,
+                "weight_kg": 10280,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "CSS 3000": {
+                "height": 3.0,
+                "width": 3.35,
+                "model": "CSS 3000",
+                "anchor_count": 12,
+                "anchor_dia": 76,
+                "weight_kg": 18600,
+                "material": "Kauçuk",
+                "standard": "PIANC / üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "FE Element": {
+            "variant": "Özel",
+            "source": "SFT FE Element Fender catalogue",
+            "models": {}
+          },
+          "V Fender SX/SH": {
+            "variant": "Kemer / Arch",
+            "source": "SFT V Fender catalogue",
+            "models": {}
+          },
+          "Cylindrical": {
+            "variant": "Silindirik",
+            "source": "SFT Product Catalogue",
+            "models": {}
+          },
+          "Pneumatic": {
+            "variant": "Pnömatik",
+            "source": "SFT Product Catalogue",
+            "models": {}
+          },
+          "Foam": {
+            "variant": "Köpük dolgulu",
+            "source": "SFT Product Catalogue",
+            "models": {}
+          }
+        }
+      },
+      "Trelleborg Marine & Infrastructure": {
+        "families": {
+          "SCN Super Cone": {
+            "variant": "Konik / Cone",
+            "source": "Trelleborg Fender Systems",
+            "models": {}
+          },
+          "SCK Cell": {
+            "variant": "Hücre / Cell",
+            "source": "Trelleborg Fender Systems",
+            "models": {}
+          },
+          "Cylindrical": {
+            "variant": "Silindirik",
+            "source": "Trelleborg Multipurpose & Tug Fenders",
+            "models": {}
+          },
+          "Pneumatic": {
+            "variant": "Pnömatik",
+            "source": "Trelleborg Pneumatic Fenders",
+            "models": {}
+          },
+          "Foam": {
+            "variant": "Köpük dolgulu",
+            "source": "Trelleborg Foam Fenders",
+            "models": {}
+          }
+        }
+      },
+      "Yokohama Rubber": {
+        "families": {
+          "Cone Solid": {
+            "variant": "Konik / Cone",
+            "source": "Yokohama marine fender catalogue",
+            "models": {}
+          },
+          "Cell Solid": {
+            "variant": "Hücre / Cell",
+            "source": "Yokohama marine fender catalogue",
+            "models": {}
+          },
+          "Arch Solid": {
+            "variant": "Kemer / Arch",
+            "source": "Yokohama marine fender catalogue",
+            "models": {}
+          },
+          "Pneumatic": {
+            "variant": "Pnömatik",
+            "source": "Yokohama marine fender catalogue",
+            "models": {}
+          },
+          "Fixed Pneumatic": {
+            "variant": "Pnömatik",
+            "source": "Yokohama marine fender catalogue",
+            "models": {}
+          }
+        }
+      },
+      "JIER Marine": {
+        "families": {
+          "Cone": {
+            "variant": "Konik / Cone",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Cell": {
+            "variant": "Hücre / Cell",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Arch": {
+            "variant": "Kemer / Arch",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Cylindrical": {
+            "variant": "Silindirik",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          }
+        }
+      },
+      "IRM Offshore & Marine Engineers": {
+        "families": {
+          "Cone": {
+            "variant": "Konik / Cone",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Cell": {
+            "variant": "Hücre / Cell",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Cylindrical": {
+            "variant": "Silindirik",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          }
+        }
+      },
+      "Prosertek": {
+        "families": {
+          "Cone": {
+            "variant": "Konik / Cone",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Cell": {
+            "variant": "Hücre / Cell",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Arch": {
+            "variant": "Kemer / Arch",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          }
+        }
+      },
+      "Sumitomo Rubber Industries": {
+        "families": {
+          "Hyper Omega": {
+            "variant": "Konik / Cone",
+            "source": "Sumitomo Marine Fender / official product family; Turkey distributor Global Marine",
+            "models": {}
+          },
+          "Pi-Type": {
+            "variant": "Özel",
+            "source": "Sumitomo Marine Fender / official product family; Turkey distributor Global Marine",
+            "models": {}
+          },
+          "UPi-Type": {
+            "variant": "Özel",
+            "source": "Sumitomo Marine Fender / official product family; Turkey distributor Global Marine",
+            "models": {}
+          },
+          "V-Type": {
+            "variant": "Kemer / Arch",
+            "source": "Sumitomo Marine Fender / Turkey distributor Global Marine",
+            "models": {}
+          },
+          "Lambda-Type": {
+            "variant": "Özel",
+            "source": "Sumitomo Marine Fender / official product family; Turkey distributor Global Marine",
+            "models": {}
+          },
+          "Beta-Type": {
+            "variant": "Özel",
+            "source": "Sumitomo Marine Fender / Turkey distributor Global Marine",
+            "models": {}
+          }
+        }
+      },
+      "Ermaksan Gemi": {
+        "families": {
+          "ER-CELL": {
+            "variant": "Hücre / Cell",
+            "source": "Ermaksan ER-CELL Tipi Usturmaçalar teknik tablosu",
+            "models": {
+              "ER-CELL 500": {
+                "model": "ER-CELL 500",
+                "height": 0.5,
+                "width": 0.55,
+                "anchor_count": 4,
+                "anchor_dia": 30,
+                "weight_kg": 120,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 635": {
+                "model": "ER-CELL 635",
+                "height": 0.635,
+                "width": 0.7,
+                "anchor_count": 4,
+                "anchor_dia": 33,
+                "weight_kg": 235,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 800": {
+                "model": "ER-CELL 800",
+                "height": 0.8,
+                "width": 0.9,
+                "anchor_count": 6,
+                "anchor_dia": 36,
+                "weight_kg": 475,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 1000": {
+                "model": "ER-CELL 1000",
+                "height": 1.0,
+                "width": 1.1,
+                "anchor_count": 6,
+                "anchor_dia": 39,
+                "weight_kg": 830,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 1150": {
+                "model": "ER-CELL 1150",
+                "height": 1.15,
+                "width": 1.3,
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1235,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 1250": {
+                "model": "ER-CELL 1250",
+                "height": 1.25,
+                "width": 1.45,
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1725,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 1450": {
+                "model": "ER-CELL 1450",
+                "height": 1.45,
+                "width": 1.65,
+                "anchor_count": 6,
+                "anchor_dia": 45,
+                "weight_kg": 2312,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 1600": {
+                "model": "ER-CELL 1600",
+                "height": 1.6,
+                "width": 1.8,
+                "anchor_count": 8,
+                "anchor_dia": 48,
+                "weight_kg": 3050,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 1700": {
+                "model": "ER-CELL 1700",
+                "height": 1.7,
+                "width": 1.9,
+                "anchor_count": 8,
+                "anchor_dia": 56,
+                "weight_kg": 3940,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-CELL 2000": {
+                "model": "ER-CELL 2000",
+                "height": 2.0,
+                "width": 2.0,
+                "anchor_count": 8,
+                "anchor_dia": 64,
+                "weight_kg": 5250,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "ER-KONİK": {
+            "variant": "Konik / Cone",
+            "source": "Ermaksan ER-KONİK Tipi Usturmaçalar teknik tablosu",
+            "models": {
+              "ER-KONİK 250": {
+                "model": "ER-KONİK 250",
+                "height": 0.25,
+                "width": 0.375,
+                "anchor_count": 8,
+                "anchor_dia": 14,
+                "weight_kg": 15.5,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-KONİK 500": {
+                "model": "ER-KONİK 500",
+                "height": 0.5,
+                "width": 0.75,
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 145,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-KONİK 600": {
+                "model": "ER-KONİK 600",
+                "height": 0.6,
+                "width": 0.9,
+                "anchor_count": 6,
+                "anchor_dia": 24,
+                "weight_kg": 240,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-KONİK 800": {
+                "model": "ER-KONİK 800",
+                "height": 0.8,
+                "width": 1.24,
+                "anchor_count": 6,
+                "anchor_dia": 36,
+                "weight_kg": 585,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-KONİK 1000": {
+                "model": "ER-KONİK 1000",
+                "height": 1.0,
+                "width": 1.5,
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1085,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-KONİK 1150": {
+                "model": "ER-KONİK 1150",
+                "height": 1.15,
+                "width": 1.725,
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 1665,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "ER-KONİK 1300": {
+                "model": "ER-KONİK 1300",
+                "height": 1.3,
+                "width": 1.95,
+                "anchor_count": 8,
+                "anchor_dia": 46.5,
+                "weight_kg": 2410,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / üretici verisi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "W Tipi": {
+            "variant": "Özel",
+            "source": "Ermaksan W Tipi Usturmaça teknik ve deformasyon test tablosu",
+            "models": {
+              "W 240x150x1016": {
+                "model": "W 240x150x1016",
+                "height": 0.15,
+                "width": 0.24,
+                "length": 1.016,
+                "weight_kg": 29,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "W 320x200x1016": {
+                "model": "W 320x200x1016",
+                "height": 0.2,
+                "width": 0.32,
+                "length": 1.016,
+                "weight_kg": 49,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "W 480x300x1016": {
+                "model": "W 480x300x1016",
+                "height": 0.3,
+                "width": 0.48,
+                "length": 1.016,
+                "weight_kg": 125,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "reaction": 521.402,
+                "energy": 30.293,
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "W 480x300x1524": {
+                "model": "W 480x300x1524",
+                "height": 0.3,
+                "width": 0.48,
+                "length": 1.524,
+                "weight_kg": 187,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "W 640x400x1016": {
+                "model": "W 640x400x1016",
+                "height": 0.4,
+                "width": 0.64,
+                "length": 1.016,
+                "weight_kg": 200,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "W 640x400x1524": {
+                "model": "W 640x400x1524",
+                "height": 0.4,
+                "width": 0.64,
+                "length": 1.524,
+                "weight_kg": 300,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "W 800x500x1016": {
+                "model": "W 800x500x1016",
+                "height": 0.5,
+                "width": 0.8,
+                "length": 1.016,
+                "weight_kg": 318,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "W 800x500x1524": {
+                "model": "W 800x500x1524",
+                "height": 0.5,
+                "width": 0.8,
+                "length": 1.524,
+                "weight_kg": 477,
+                "material": "Kauçuk",
+                "standard": "Üretici test/veri tablosu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "Anahtar Tipi": {
+            "variant": "Özel",
+            "source": "Ermaksan Anahtar Tipi Usturmaça teknik/test tablosu",
+            "models": {
+              "Anahtar 300x300x254": {
+                "model": "Anahtar 300x300x254",
+                "height": 0.254,
+                "width": 0.3,
+                "length": 0.3,
+                "weight_kg": 22,
+                "material": "NR Kauçuk",
+                "standard": "TSE K46 / PIANC 2002 üretici testi",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "İskele / Rıhtım (Arch)": {
+            "variant": "Kemer / Arch",
+            "source": "Ermaksan ürün ailesi",
+            "models": {}
+          },
+          "Ayaklı": {
+            "variant": "Özel",
+            "source": "Ermaksan Ayaklı Usturmaçalar",
+            "models": {}
+          },
+          "M Tipi": {
+            "variant": "Özel",
+            "source": "Ermaksan ürün ailesi",
+            "models": {}
+          },
+          "B Tipi": {
+            "variant": "Özel",
+            "source": "Ermaksan ürün ailesi",
+            "models": {}
+          },
+          "D Tipi": {
+            "variant": "D tipi",
+            "source": "Ermaksan ürün ailesi",
+            "models": {}
+          },
+          "Köşe Tipi": {
+            "variant": "Özel",
+            "source": "Ermaksan ürün ailesi",
+            "models": {}
+          },
+          "Silindir Tipi": {
+            "variant": "Silindirik",
+            "source": "Ermaksan ürün ailesi",
+            "models": {}
+          }
+        }
+      }
+    },
+    "bollard": {
+      "ShibataFenderTeam": {
+        "families": {
+          "T Head FT": {
+            "variant": "T başlı",
+            "source": "SFT Bollards catalogue",
+            "models": {
+              "FT 10": {
+                "model": "FT 10",
+                "capacity": 10,
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 50,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 15": {
+                "model": "FT 15",
+                "capacity": 15,
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 55,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 20": {
+                "model": "FT 20",
+                "capacity": 20,
+                "anchor_count": 5,
+                "anchor_dia": 24,
+                "weight_kg": 66,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 30": {
+                "model": "FT 30",
+                "capacity": 30,
+                "anchor_count": 5,
+                "anchor_dia": 30,
+                "weight_kg": 80,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 50": {
+                "model": "FT 50",
+                "capacity": 50,
+                "anchor_count": 5,
+                "anchor_dia": 36,
+                "weight_kg": 165,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 75": {
+                "model": "FT 75",
+                "capacity": 75,
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 215,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 100": {
+                "model": "FT 100",
+                "capacity": 100,
+                "anchor_count": 7,
+                "anchor_dia": 42,
+                "weight_kg": 345,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 125": {
+                "model": "FT 125",
+                "capacity": 125,
+                "anchor_count": 7,
+                "anchor_dia": 48,
+                "weight_kg": 485,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 150": {
+                "model": "FT 150",
+                "capacity": 150,
+                "anchor_count": 7,
+                "anchor_dia": 48,
+                "weight_kg": 565,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 200": {
+                "model": "FT 200",
+                "capacity": 200,
+                "anchor_count": 8,
+                "anchor_dia": 56,
+                "weight_kg": 650,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 250": {
+                "model": "FT 250",
+                "capacity": 250,
+                "anchor_count": 8,
+                "anchor_dia": 56,
+                "weight_kg": 925,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FT 300": {
+                "model": "FT 300",
+                "capacity": 300,
+                "anchor_count": 8,
+                "anchor_dia": 64,
+                "weight_kg": 1175,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "Staghorn FSH": {
+            "variant": "Çift boynuz",
+            "source": "SFT Bollards catalogue",
+            "models": {
+              "FSH 10": {
+                "model": "FSH 10",
+                "capacity": 10,
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 55,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 15": {
+                "model": "FSH 15",
+                "capacity": 15,
+                "anchor_count": 4,
+                "anchor_dia": 24,
+                "weight_kg": 65,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 20": {
+                "model": "FSH 20",
+                "capacity": 20,
+                "anchor_count": 5,
+                "anchor_dia": 24,
+                "weight_kg": 85,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 30": {
+                "model": "FSH 30",
+                "capacity": 30,
+                "anchor_count": 5,
+                "anchor_dia": 30,
+                "weight_kg": 135,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 50": {
+                "model": "FSH 50",
+                "capacity": 50,
+                "anchor_count": 5,
+                "anchor_dia": 36,
+                "weight_kg": 165,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 75": {
+                "model": "FSH 75",
+                "capacity": 75,
+                "anchor_count": 6,
+                "anchor_dia": 42,
+                "weight_kg": 285,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 100": {
+                "model": "FSH 100",
+                "capacity": 100,
+                "anchor_count": 7,
+                "anchor_dia": 42,
+                "weight_kg": 395,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 125": {
+                "model": "FSH 125",
+                "capacity": 125,
+                "anchor_count": 7,
+                "anchor_dia": 48,
+                "weight_kg": 525,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 150": {
+                "model": "FSH 150",
+                "capacity": 150,
+                "anchor_count": 7,
+                "anchor_dia": 48,
+                "weight_kg": 665,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              },
+              "FSH 200": {
+                "model": "FSH 200",
+                "capacity": 200,
+                "anchor_count": 8,
+                "anchor_dia": 56,
+                "weight_kg": 785,
+                "material": "Sfero döküm",
+                "standard": "Üretici kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Public source has not been verified as sufficient for exact 3D reconstruction; catalogue data retained, geometry is representative.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "Pipe": {
+            "variant": "Direk / Pillar",
+            "source": "SFT Bollards catalogue",
+            "models": {}
+          },
+          "Kidney": {
+            "variant": "Böbrek / Kidney",
+            "source": "SFT Bollards catalogue",
+            "models": {}
+          },
+          "Canon": {
+            "variant": "Direk / Pillar",
+            "source": "SFT Bollards catalogue",
+            "models": {}
+          },
+          "Single Bitt": {
+            "variant": "Tek boynuz",
+            "source": "SFT Bollards catalogue",
+            "models": {}
+          },
+          "Double Bitt": {
+            "variant": "Çift boynuz",
+            "source": "SFT Bollards catalogue",
+            "models": {}
+          }
+        }
+      },
+      "Trelleborg Marine & Infrastructure": {
+        "families": {
+          "Tee Bollard": {
+            "variant": "T başlı",
+            "source": "Trelleborg Bollards",
+            "models": {}
+          },
+          "Staghorn Bollard": {
+            "variant": "Çift boynuz",
+            "source": "Trelleborg Bollards",
+            "models": {}
+          },
+          "Kidney Bollard": {
+            "variant": "Böbrek / Kidney",
+            "source": "Trelleborg Bollards",
+            "models": {}
+          }
+        }
+      },
+      "JIER Marine": {
+        "families": {
+          "T Head": {
+            "variant": "T başlı",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Staghorn": {
+            "variant": "Çift boynuz",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          },
+          "Single Bitt": {
+            "variant": "Tek boynuz",
+            "source": "Manufacturer catalogue - verify project edition",
+            "models": {}
+          }
+        }
+      },
+      "Yıldız Metalurji": {
+        "families": {
+          "T Tipi İskele Babası": {
+            "variant": "T Tipi",
+            "source": "Yıldız Metalurji T Tipi İskele Babaları",
+            "models": {
+              "T Tipi 30 t": {
+                "model": "T Tipi 30 t",
+                "capacity": 30,
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "T Tipi 50 t": {
+                "model": "T Tipi 50 t",
+                "capacity": 50,
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "T Tipi 80 t": {
+                "model": "T Tipi 80 t",
+                "capacity": 80,
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "T Tipi 100 t": {
+                "model": "T Tipi 100 t",
+                "capacity": 100,
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "T Tipi 150 t": {
+                "model": "T Tipi 150 t",
+                "capacity": 150,
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "T Tipi 200 t": {
+                "model": "T Tipi 200 t",
+                "capacity": 200,
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "Çelik İskele Babası": {
+            "variant": "Çelik",
+            "source": "Yıldız Metalurji Çelik İskele Babası CB001",
+            "models": {
+              "Çelik 20 t": {
+                "model": "Çelik 20 t",
+                "capacity": 20,
+                "material": "GS52 çelik döküm",
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "Çelik 25 t": {
+                "model": "Çelik 25 t",
+                "capacity": 25,
+                "material": "GS52 çelik döküm",
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "Çelik 50 t": {
+                "model": "Çelik 50 t",
+                "capacity": 50,
+                "material": "GS52 çelik döküm",
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "Çelik 80 t": {
+                "model": "Çelik 80 t",
+                "capacity": 80,
+                "material": "GS52 çelik döküm",
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              },
+              "Çelik 100 t": {
+                "model": "Çelik 100 t",
+                "capacity": 100,
+                "material": "GS52 çelik döküm",
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              }
+            }
+          },
+          "Boynuz Tipi İskele Babası": {
+            "variant": "Boynuz",
+            "source": "Yıldız Metalurji Boynuz Tipi İskele Babası",
+            "models": {
+              "Boynuz 100 t": {
+                "model": "Boynuz 100 t",
+                "capacity": 100,
+                "standard": "Üretici web kataloğu",
+                "geometry_source": "Generic BIM Geometry",
+                "geometry_note": "Manufacturer capacity/product family verified; sufficient public dimensional drawing not found in this pass.",
+                "geometry_shape": "generic"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "dropdowns": {
+    "anchor_type": [
+      "Belirtilmemiş",
+      "Döküm içi / Cast-in",
+      "Kimyasal ankraj",
+      "Ankraj tij + uç plaka",
+      "U ankraj",
+      "Kaynaklı braket",
+      "Özel"
+    ],
+    "material": [
+      "Belirtilmemiş",
+      "Dökme demir",
+      "Sfero döküm",
+      "Dökme çelik",
+      "Yapısal çelik",
+      "Galvaniz çelik",
+      "Paslanmaz çelik",
+      "Kauçuk",
+      "UHMW-PE",
+      "Beton",
+      "Diğer"
+    ],
+    "facepad": [
+      "Belirtilmemiş",
+      "UHMW-PE virgin",
+      "UHMW-PE recycled",
+      "HDPE",
+      "Panel yok",
+      "Proje özel"
+    ],
+    "chain_set": [
+      "Belirtilmemiş",
+      "Tension chain",
+      "Weight chain",
+      "Shear chain",
+      "Tension + weight chain",
+      "Tam zincir seti",
+      "Zincirsiz",
+      "Proje özel"
+    ],
+    "standard": [
+      "Belirtilmemiş",
+      "PIANC WG33",
+      "PIANC WG211",
+      "BS 6349-4",
+      "Üretici kataloğu",
+      "Proje teknik şartnamesi",
+      "Özel"
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+<!doctype html><html lang="tr"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"><title>Marine BOQ Library</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f6fa;color:#173850;font:13px Arial,sans-serif}header{padding:22px 26px;background:#fff;border-bottom:1px solid #d4e1ec;display:flex;align-items:center;justify-content:space-between}h1{font-size:24px;margin:0 0 6px}p{margin:6px 0;line-height:1.5;color:#567187}main{padding:20px 26px}.card{background:white;border:1px solid #d4e1ec;border-radius:10px;padding:18px;margin-bottom:16px}h2{font-size:16px;margin:0 0 14px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}label{display:block;font-size:12px;color:#42657e}input,select,textarea{width:100%;padding:9px;border:1px solid #bdd0e0;border-radius:5px;margin-top:5px;font:13px Arial}textarea{height:57px}.wide{grid-column:span 2}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}button{border:1px solid #bad0e3;border-radius:5px;padding:9px 12px;background:#fff;color:#075d9c;cursor:pointer;font-weight:bold}button.primary{background:#087fc9;border-color:#087fc9;color:white}button:disabled{opacity:.4;cursor:default}.table{overflow:auto;max-height:430px}table{border-collapse:collapse;width:100%;white-space:nowrap}th,td{padding:10px;border-bottom:1px solid #e1eaf1;text-align:left}th{background:#edf4fa;position:sticky;top:0;font-size:11px}td{font-size:12px}.num{text-align:right}.item{min-width:230px;max-width:350px;white-space:normal}.tools{display:flex;gap:10px;align-items:center;margin-bottom:12px}.tools input{max-width:550px;margin:0}#status{padding:12px 16px;border-radius:6px;background:#e8f3fc;margin-bottom:16px;white-space:pre-wrap}#status.error{background:#ffebeb;color:#a02727}.badge{padding:8px 12px;border-radius:20px;background:#e6f3ff;color:#0871b8}.muted{font-size:11px;color:#688398}@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style><link rel="stylesheet" href="engineering_ui.css">
+<script src="engineering_ui.js" defer></script>
+</head><body>
+<header><div><h1>Marine BOQ Library</h1><p>Projelerin keşif ve birim fiyat arşivi</p></div><span class="badge">v0.31.6</span></header>
+<main><div id="status" role="status">Kütüphane yükleniyor…</div>
+<section class="card"><h2 id="formTitle">Yeni kayıt</h2><form id="entryForm"><input id="id" type="hidden">
+<div class="grid">
+<label>Proje<input id="project" required maxlength="240" placeholder="Proje adı"></label>
+<label>Yıl<input id="year" type="number" min="1900" max="2200"></label>
+<label>Tarih<input id="date" type="date"></label>
+<label>Para birimi<select id="currency"><option>USD</option></select></label>
+<label>Poz / ÖBF kodu<input id="code" required maxlength="240" placeholder="ÖBF-017"></label>
+<label class="wide">İş kalemi<input id="name" required maxlength="240" placeholder="Örn. Kazık forajı"></label>
+<label>Birim<select id="unit"><option>m</option><option>m²</option><option>m³</option><option>kg</option><option>ton</option><option>ad</option><option>LS</option><option>pkt</option><option>saat</option><option>komp.</option></select></label>
+<label>Miktar<input id="quantity" type="number" min="0" step="any" placeholder="Belirtilmemiş"></label>
+<label>Birim fiyat<input id="unit_price" type="number" min="0" step="any" placeholder="Belirtilmemiş"></label>
+<label class="wide">Aktif BOQ karşılığı (isteğe bağlı)<select id="source"><option value="">Yalnız arşiv kaydı</option></select></label>
+<label class="wide">Not / kaynak belge<textarea id="note" maxlength="2000" placeholder="Keşif adı, revizyon veya kaynak belge"></textarea></label>
+<label class="wide">Birim Fiyat Tarifi<textarea id="rate_description" maxlength="20000" style="height:150px" placeholder="İşin kapsamı, dahil/hariç işler, ölçü ve ödeme esasları..."></textarea><button type="button" onclick="createDescription()">Tarif Taslağı Oluştur</button><button type="button" onclick="openTariffs()">Kaynak Tariflerden Seç</button></label>
+</div><div class="actions"><button class="primary" type="submit">Kaydı Sakla</button><button type="button" onclick="resetEntry()">Yeni Kayıt</button><button type="button" onclick="captureModel()">Tek USD Arşivini Oluştur / Güncelle</button></div></form>
+<p class="muted">Tek arşiv düğmesi katalog ile 18 BOQ kalemini birleştirir; eşleşen pozların miktar ve USD fiyatlarını aktif modelden günceller. Önce Keşif / BOQ fiyatlarını kaydedin. Tarifler Kaydı Sakla ile korunur. Boş miktar veya fiyat sıfır değildir.</p></section>
+<section class="card" id="tariffPanel" hidden><h2>Kaynak Birim Fiyat Tarifleri</h2><p>Başlık eşleşmeleri yalnız adaydır. Birim, ölçü/ödeme şartları ve malzeme–işçilik kapsamını kaynak metinde kontrol edin. Seçilen tarif, Kaydı Sakla ile pozunuza kaydedilir.</p><input id="tariffSearch" placeholder="İş adı, kaynak dosya veya kaynak ÖBF kodu ara" oninput="renderTariffs()"><p id="tariffCount"></p><select id="tariffOptions" size="7" onchange="previewTariff()"></select><p id="tariffSource"></p><textarea id="tariffPreview" readonly style="height:300px"></textarea><div class="actions"><button onclick="useTariff()">Bu Tarifi Forma Aktar</button><button onclick="el('tariffPanel').hidden=true">Kapat</button></div></section><section class="card"><div class="tools"><h2 style="margin:0">Kayıtlar</h2><span id="count" class="badge">0</span><input id="search" placeholder="Proje, yıl, poz, iş kalemi veya para birimi ara" oninput="renderRows()"></div>
+<div class="table"><table><thead><tr><th>Proje / Yıl</th><th>Poz</th><th>İş kalemi</th><th>Miktar</th><th>Birim</th><th>Birim fiyat</th><th>Para</th><th>Tutar</th><th>Kaynak</th><th>İşlemler</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="actions"><button onclick="act('refresh')">Yenile</button><button onclick="openTariffs()">Kaynak Tarifler</button><button onclick="act('import')">JSON İçe Aktar</button><button onclick="act('export')">JSON Dışa Aktar</button><button onclick="act('undo')">Son Kütüphane Değişikliğini Geri Al</button></div>
+<p class="muted">Kütüphane kullanıcı veri klasöründe saklanır ve diğer modellerde de açılır. Başka bilgisayara taşımak için JSON dışa aktar. Fiyat uygulama yalnız USD ve eşleşen birim/kaynak içindir; model miktarı arşiv miktarıyla değiştirilmez. Eski para birimi/fiyat ve birleştirilen kayıtlar geçmişte korunur; kur olmadan çevrilmez.</p></section><section class="card" id="historyPanel" hidden><h2 id="historyTitle">Kayıt Geçmişi</h2><pre id="historyText" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><button onclick="el('historyPanel').hidden=true">Kapat</button></section></main>
+<script>
+var libraryRows=[], initialized=false, busy=false, modelMeta={};
+var fields=['id','project','year','date','code','name','unit','quantity','unit_price','currency','source','note','rate_description'];
+function el(id){return document.getElementById(id);}
+function markBusy(value){busy=value;document.querySelectorAll('button').forEach(function(b){b.disabled=value||b.getAttribute('data-unavailable')==='1';});}
+function act(action,data){if(busy)return;markBusy(true);el('status').className='';el('status').textContent='İşlem sürüyor…';if(window.sketchup&&sketchup.library_action){sketchup.library_action(action,JSON.stringify(data||{}));}else{libraryError('SketchUp bağlantısı bulunamadı.');}}
+function libraryError(message){markBusy(false);el('status').className='error';el('status').textContent=message;}
+function setLibrary(data){
+ libraryRows=data.records||[];modelMeta={project:data.project||'Aktif Model',date:data.date,year:data.year,currency:'USD'};
+ if(!initialized){
+  el('project').value=data.project||'';el('year').value=data.year;el('date').value=data.date;el('currency').value='USD';
+  (data.sources||[]).forEach(function(s){var option=document.createElement('option');option.value=s.key;option.textContent=s.name+' ('+s.unit+')';el('source').appendChild(option);});initialized=true;
+ }
+ el('status').className='';el('status').textContent=data.message||'Kütüphane hazır. Kayıt ekleyebilir veya mevcut BOQ’yu arşivleyebilirsin.';
+ renderRows();markBusy(false);
+}
+function fmt(value,digits){if(value==null||value==='')return '—';return Number(value).toLocaleString('tr-TR',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
+function cell(tr,value,cls){var td=document.createElement('td');td.textContent=value;if(cls)td.className=cls;tr.appendChild(td);return td;}
+function button(parent,label,fn){var b=document.createElement('button');b.textContent=label;b.onclick=fn;parent.appendChild(b);return b;}
+function renderRows(){
+ var query=el('search').value.toLocaleLowerCase('tr-TR').trim();var rows=libraryRows.filter(function(r){return [r.project,r.year,r.code,r.name,r.currency,r.note,r.source_file,r.source_sheet,r.section,r.rate_description].join(' ').toLocaleLowerCase('tr-TR').indexOf(query)>=0;});
+ el('rows').textContent='';el('count').textContent=rows.length+' / '+libraryRows.length;
+ if(!rows.length){var empty=document.createElement('tr');var td=cell(empty,'Kayıt bulunamadı. Yeni kayıt ekle veya mevcut BOQ’yu arşivle.');td.colSpan=10;el('rows').appendChild(empty);}
+ rows.forEach(function(r){var tr=document.createElement('tr');cell(tr,r.project+' / '+(r.year||'—'));cell(tr,r.code);var title=cell(tr,r.name,'item');title.title=(r.date||'')+' '+(r.note||'');cell(tr,fmt(r.quantity,r.unit==='m²'?2:(r.unit==='ad'||r.unit==='LS'?0:3)),'num');cell(tr,r.unit);cell(tr,fmt(r.unit_price,2),'num');cell(tr,r.currency||'—');cell(tr,fmt(r.quantity==null||r.unit_price==null?null:r.quantity*r.unit_price,2),'num');var provenance=cell(tr,[r.source_file,r.source_sheet,r.source_row?'Satır '+r.source_row:'',r.section].filter(Boolean).join(' / '),'item');provenance.title=r.note||'';var actions=cell(tr,'');
+  button(actions,'Düzenle',function(){editEntry(r);});
+  button(actions,'Tarifi Aç',function(){editEntry(r);el('rate_description').focus();});
+  button(actions,'Geçmiş',function(){showHistory(r);});
+  var apply=button(actions,r.target_code?'Fiyat → '+r.target_code:'Arşiv',function(){if(window.confirm(r.target_code+' birim fiyatı '+fmt(r.unit_price,2)+' USD olarak uygulansın mı?'))act('apply',{id:r.id});});apply.setAttribute('data-unavailable',r.target_code?'0':'1');apply.disabled=!r.target_code;
+  button(actions,'Sil',function(){if(window.confirm(r.project+' / '+r.code+' kaydı silinsin mi?'))act('delete',{id:r.id});});el('rows').appendChild(tr);
+ });
+ if(busy)markBusy(true);
+}
+function resetEntry(){['id','code','name','note','source','rate_description'].forEach(function(k){el(k).value='';});el('quantity').value='';el('unit_price').value='';el('formTitle').textContent='Yeni kayıt';}
+function editEntry(r){fields.forEach(function(k){if((k==='currency'||k==='source')&&!Array.prototype.some.call(el(k).options,function(o){return o.value===r[k];})){var option=document.createElement('option');option.value=r[k];option.textContent=r[k];el(k).appendChild(option);}el(k).value=r[k]==null?'':r[k];});el('formTitle').textContent='Kaydı düzenle: '+r.code;window.scrollTo(0,0);}
+function captureModel(){act('capture',modelMeta);}
+function createDescription(){if(!el('rate_description').value.trim()){el('rate_description').value='TASLAK — Kullanıcı tarafından tamamlanacak\nPoz: '+el('code').value+'\nİş kalemi: '+el('name').value+'\nBirim: '+el('unit').value+'\n\nİşin kapsamı:\n\nBirim fiyata dahil işler:\n\nBirim fiyata dahil olmayan işler:\n\nÖlçü ve ödeme esasları:\n\nTeknik şartname / kaynak:';}el('rate_description').focus();}
+function showHistory(r){el('historyTitle').textContent=r.code+' — Kayıt Geçmişi';el('historyText').textContent=r.archive_history?JSON.parse(r.archive_history).map(function(h,i){return (i+1)+'. '+h.code+' — '+h.name+'\nProje: '+(h.model_project||h.project||'—')+'\nTarih: '+(h.model_date||h.date||'—')+'\nMiktar: '+fmt(h.quantity,3)+' '+h.unit+'\nBirim fiyat: '+fmt(h.unit_price,2)+' '+(h.currency||'Belirtilmemiş')+'\nTarif: '+(h.rate_description||'Belirtilmemiş');}).join('\n\n'):'Bu poz için önceki kayıt bulunmuyor.';el('historyPanel').hidden=false;el('historyPanel').scrollIntoView();}
+el('entryForm').onsubmit=function(e){e.preventDefault();var data={};fields.forEach(function(k){data[k]=el(k).value;});act('save',data);};
+
+var sourceTariffs=[];
+function openTariffs(){el('tariffPanel').hidden=false;el('tariffSearch').value='';if(sourceTariffs.length){renderTariffs();}else{act('tariffs');}el('tariffPanel').scrollIntoView();}
+function setTariffs(data){sourceTariffs=data;markBusy(false);el('status').textContent=data.length+' kaynak tarif hazır.';renderTariffs();}
+function renderTariffs(){var q=el('tariffSearch').value.toLocaleLowerCase('tr-TR').trim(),id=el('id').value;var matches=sourceTariffs.filter(function(t){return [t.title,t.source_code,t.sources.map(function(s){return s.file;}).join(' ')].join(' ').toLocaleLowerCase('tr-TR').indexOf(q)>=0;});matches.sort(function(a,b){return Number(b.catalog_ids.indexOf(id)>=0)-Number(a.catalog_ids.indexOf(id)>=0);});el('tariffOptions').textContent='';matches.forEach(function(t){var o=document.createElement('option');o.value=t.id;o.textContent=(t.catalog_ids.indexOf(id)>=0?'Başlık eşleşmesi • ':'')+(t.draft?'TASLAK • ':'')+t.title+' — '+t.file;el('tariffOptions').appendChild(o);});el('tariffCount').textContent=matches.length+' / '+sourceTariffs.length;if(matches.length)el('tariffOptions').value=matches[0].id;previewTariff();}
+function selectedTariff(){return sourceTariffs.find(function(t){return t.id===el('tariffOptions').value;});}
+function sourceLabel(t){return t.sources.map(function(s){return s.file+' | '+(s.source_code||'Başlık: '+t.title)+' | metin satırı '+s.line;}).join('\n');}
+function previewTariff(){var t=selectedTariff();el('tariffPreview').value=t?t.text:'';el('tariffSource').textContent=t?sourceLabel(t):'Tarif bulunamadı.';}
+function useTariff(){var t=selectedTariff();if(!t)return;if(!el('code').value||!el('name').value){libraryError('Önce Kayıtlar tablosundan bir pozun Düzenle düğmesine basın.');return;}if(el('rate_description').value.trim()&&!window.confirm('Formdaki mevcut tarif seçilen kaynak tarifle değiştirilsin mi?'))return;el('rate_description').value=(t.draft?'TASLAK KAYNAK\n':'')+t.text+'\n\nKaynak:\n'+sourceLabel(t);el('tariffPanel').hidden=true;el('rate_description').scrollIntoView();el('rate_description').focus();el('status').textContent='Tarif forma aktarıldı. Kaydı Sakla düğmesiyle kaydedin.';}
+
+document.addEventListener('DOMContentLoaded',function(){act('refresh');});
+</script></body></html>

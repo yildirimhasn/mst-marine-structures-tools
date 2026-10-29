@@ -1,0 +1,7 @@
+# 13 mst-kabul-denetim 2. tur (salt okuma)
+Spot teyit (D): mst_dwg_rebar.rb:552-556, 382-395 (mst_dr_clear! rebar_pafta_json ve pc_rebar_attrs_json silmiyor); main.rb:3382-3383; mst_pc_rebar.rb:238-241; main.rb:12029-12034; pile_rebar_error/pc_rebar_error hiç okunmuyor; pileOverrideBackdrop'a open eklenmiyor.
+8 bölüm: 1 kısmen · 2 karşılandı (tespit kapsamında) · 3 kısmen · 4 kısmen · 5 kısmen (2. turda test yok) · 6 kısmen (örnekler eklendi; golden-master yok; belge) · 7 kısmen · 8 kısmen (2. tur rapora işlenecek).
+Öncelik düzeltmeleri: K32→Düşük; K14→Düşük (K24'e bağlı); K35 Kritik S+A+2K; K34 Yüksek S+2K; K38 Yüksek S+2K belge; K26/K28 Orta S+2K; K13 Düşük S+2K; K50 Kritik S+A; K51 Yüksek S; R6 Orta; K52 Orta olası; K53 Yüksek S; K54 Düşük; K55 Yüksek S+A; K56 Düşük; K57 Kritik S+A+D ("tüm kopyalarda 3B silinir" kısmı D değil); K58 Kritik (doğrulama bekliyor) S; K59 Yüksek S+A+D; K60/K61 Orta; K62 Düşük; K63 Orta olası.
+Ek gözlem: mst_dr_clear! (dwg:386) her öğeye head_beam pursantajını yazıyor — prekast/pafta öğesi için belge gerekli.
+Hâlâ doğrulanamayan: SU2020/Ruby 2.5.5 çalışma zamanı ve Chromium sürümü; Undo/kaydet/aç (K03,K11,K12,K28,K62); skp: (K24,K14,K25); performans; golden-master; formül/katsayı/poz (belge); tek kaynaklılar K51,K52,K53,K54,K56,K58,K60-K63; okunmayan gövdeler (rockfill_cut_mesh/void_loft/transitions/refinement/report, mst_ar_plan/mst_dr_plan/mst_dra_*, mst_pile_rebar_calc, HeadBeamEditor); K46, K42, K23, K06; README/RELEASE test iddiaları.
+Genel: kısmen karşılandı; kullanıcı kabulü bekliyor.

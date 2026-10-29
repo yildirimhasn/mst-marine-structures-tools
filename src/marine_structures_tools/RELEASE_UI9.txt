@@ -1,0 +1,250 @@
+Marine Structures Tools 0.46.2 UI9 — 10.10.2026
+Temel: kullanıcının MST_v0.38_UI8_TEST.rbz paketi.
+Fore kazık iyileştirmeleri, bağımsız Jet Grout, gelişmiş Dolgu/Taş Alternatif-02 ve özel kapalı katı kaynağı eklendi.
+UI8 tek pencere ve detaylı metraj Excel aktarımı korunmuştur. Alternatif-01 korunmuştur.
+SketchUp 2020 Ruby 2.5.5 üzerinde kaynak derleme ve otomatik hesap testleri geçti.
+Bu birleşik paket henüz SketchUp içinde canlı model üzerinde denenmedi.
+Bilinen sınırlar: Fore kazıkta doğrudan Scale/kot taşıma metrajı otomatik senkronlamaz; teknik formdan güncelleyin.
+Fore kazık muhafaza BOQ kaynağı geçici/kalıcıya göre gruplanır; farklı çaplar ayrı fiyatlanacaksa henüz yeterli değildir.
+Jet Grout hacmi nominal silindirik zemin hacmidir; kolon örtüşmeleri düşülmez. Sarf değerleri proje girdisidir.
+Özel katı girişi net kapalı geometri ister; her CAD geometrisini otomatik onarmaz veya betonları otomatik düşmez.
+
+0.46.3 UI9.1 — 10.10.2026
+- Bütün metin dosyaları yeniden LF satır sonuna çevrildi (karşılaştırmalar temiz kalsın; SketchUp'ta fark yok).
+- Jet Grout ve Alternatif-02 Özel Katı sayfaları standart sayfa başlığını alır (Adım 2 · Kazık / Adım 6 · Kronman-Dolgu), menüde ilgili adımın altında seçili görünür.
+- TestRunner 0.46.3: Jet Grout BOQ/rapor, dolgu metrajı = BOQ dolgu tonajı, iki yeni sayfanın ana pencerede açılması kontrol edilir.
+- Regresyon: UI1–UI8 testleri geçti; Alternatif-02 hacimleri 0.38 UI8 ile birebir aynı (yalnız kesit önizleme hücre bölünmesi değişti).
+
+0.46.4 RB3 — 10.10.2026
+- Donatı Tag'leri yapıya (ANO) göre: her BK / döşeme donatı grubu ve kazık kafesi "MST | DONATI | <yapı>" Tag'inde.
+  Çubuklar Untagged; görünürlük grubun Tag'inden gelir. Paylaşılan kazık Component tanımında, tanımı kullanan
+  kazıklar farklı yapılardaysa "MST | DONATI | Ortak Tip". Eski 'MST | KAZIK DONATI' Tag'i artık kullanılmaz.
+- Yeni donatı çizilince Tag kendiliğinden atanır. Mevcut donatı: Donatı BIM sayfası → "Donatı Tag'lerini Güncelle"
+  veya araç çubuğu "MST Tags Güncelle" (tek Geri Al).
+
+0.47 BQ1 — 10.10.2026 (BOQ ve Hakediş)
+- Poz listesi: projeye özel poz no / tanım / birim / fiyat, pasif poz, elle miktarlı poz, JSON dışa/içe aktarım.
+  Poz listesindeki fiyat = BOQ birim fiyatı (BOQ sayfasından girilen fiyat da listede görünür). Boş fiyat = "FİYAT YOK" (0 sayılmaz).
+  Kütüphane fiyatlı pozlarda (foraj, topping, kronman, eşleştirilen pozlar) fiyat listeden girilmez.
+- Beton sınıfına göre ayrı poz (ÖBF-005/C30/37 …); toplam aynı kalır. Kayıtlı hakediş varken ayrım ve kazık poz gruplaması değiştirilemez.
+- Sözleşme para birimi USD/EUR/TRY, TL kurları, fiyat tarihi. Kütüphane (USD) fiyatları kurla çevrilir (kazık ayrı poz satırları dahil).
+- İş kalemi bazında ilerleme: eleman × poz; beyan (%) + tarihli onay geçmişi. Onaysız beyan önceki onayı düşürmez.
+  Eski "Onaylandı" eleman durumu, kaydı olmayan kalemlerde %100 sayılmaya devam eder.
+- Hakediş dönemi: dönem sonu tarihi, eksilen / keşiften çıkan pozlar alacak satırı olarak görünür ve uyarı verir,
+  fiyat farkı, KDV ve kesintiler (özel / kamu şablonu), icmal (kümülatif / önceki / bu dönem).
+  İcmal "bu dönem" = cetvel "bu dönem tutar" toplamı; önceki dönem tutarları korunur (fiyat ya da para birimi değişse de).
+- Modelde ilerleme görünümü: onaylı / kısmi / başlanmamış elemanları seç, yalnız seçilileri göster.
+- Excel: Keşif Cetveli (formüllü), Hakediş Raporu (İcmal, Hakediş Cetveli, Onaylı Metraj, Bilgi); arşiv dönemi kendi para biriminde.
+- Revizyon: snapshot keşfi de saklar; "Keşif Farkı" poz bazında miktar / tutar değişimi.
+- Bekleyen: kazık gömülü hacminin BK betonundan düşülmesi (ayrı paket).
+
+0.47.1 BK1 — 10.10.2026 (kazık gömülme düşümü)
+- Kazık üst kotu BK alt kotunun üstündeyse, BK içinde kalan kazık hacmi (dış çap × gömülme boyu; eğik kazıkta
+  yatay kesit A·√(1+r²)) BK betonundan otomatik düşülür. Gömülme BK yüksekliğiyle sınırlıdır.
+- Değer saklanmaz; her okumada kazığın güncel kotundan hesaplanır. BK geometrisi ve brüt 'concrete_volume_m3' değişmez.
+- Net değeri okuyanlar: QTO, BOQ (BK + döşeme betonu), hakediş, revizyon, BK raporu / Excel, BK donatı pursantajı, eleman bilgisi.
+- Raporda "BK Betonu — Kazık Gömülme Düşümü" tablosu (brüt / kazık hacmi / net); düşüm yoksa tek satır not.
+- Kazık içi beton kazık pozunda kalır (çift sayım yok). BK kalıbındaki kazık deliği düşümü zaten vardı, değişmedi.
+- Model Kontrolü: BK üstünü delen kazık → HATA ("BK ↔ Kazık").
+- Bu modelde bütün kazıklar BK altında bitiyor → düşüm 0, sayılar değişmez.
+
+0.47.2 GD1 — 10.10.2026 (Kullanma Kılavuzu)
+- Ana pencerede ARAÇLAR → "Kullanma Kılavuzu" (Ayarlar'ın altında) ve Ayarlar sayfasının başında "Kılavuzu Aç".
+- Bütün sistem çalışma sırasıyla: başlarken, temel kurallar, hızlı başlangıç, 10 iş akışı adımı ve alt sayfaları
+  (Fore Kazık, Jet Grout, Dolgu, Revizyonlar, Hakediş), araçlar, sık sorulanlar, kısaltmalar.
+- Arama, başlık listesi, bölüm aç / kapat, yazdır; her bölümde "Bu sayfayı aç →". Modele hiçbir şey yazmaz.
+
+0.47.3 LB1 — 11.10.2026 (kazık numaraları + numarayla bul)
+- Araç çubuğu "Kazık Numaraları": her kazığın numarası plan konumunda, yapının en üst kotunun 1 m üstünde yazı (SketchUp Text).
+  Tag "MST | ETİKET | KAZIK". Aynı numara iki yapıda varsa "BD-01 · P-001". Güncelle'ye basınca eski yazılar silinip
+  güncel konumlarla yeniden yazılır; "Kazık Numaralarını Kaldır" hepsini ve Tag'i siler. Tek Geri Al.
+- Yazılar geometri değildir, hiçbir grubun içine girmez: hacim, kalıp, çelik, metraj ve BOQ değişmez.
+- "Numarayla Bul": P-56 / p56 / P-056 aynı; kazık, BK, prekast, döşeme numaraları. Eleman seçilir ve ekrana getirilir.
+  Hakediş › İlerleme Girişi'nde "⌕ Numarayla Bul" bulunan elemanın iş kalemlerini doğrudan okur.
+- Menü: Extensions › Marine Structures Tools; Model Bakımı › Görünüm. Kılavuza "Kazık numaraları ve Numarayla Bul" bölümü.
+
+0.47.4 LB2 — 11.10.2026 (sabit kazık numaraları)
+- Kazık numaraları artık ekran yazısı değil, modele yatay yazılmış sabit boyda düz 3B yazı: yaklaşınca / uzaklaşınca
+  ve döndürünce yerinden kaymaz, modelle birlikte büyür / küçülür. Kot: en üst BK / döşeme + 5 cm; boy: en yakın kazık
+  aralığı × 0.22 (0.25–0.80 m). Bütün numaralar tek "MST Kazık Numaraları" grubunda (eleman değil, taramaya girmez).
+- 0.47.3'ün ekran yazıları Güncelle / Kaldır ile otomatik temizlenir.
+
+0.47.5 PE1 — 11.10.2026 (PE kaplama görünümü)
+- Araç çubuğu "PE Kaplama Görünümü": PE kaplamalı kazıklarda kazık başından aşağı PE boyu kadar bölüm farklı renkte
+  (koyu yeşil, Materials → "MST PE Kaplama") görünür. Kılıf kazığın %1 (en az 6 mm) dışında, açık yüzey (kapaksız).
+- Tek "MST PE Kaplama Görünümü" grubu, Tag "MST | GÖRÜNÜM | PE KAPLAMA"; kazığın içine girmez, eleman sayılmaz,
+  taramaya girmez → kazık geometrisi ve PE m² dahil hiçbir metraj değişmez.
+- Görünüm açıkken kazık oluşturma / güncelleme sonrası kendiliğinden yenilenir. Kaldır: grup ve Tag silinir. Tek Geri Al.
+
+0.47.6 VW2 — 11.10.2026 (görünümler kendiliğinden + PE üst kotu + hakediş Excel)
+- Kazık numaraları ve PE görünümü açıksa; kazık oluşturma / güncelleme ve Proje / Aks'ta aks veya yapı taşıma sonrası
+  aynı işlemin içinde (tek Geri Al) kendiliğinden yenilenir. Kapalı görünüm kendiliğinden açılmaz.
+- "PE Üst Kotunu Ayarla…" (menü, Model Bakımı › Görünüm): seçili / PE'li bütün kazıklara "Kazık başı" ya da "Belirli kot".
+  Yalnız renkli bölümün yerini belirler (ayrı görünüm sözlüğü); PE boyu ve PE m² metrajı değişmez. Kot kazık başının
+  üstünde / ucunun altında olamaz; kazık ucunu geçen bölüm uçta kesilir.
+- Hakediş Excel: birim fiyatı sonradan silinen pozda "Önceki Tutar" ve "Kümülatif Tutar" son hakedişte ödenen tutarı
+  gösterir (önceden 0); uyarı sütununda "önceki tutar son hakedişten".
+
+0.47.7 BR4 — 21.10.2026 (eklenti dışı BK'da donatı)
+- Hata: "Mevcut Elemanı Tanıt" ile tanıtılan (kanallı / boşluklu / özel biçimli) BK'ya Donatı BIM çizilince motor elemanı
+  düz kutu sanıyor, kutunun tamamını (kanallar dahil) donatıyla dolduruyor ve ölçüyü yanlış yerden okuyup kafesi elemanın
+  yanına koyuyordu; tonaj da çok yüksek çıkıyordu.
+- Düzeltme: detaylı BK donatısı yalnız eklentinin çizdiği BK'da. Tanıtılan ya da içinde tanımsız grup olan BK reddedilir,
+  donatısı pursantajla (Ayarlar → Donatı Pursantajları → Başlık Kirişi) hesaplanır. Seçimde böyle BK varsa nedeni yazılır
+  ve önceden oluşmuş yanlış donatıyı silmek sorulur.
+- Model Bakımı → Onarım → "Eklenti Dışı BK Donatısını Temizle": yanlış donatı gruplarını siler, pursantaja döner (tek Geri Al).
+- Model Kontrolü: böyle bir BK'da detaylı donatı varsa HATA ("BK Donatı BIM").
+
+0.47.8 DR1 — 21.10.2026 (Çizimden donatı, BK-9 · 1. paket)
+- Yeni: Çizimden Donatı (seçili BK). Tanıtılan kanallı BK'ya projenin donatı çizimi pozları tek tek 3B çizilir.
+  Paket: data/rebar_drawings/BK-9.json (BK-9.dwg/.dxf: alt / üst donatı planı, A-A, B-B, C-C kesitleri, 47 pozluk tablo).
+- Önizleme (model değişmez): BK ölçüsü ↔ çizim, kanal / dolu kontrol noktalarıyla yön seçimi (genişlik / boy ters olabilir),
+  her çubuk betonun içinde mi (pas ≥ 2 cm), poz poz tablo adedi × boyu ↔ 3B çizilen. Uyuşmazlıkta çizilmez.
+- Çizim: poz başına ayrı grup, aynı şekilli çubuklar tek Component tanımı (hafif model), çap renkleri, 'MST | DONATI | <yapı>' Tag'i, tek Geri Al.
+- Metraj / BOQ / hakediş donatısı: donatı tablosunun satırları (BK-9: Ø32 11159.9 m 70.542 t + Ø14 5284.15 m 6.393 t = 76.935 t).
+  Tablonun alt toplamı (6820.9 kg) satırlarla uyuşmuyor; kullanılmaz. Pursantaj kullanılmaz.
+- 1. paket 3B: alt donatı planı — poz 1/2/3 alt Ø32 boyuna (57 adet, bindirmeli), poz 5/6/7 Ø14 ara ağ, poz 9/10 enine kapalı etriye çifti
+  (187 + 187), poz 8 uç U'lar, poz 2/4 alt bölüm yan çubukları. 732 çubuk, çakışma 0. Üst donatı (poz 11–43) ve kesit / detay pozları
+  (34, 35, 44–47) sonraki paketlerde; tonaj şimdiden tablonun tamamı.
+- Sil: Çizimden Donatıyı Sil (pursantaja döner). Model Bakımı'nda yeni 'Donatı' grubu.
+- Kullanılmayan XR1 (yüzey donatısı) taslağı pakete konmadı.
+- TestRunner 0.47.8: 'MST | DR TESTİ: Çizimden Donatı BK-9 (MODEL KOPYASINDA)'.
+
+0.47.8.1 DR1 düzeltme — 21.10.2026
+- Kullanıcı DR testi: yeniden çizim ve silmede çubuk Component tanımları modelde kalıyordu (16 yerine 32).
+  Neden: SketchUp'ta silinen grubun tanımı içindeki çubuklar hemen ayrılmaz, tanım "kullanımda" görünür.
+  Düzeltme: önce poz gruplarındaki çubuklar, sonra gruplar açıkça silinir; önceki sürümden kalan yetim donatı tanımları da temizlenir.
+- Test dünyası SketchUp davranışına göre düzeltildi (eski kodla aynı 32 / 2 ✗ sonucunu verir, yeni kodla geçer).
+
+0.47.9 DR2 — 21.10.2026 (Çizimden donatı, BK-9 · 2. paket: üst donatı planı ve uç bölgeler)
+- BK-9 paketine 1806 çubuk eklendi (toplam 2538 çubuk, 65 çubuk şekli). 37 poz tablo adedinde tam:
+  sol yüksek blok üst boyuna (poz 1/2/3 × 15), sağ blok üst (poz 14 + 2, uç inişleri poz 16), kanal tabanı (poz 11/2/12 × 21),
+  sağ bölge taban (poz 13 / 15), sol dış yüz 7 kot (poz 2 + 2 + 4), uç yatay U (poz 17), enine poz 20 / 21 / 22 / 23 / 24,
+  uç bölge taban (poz 18 / 19), uç C ve kancalar (poz 25–29, 31), Ø14 yüz / duvar çubukları (poz 6, 30, 32, 33, 36–40), sağ yüz (poz 41 / 42).
+- Kısmi: poz 20 / 22 / 23 (+3.20 blok bölümü, 9 + 9 + 9) → 3. paket; 3. pakette ayrıca poz 34, 35, 43–47.
+- Çizimde bazı pozların plan uzunluğu tabloyla uyuşmuyor (poz 12 kanal F ucu 8.16 m çizili / tablo 12.00; poz 13 7.60 / 8.15): tablo esas alındı.
+- Kotlar kesitlerden: üst boyuna z 1.893, üst enine 1.925, kanal tabanı 0.893 / 0.925, uç şerit 2.093 / 2.125 (BK altı 0 = +0.70).
+- Çakışma: 2B çizimde üst üste gelen çubuklar 3B'de çakışır; 104 çubuk kendi dağıtım ekseninde en çok 7.5 cm kaydırıldı. Kontrol: 2538 çubukta çakışma 0,
+  hepsi BK-9 kesitlerinden kurulan beton modelinin içinde (pas ≥ 2 cm).
+- Taşan çubuk yalnız bazı paketlerdeyse: eklenti sorunsuz paketleri çizmeyi önerir; BK geometrisi 'MST_<BK>_geometri.json' olarak model klasörüne kaydedilir.
+- TestRunner 0.47.9: DR testi 2. paket durumlarını, geometri dökümünü ve temiz paketle devam etmeyi kontrol eder.
+
+0.47.10 DR3 — 21.10.2026 (Çizimden donatı, BK-9 · 3. paket + kullanıcı modeline uyum)
+- Kullanıcının BK-EXT-001 geometrisi (MST_BK-EXT-001_geometri.json) ile karşılaştırıldı: uç şeritler +2.70 (z 2.0; çizimde +2.90),
+  orta duvarın (v 24.0–24.3) başlığı yok, parapet (+3.20) BK'da yok, kanal u 2.2–8.5. 2. paketteki 231 taşan çubuk buna göre düzeltildi:
+  uç C çubukları / kancalar / poz 31 / poz 33 kotları 0.20 m aşağı (biçim ve boy aynı), orta duvar üst çubuğu ve filizleri başlıksız duvara göre.
+- 3. paket: duvar etriyeleri poz 34 (496 = 248 yer × 2 C) ve filizler poz 35 (248): boyuna duvar 161, A duvarı 33, orta duvar 21, F duvarı 33.
+- Parapet: kendi donatı çiziminde. Poz 43–47 ve poz 20 / 22 / 23'ün parapet kısmı (9 + 9 + 9) 3B çizilmez; önizlemede 'parapet çizimi'.
+  Tonaj şimdilik tablonun tamamı (parapet payı 868 kg dahil) — kullanıcı kararına göre düşülebilir.
+- Toplam 3282 çubuk (42 poz tam), çakışma 0; kullanıcı modelinde taşan çubuk 0 (pas ≥ 2 cm). 227 çubuk ≤ 6 cm kaydırıldı.
+- TestRunner: 'çizimden sonra geometri aynı okunuyor' kontrolü yalnız çizilen paketlerle karşılaştırır (önceki yanlış ✗ giderildi).
+
+0.48 AR1 — 21.10.2026 (Otomatik donatı: proje çizimi olmadan kanallı BK)
+- Yeni: Otomatik Donatı (seçili BK) — menü, Model Bakımı › Donatı. Her BK için çap / aralık / pas payı ekranı (BK-9 varsayılanları; son değerler hatırlanır).
+- Tanıma: BK yüzeylerinden 5 cm ızgaralı alt / üst kot haritası (yön ve konum serbest; döndürülmüş / aynalı BK aynı sonucu verir);
+  üst kotlar, kanal tabanları, geniş bloklar (0.6 m kare sığan), ince duvarlar (ve başlıkları), kanal kenarı yüzleri, dış yüzler.
+- Kurallar (BK-9 projesinden): alt ağ + enine kapalı etriye çifti (alt U + ters U), ara ağ (kancalı), her açık üst yüzeyde iki yönlü ağ
+  (yüksek betona 60Ø / 30Ø kenetlenir, kenarda U bacak, eleman ucunda kanca), kanal kenarı C + kanal yüzü yatay Ø14, dış yüz C + gövde,
+  ince duvarda iki C etriye + iki yüz yatay + başlıkta üst çubuk ve filiz; 12 m stok, 60Ø bindirme (ikinci parça içeri kayık).
+- Katmanlama: enine üst ağ en üstte, boyuna altında, C'lerin üst kolu ikisinin altında; dik yüzlerin köşelerinde bir Ø aşağıda;
+  duvar etriyeleri taban ağının iki çubuğu arasına. Çakışma giderici dağıtım ekseninde ≤ 6 cm kaydırır; betona sığmayan çubuk çizilmez.
+- Tonaj: çizilen çubuklar (Ø²/162 × boy); mst_element_rebar 'auto_detail' = BIM. Çizim ve silme DR motoruyla (bölge başına poz grubu, Component tanımı).
+- Sınama (BK-EXT-001, kullanıcı geometrisi): 3142 çubuk, 70.386 t; BK-9 projesi (parapetsiz) 76.067 t → %92.5 (Ø14 %100.9, Ø32 %91.8).
+  Çakışma 0, betona sığmayan 0, plan 3.7 s, 54 Component tanımı. Düz kutu, tek kanallı, dar kiriş, cepli kiriş örnekleri de denendi.
+- Sil: 'Çizimden / Otomatik Donatıyı Sil'. TestRunner 0.48.0: 'MST | AR TESTİ: Otomatik Donatı (MODEL KOPYASINDA)'.
+
+v0.48.1 AR1 düzeltme
+- Eklentinin kendi (BIM) donatısı olan BK'da Çizimden / Otomatik Donatı çizilince eski donatı grubu silinir (çift donatı olmaz); önceki durum saklanır. "Sil" desteklenen BK'da eski donatıyı geri kurar, desteklenmeyenlerde pursantaja döner.
+- TestRunner 0.48.1: "Sil" kontrolü başarısız olursa nedenini yazar (grup / kaynak / kalan tanım).
+
+v0.49 RT1 + SP1 — donatı kuralları, donatı araçları, iş programı
+- RB5 Oval bükümler: çizimden ve otomatik donatıda büküm iç çapı etriyede 4Ø, Ø≤16'da 6Ø, Ø>16'da 7Ø (TS 500 / TS EN 1992-1-1); otomatik donatı tonajı açınım boyundan. Çizimden donatı tonajı tablodan (değişmez).
+- PP1 Parapet: BK katısında parapet yoksa paketin parapet payı tonajdan düşülür (BK-9: 76.935 → 76.067 t); parapet katıdaysa dahil.
+- LP1 Bindirme: varsayılan 50Ø (ayar), şaşırtmalı (komşu çubukta ekler 1.3 × bindirme kaydırılır). Otomatik donatı ve döşeme donatısında.
+- RS1 Donatı Ayarları (proje): pas payı BK / döşeme / prekast (50 / 75 mm), bindirme ×Ø, şaşırtma.
+- VZ1 Donatıyı Göster / Gizle: MST | DONATI tag'leri; yeni projede varsayılan gizli.
+- DM1 Donatı sayfasında çap çap metraj; hakediş ÖBF-004 tek poz.
+- BL1 + KS1 Bükme listesi (Excel + krokili HTML) ve 12 m stoktan kesim planı / fire.
+- KV1 Donatı kesiti (seçili BK, istenen konum, HTML/SVG).
+- RV1 Revizyon karşılaştırması: donatı değişince önceki saklanır (son 10), poz poz / çap çap fark.
+- CK1 Elemanlar arası donatı çakışması (isteğe bağlı kırmızı boya + temizle).
+- SH1 Sehpa: döşeme donatı BIM ve dolfen başlığı (Π, Ø14/100 cm varsayılan, ayarlanabilir).
+- ET1 İç içe etriye: otomatik donatıda (üstü düz BK) ve eklentinin BK donatısında kol sayısıyla (4 = dış + 1 iç, 6 = dış + 2 iç).
+- SP1 İş programı: modelden faaliyetler, varsayılan (kaynaklı) verimler, kaynak kısıtlı sıralama, takvim, Gantt, haftalık malzeme / ekip, aylık hakediş tahmini, 4D görünüm.
+- Otomatik donatıda çakışma giderme ≤ 9 cm.
+- TestRunner 0.49.0: Extensions → MST | v0.49 TESTLERİ → her özellik ayrı + GENEL TEST.
+
+v0.49.1 UP1
+- Eski Donatıyı Yeni Kurallarla Yeniden Çiz: v0.48 ile çizilen çizimden / otomatik donatı (şekil bilgisi yok) kayıtlı parametrelerle yeni kurallara taşınır (tek Geri Al). Bükme listesi / kesit eski donatıda bunu önerir.
+- TestRunner 0.49.1: UP1 testi; test BK'sının eski donatısı önce yeni kurallarla yeniden çizilir; RV1 geçmiş kontrolü düzeltildi.
+
+0.50 PJ1 — 22.10.2026 (Proje paftaları: Efes, Ege Gübre, Likit Kimya, İGSAŞ)
+- Kazık: A-çerçeve eğik çiftler (eğim, A/V, enine/boyuna, çakışma kontrolü); DXF paftasından kazık dispozisyonu
+  (daire, katmandaki çap, kazık no, açı yazısı, birim kendiliğinden, başlangıç + dönme); kazık filizi BK'ya göre.
+- BK: Vinç kirişi (VK) / boylama kirişi (BBK) — BK'lara dik, alın kalıbı yok, BK kalıbından temas düşülür, boyuna
+  donatı BK'ya ×Ø ankrajlı, ray tipi + klips metrajı. Menfez sac kutusu (beton / kalıp düşümü, sac kg, donatı kesilir +
+  takviye). Taban bölgesi (alçak taban). Kademeli döküm (BK / dolfen; metraj ve iş programında iki adım).
+- BK donatı paneli: yan yana dar etriye, çiroz, bant (2. kademe) üst donatısı + şapka etriye, pas payı eleman tipine
+  göre, dolfen yan yüz gönyeli, menfez takviyesi, uç dişi / taban bölgesinde alçak alt donatı (ana donatı artık normal
+  tabanda — dişli BK'larda donatı yeniden çizilince düzelir).
+- Prekast donatısı (PD / PK): BK'ya giriş boyu, enine U, taşan etriye şeritleri, kaldırma kancaları, kanalda sarma U
+  ve duvar şapkası; Component tanımı paylaşılır; boy değişince yeniden çizilir. İGSAŞ PD1/PD2 paftalarına %6 yakın.
+- Paftadan donatı metrajı (DXF): bükme krokilerinden poz tablosu; eleman metrajı paftadan ya da karşılaştırma.
+- Kaplama eğimi, sehpa metrajda ayrı satır, aksesuar ankraj donatısı (+ kedi yolu), malzeme sınıfları (donatı çeliği),
+  pas payı: dolfen / VK-BBK / kanal prekastı ayrı.
+- Düzeltme: otomatik donatı önizlemesi Ruby 2.5'te çalışmayan bir çağrı içeriyordu (tally).
+- Testler: her özellik ayrı + genel (TestRunner v0.50 menüsü; geçici elemanlar geri alınır). Ayrıca eklentinin
+  tamamı SketchUp benzetiminde yüklenip arayüz akışları uçtan uca denendi (45/45).
+
+0.50.1 AX1 — 22.10.2026 (DXF aksları)
+- Kazık Dispozisyonu — DXF artık paftadaki aks çizgilerini (katman adında aks / axis / grid; LINE + 2 noktalı LWPOLYLINE)
+  ve aks balonlarındaki adları (aks ismi / axis name) da okur. Ölçü / kot / isim katmanları aks sayılmaz.
+- Yeni alan "Aksları da al" (EVET / HAYIR). Paftada aks varsa varsayılan EVET, başlangıç AKS (ilk X / ilk Y aksı kesişimi),
+  Döndür AUTO (eğik çizilmiş pafta, akslar X / Y'ye paralel olacak şekilde döndürülür).
+- Aks ızgarası Aks Yöneticisi'ne kaydedilir (kazık formundaki yapı, yoksa aktif ANO; aktif Yapı / Bölge) ve ızgara görseli çizilir.
+  Mevcut ızgara varsa önizlemede uyarılır.
+- Her kazık en yakın X / Y aks kesişimine gerçek adıyla bağlanır (ör. 75/A) ve farkı (dx / dy) saklanır; Aks Yöneticisi'nde
+  aks taşıma (R7) bu kazıkları da taşır.
+- Kazık yerleşimi + aks ızgarası tek Geri Al adımı.
+- İGSAŞ 061 KYPL: 12 X aksı (75…64) + 12 Y aksı (A…L), 144 kazığın hepsi aks kesişiminde (fark 0.00 m).
+- Testler: TestRunner v0.50 menüsünde AX1 (yapay DXF: düz + 12° döndürülmüş; geçici, geri alınır).
+
+0.50.2 AX1.1 — 22.10.2026
+- Düzeltme: DXF'ten gelen aks ızgarası eski ANO / "ANA YAPI" anahtarına yazılıyordu; Aks Yöneticisi (Sistem / Yapı) onu göstermiyordu.
+  Artık ızgara Aks Yöneticisi'nde açık olan sistemin aktif yapısına (ör. ISKELE / ANO-01) yazılır ve kazıklar o yapıya
+  (sistem / yapı bağlantısıyla, yapının yerleşim konumunda) oluşturulur. Önizleme hedefi gösterir.
+
+0.50.3 BK2 — 23.10.2026 (İGSAŞ BK-2 çizimden donatı)
+- Yeni donatı paketi BK-2 (070 İGSİ-B-02-BKDT-002, T2–T3 anosu BK2): 34 poz, 1995 çubuk, 19 085.1 kg (pafta tablosu).
+  BK 30.00 × 2.00 × 1.45 m; uçlarda derin bölge (4 m), ortada taban +0.50; iki uçta menfez / PK cebi (v 1.39–3.01).
+- Çizimden Donatı: 2. kademe kuralı. Pakette "stage2_top" varsa BK üstünden (ve menfez cebi tabanından) yukarı, BK'nın plan
+  alanı içinde ve bu kotun altında kalan çubuk kabul edilir (üst Ø32, etriye kapakları, uzun etriyelerin üstü). Metraj BK'da.
+  BK-9 paketi (stage2 yok) eskisi gibi denetlenir.
+- Simetrik kiriş: iki yön eşit uyuyorsa (pakette "symmetric") yön belirsizliği engel sayılmaz.
+- Paket seçimi: ölçüsü tek pakete uyuyorsa sormadan seçilir; birden çoksa liste ölçüsü uyan önce gelecek şekilde sıralanır.
+- Test: TestRunner v0.50 → BK2 (geçici BK-2 katısında plan + 3B çizim, geri alınır; modeldeki BK-2 için yalnız rapor).
+
+0.51 DR5 — 23.10.2026 (Paftadan 3B donatı — otomatik)
+- Yeni: Proje Paftaları → "Paftadan 3B Donatı (otomatik)…". Seçili BK(lar) + BK donatı paftası (DXF) → eklenti paketi kendisi kurar:
+  donatı tablosu (poz, Ø, adet, aralık, L), büküm krokilerinin şekli, boy görünüşü (taban / üst profili, menfez), kesitler
+  (çubuk noktaları + poz okları, etriye çizgileri). Boyuna poz: kroki v aralığı + kesit (u, z); etiketsiz poz aynı sıradaki
+  bindirmeli pozdan ya da boy görünüşündeki okun z seviyesinden. Enine poz: kroki şekli kesit çizgileriyle eşleşir; boyca
+  dağılım o kesitin profiline eşit bölgelere, adet tablodan (bölge alt kümesi adede göre seçilir).
+- Yerleştirilemeyen ya da BK katısına sığmayan poz yalnız metrajda kalır (önizlemede gerekçesiyle). Tonaj her zaman pafta tablosundan.
+- Paket modele kaydedilir; aynı tipteki diğer BK'lar "Çizimden Donatı" ile (ölçüsü uyan paket önce) çizilir.
+- Paftada birden çok kiriş varsa (DT_R BK1…BK5) liste sorulur; pafta antedindeki küçük kopya / "…PAFTASINA BAKINIZ" notu atlanır.
+- Katman adları ipucu: rebar / demir, rebar section / demir_(kesit), oklar, cap beam / başlık_kirişi_(kesit); bozuk Türkçe harfler tolere edilir.
+- Denemeler (pafta → 3B poz, kg kapsamı): İGSAŞ BK-2 33/34 (%99.5, kullanıcı BK-002 katısında taşma 0), URHM BK1 13/15 (%98.7),
+  DT_R BK1 20/23 (%96), BK2 19/23 (%90), BK5 23/26 (%84), İGSAŞ BK1 39/49 (%84), DT_R BK3 14/24 (%77), BK4 23/39 (%62),
+  İGSAŞ BK3 (kanallı, L kesitli) 11/32 (%12). KTL (2ER) paftaları farklı yazı / blok sistemiyle: bu sürümde okunmaz.
+- Test: TestRunner v0.50 → DR5 (sentetik BK7 paftası: okuma, yerleşim, kendi kesitinde taşma 0, geçici BK'da 3B çizim; geri alınır).
+
+0.51.1 CB1 — 23.10.2026
+- Düzeltme: Component olarak tanıtılmış (dışarıdan alınmış) BK'da "Metraj özet hatası: undefined method `entities'" — BK kalıp alanı
+  Component'in tanımından okunur. Test: TestRunner v0.50 → CB1.
+
+0.51.2 TB1 — Araç çubukları
+  * Extensions menüsündeki araçlar 4 gruplu araç çubuğuna eklendi: Marine Structures (genel), MST Kazık, MST Donatı, MST Proje.
+  * 31 yeni renkli ikon (mavi=genel, turkuaz=kazık/aks, turuncu=donatı, mor=proje, yeşil=metraj/program).
+  * TestRunner menüsü tek alt menüye indirildi: "MST | TESTLER".
+  * Paftadan 3B donatı sonunda "donatı Tag'i görünür olmalı" notu.

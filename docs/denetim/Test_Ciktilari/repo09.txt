@@ -1,0 +1,3 @@
+C:/Users/yildi/sketchup-deniz-eklentisi/mst/tools/test/09-test.rb:4:in `index': no implicit conversion from nil to integer (TypeError)
+	from C:/Users/yildi/sketchup-deniz-eklentisi/mst/tools/test/09-test.rb:4:in `block in <main>'
+	from C:/Users/yildi/sketchup-deniz-eklentisi/mst/tools/test/09-test.rb:8:in `<main>'

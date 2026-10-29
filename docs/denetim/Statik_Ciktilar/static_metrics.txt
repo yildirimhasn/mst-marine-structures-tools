@@ -1,0 +1,56 @@
+== alias/alias_method
+boq_pro.rb:10:# Var olan fonksiyonlar alias ile korunur; eski modeller (eleman durumu "Onaylandı") aynen çalışır.
+boq_pro.rb:244: alias_method :boq_set_pile_modes_base, :boq_set_pile_modes unless method_defined?(:boq_set_pile_modes_base)
+boq_pro.rb:306:alias_method :pile_boq_expand_rows_base, :pile_boq_expand_rows unless method_defined?(:pile_boq_expand_rows_base)
+boq_pro.rb:314:alias_method :boq_rows_base, :boq_rows unless method_defined?(:boq_rows_base)
+boq_pro.rb:347:alias_method :boq_trace_entities_base, :boq_trace_entities unless method_defined?(:boq_trace_entities_base)
+boq_pro.rb:354:alias_method :progress_entity_quantity_base, :progress_entity_quantity unless method_defined?(:progress_entity_quantity_base)
+boq_pro.rb:364:alias_method :send_boq_base, :send_boq unless method_defined?(:send_boq_base)
+boq_pro.rb:591:alias_method :progress_payload_base, :progress_payload unless method_defined?(:progress_payload_base)
+boq_pro.rb:834:alias_method :revision_create_snapshot_base, :revision_create_snapshot unless method_defined?(:revision_create_snapshot_base)
+boq_pro.rb:859:alias_method :revision_payload_base, :revision_payload unless method_defined?(:revision_payload_base)
+mst_labels.rb:359: alias_method :mst_sync_pile_type_library_base_pe, :mst_sync_pile_type_library unless method_defined?(:mst_sync_pile_type_library_base_pe)
+mst_labels.rb:367: alias_method :mst_apply_axis_move_plans_base_vw, :mst_apply_axis_move_plans unless method_defined?(:mst_apply_axis_move_plans_base_vw)
+mst_labels.rb:375: alias_method :mst_apply_structure_move_plans_base_vw, :mst_apply_structure_move_plans unless method_defined?(:mst_apply_structure_move_plans_base_vw)
+== file_loaded guards
+main.rb:10233:unless file_loaded?(__FILE__)
+main.rb:10290: file_loaded(__FILE__)
+== observers
+dependency_rebuild.rb:184:      model.add_observer(observer)
+dependency_rebuild.rb:190:      Sketchup.add_observer(@dependency_app_observer)
+health_freshness.rb:22:    if Sketchup.respond_to?(:add_observer)&&Sketchup.respond_to?(:remove_observer)
+health_freshness.rb:23:     @app_attached=Sketchup.add_observer(@app_observer)!=false
+health_freshness.rb:31:    if model.respond_to?(:add_observer)&&model.respond_to?(:remove_observer)
+health_freshness.rb:32:     @model=model unless model.add_observer(@observer)==false
+health_freshness.rb:64:    model=@model;@model=nil;model.remove_observer(@observer) if model
+health_freshness.rb:71:    Sketchup.remove_observer(@app_observer) if @app_attached
+project_workspace.rb:191:    @workspace_model.selection.remove_observer(@workspace_selection_observer) if @workspace_selection_observer
+project_workspace.rb:192:    @workspace_model.remove_observer(@workspace_model_observer) if @workspace_model_observer
+project_workspace.rb:202:   model.selection.add_observer(@workspace_selection_observer)
+project_workspace.rb:203:   model.add_observer(@workspace_model_observer)
+== toolbars/menus counts
+main.rb:1
+main.rb:6
+== silent rescue counts (rescue nil / rescue;nil / rescue => e with no use)
+main.rb:86
+mst_rebar_tools.rb:17
+boq_pro.rb:15
+mst_v50_beams.rb:13
+mst_dwg_rebar.rb:12
+mst_pc_rebar.rb:8
+mst_labels.rb:8
+rockfill_live.rb:6
+mst_v50_misc.rb:6
+mst_schedule.rb:5
+mst_dx_rebar.rb:5
+pile_manufacturing.rb:4
+mst_v50_piles.rb:4
+mst_auto_rebar.rb:4
+health_freshness.rb:4
+== timers
+dependency_rebuild.rb:139:        UI.stop_timer(@timer) if @timer
+dependency_rebuild.rb:146:        @timer = UI.start_timer(0, false) do
+main.rb:9569:  UI.start_timer(0.15, false) do
+project_workspace.rb:177:   UI.stop_timer(@workspace_timer) if @workspace_timer
+project_workspace.rb:178:   @workspace_timer=UI.start_timer(0.08,false) do
+project_workspace.rb:188:   UI.stop_timer(@workspace_timer) if @workspace_timer

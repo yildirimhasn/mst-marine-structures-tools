@@ -1,0 +1,5 @@
+Bilgi: [1, nil, false, 2].filter_map{|x|x} = [1, 2]; map{|x|x}.compact = [1, false, 2]
+GEÇTİ  change_list 500 rastgele durumda eski=yeni
+GEÇTİ  change_list blok çıktısında false yok (yalnız Hash/nil)
+GEÇTİ  compare_reports 300 rastgele rapor çiftinde eski=yeni
+3 geçti, 0 kaldı

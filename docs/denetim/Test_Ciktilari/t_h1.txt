@@ -1,0 +1,19 @@
+GEÇTİ  20 kayıt sonrası adet: 20 (beklenen 20)
+GEÇTİ  20 kayıt adları Rev.01..Rev.20: ["Rev.01", "Rev.02", "Rev.03", "Rev.04", "Rev.05", "Rev.06", "Rev.07", "Rev.08", "Rev.09", "Rev.10", "Rev.11", "Rev.12", "Rev.13", "Rev.14", "Rev.15", "Rev.16", "Rev.17", "Rev.18", "Rev.19", "Rev.20"] (beklenen ["Rev.01", "Rev.02", "Rev.03", "Rev.04", "Rev.05", "Rev.06", "Rev.07", "Rev.08", "Rev.09", "Rev.10", "Rev.11", "Rev.12", "Rev.13", "Rev.14", "Rev.15", "Rev.16", "Rev.17", "Rev.18", "Rev.19", "Rev.20"])
+GEÇTİ  20. kayıtta keşif (boq) var: true (beklenen true)
+GÖZLEM 20 kayıt için set_attribute çağrısı (kayıt başına): 3.0
+GÖZLEM 21. kayıt sonrası adet: 20
+GÖZLEM ilk kayıt adı (Rev.01 silindi mi): "Rev.02"
+GÖZLEM yeni kaydın adı: "Rev.21"
+GÖZLEM yeni kayıtta boq anahtarı: false
+GÖZLEM last_revision: "Rev.21"
+GÖZLEM yinelenen ad sayısı: 0
+GÖZLEM 22. kayıt sonrası adlar (son 3): ["Rev.20", "Rev.21", "Rev.21"]
+GÖZLEM 22. kayıtta boq: false
+GÖZLEM ilk kayıt adı: "Rev.03"
+GÖZLEM yinelenen adlar: ["Rev.21"]
+KALDI  21. kayıt: Rev.01 korunur (geçmiş silinmez): false (beklenen true)
+KALDI  22. kayıt: ad tekil (Rev.22): "Rev.21" (beklenen "Rev.22")
+KALDI  22. kayıtta keşif (boq) eklenir: false (beklenen true)
+UI mesajları: []
+3 geçti, 3 kaldı

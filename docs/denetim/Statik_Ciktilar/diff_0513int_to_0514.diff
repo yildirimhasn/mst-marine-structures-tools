@@ -1,0 +1,73 @@
+--- cmp/MST_v0.51.3_TB1_Integrated_TEST/marine_structures_tools/headbeam_editor.rb	2026-10-28 23:01:04.000000000 +0300
++++ pkg/marine_structures_tools/headbeam_editor.rb	2026-10-28 23:32:48.000000000 +0300
+@@ -110,6 +110,9 @@
+      pairs.first
+     end
+    end
++   def change_list(h,values)
++    values.map{|key,value|old=h[key];same=key=='concrete_class' ? value==old.to_s : (value-old.to_f).abs<=1e-9;{label:ControlledEditor::FIELDS['head_beam'][key]||'Beton sınıfı',before:old,after:value} unless same}.compact
++   end
+    def plan(model,request,entry)
+     e=entry[:entity];raw=request['values'];h=api.mst_attr_hash(e)
+     raise 'Başlık kirişi alanları eksik veya desteklenmiyor.' unless raw.is_a?(Hash)&&raw.keys.sort==%w[concrete_class height_m length_m width_m].sort
+@@ -118,7 +121,7 @@
+     raise 'Geçerli beton sınıfı seçin.' unless ControlledEditor::CLASSES.include?(values['concrete_class'])
+     next_data=normalized(h.merge(values));flags_now=flags(e)
+     changed=values.any?{|key,value|key!='concrete_class'&&(value-h[key].to_f).abs>1e-9}
+-    changes=values.filter_map{|key,value|old=h[key];same=key=='concrete_class' ? value==old.to_s : (value-old.to_f).abs<=1e-9;{label:ControlledEditor::FIELDS['head_beam'][key]||'Beton sınıfı',before:old,after:value} unless same}
++    changes=change_list(h,values)
+     raise 'Değişiklik bulunamadı.' if changes.empty?
+     deps=api.mst_dependency_tree(e)
+     if changed
+--- cmp/MST_v0.51.3_TB1_Integrated_TEST/marine_structures_tools/health_history.rb	2026-10-28 22:56:12.000000000 +0300
++++ pkg/marine_structures_tools/health_history.rb	2026-10-28 23:32:48.000000000 +0300
+@@ -125,10 +125,10 @@
+      old_keys=mate[:checks].map{|c|finding_key(c)};new_keys=r[:checks].map{|c|finding_key(c)}
+      added=bag_difference(new_keys,old_keys).map{|key|r[:checks].find{|c|finding_key(c)==key}}
+      resolved=bag_difference(old_keys,new_keys).map{|key|mate[:checks].find{|c|finding_key(c)==key}}
+-     quantities=(mate[:quantities].keys|r[:quantities].keys).filter_map do |key|
++     quantities=(mate[:quantities].keys|r[:quantities].keys).map do |key|
+       a=mate[:quantities][key];b=r[:quantities][key]
+       {key:key,before:a,after:b} if quantity_changed?(a,b)
+-     end
++     end.compact
+      fields=%i[key uid id type state geometry].select{|key|mate[key]!=r[key]}
+      next if fields.empty?&&added.empty?&&resolved.empty?&&quantities.empty?
+      records<<{kind:'changed',key:r[:key],id:r[:id],label:r[:label],message:fields.include?(:key) ? 'Yerleşim anahtarı değişti; aynı tekil UID ile eşleştirildi.' : 'Kontrol sonucu veya miktar değişti.',fields:fields,new_findings:added,resolved_findings:resolved,quantities:quantities}
+--- cmp/MST_v0.51.3_TB1_Integrated_TEST/marine_structures_tools/main.rb	2026-10-28 23:01:04.000000000 +0300
++++ pkg/marine_structures_tools/main.rb	2026-10-28 23:32:48.000000000 +0300
+@@ -24,7 +24,7 @@
+ DICT='MAG_MarineStructures'.freeze
+ RHO=7850.0
+ SEG=48
+-MST_BUILD = 'v0.51.3 TB1 INTEGRATED'
++MST_BUILD = 'v0.51.4 TB1 RUBY25'
+ # Features present in this build (test runners check these, not the build name).
+ MST_FEATURES=%w[BK6 KN1 KN1.1 KN1.2 KN2 BKR3 RB1 RB1.1 RB2 DS1 DS1.1 DS1.2 DS1.3 DS1.4 DS1.5 DS1.6 DS3 DS2 UI1 UI2 UI3 UI4 UI5 UI6 UI7 UI8 UI9 UI9.1 JG1 RF2X RB3 BQ1 BK1 GD1 LB1 LB2 PE1 VW2 BR4 DR1 DR2 DR3 AR1 RB5 PP1 LP1 RS1 VZ1 DM1 BL1 KS1 KV1 RV1 CK1 SH1 ET1 SP1 UP1 DX0 AF1 KD1 KF1 VK1 KD2 TB1 MF1 ET2 CZ1 BN1 DG1 PC2 DX1 TP1 SH2 AN1 MS1 RS2 AX1 AX1.1 BK2 DR5 CB1].freeze
+ def mm(v);v.to_f.mm;end
+--- cmp/MST_v0.51.3_TB1_Integrated_TEST/marine_structures_tools/qto_workspace.rb	2026-10-28 22:57:56.000000000 +0300
++++ pkg/marine_structures_tools/qto_workspace.rb	2026-10-28 23:32:48.000000000 +0300
+@@ -1,7 +1,7 @@
+ # frozen_string_literal: true
+ module MAG
+   module MarineStructuresTools
+-    VERSION = '0.51.3'.freeze unless const_defined?(:VERSION)
++    VERSION = '0.51.4'.freeze unless const_defined?(:VERSION)
+ 
+     def normalize_pile_inputs!(data)
+       numeric = %w[diameter_mm thickness_mm length_m top_elevation_m seabed_elevation_m driving_length_m
+--- cmp/MST_v0.51.3_TB1_Integrated_TEST/marine_structures_tools/quantity_service.rb	2026-10-28 23:04:46.000000000 +0300
++++ pkg/marine_structures_tools/quantity_service.rb	2026-10-28 23:32:48.000000000 +0300
+@@ -72,7 +72,11 @@
+       raise InvalidQuantity,'Kazik kesiti veya boyu gecersiz.' unless diameter>2*thickness && thickness>0 && length[:value]>0
+       {value:number(api.pile_weight(diameter,thickness,length[:value]),'canonical_pipe_kg')/1000.0,state:'calculated',method:'canonical_pipe_mass'}
+      else
+-      t=='steel_pipe_pile' ? attribute(e,%w[weight_kg theoretical_weight_kg]).then{|r|r.merge(value:r[:value]/1000.0)} : rebar(e)
++      if t=='steel_pipe_pile'
++       result=attribute(e,%w[weight_kg theoretical_weight_kg]);result.merge(value:result[:value]/1000.0)
++      else
++       rebar(e)
++      end
+      end
+     when :formwork_m2
+      t=='head_beam' ? {value:number(api.head_beam_net_formwork_area(e),'formwork_m2'),state:'calculated',method:'net_faces'} : attribute(e,['formwork_area_m2'])

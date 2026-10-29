@@ -1,0 +1,8 @@
+GEÇTİ  kot girilince otomatik çakım: "20.50" (beklenen "20.50")
+GEÇTİ  kotlu: uyarı yok: false (beklenen false)
+KALDI  kot silinince eski otomatik değer temizlenir: "20.50" (beklenen "0")
+KALDI  kotsuz ve 0: uyarı çıkar: false (beklenen true)
+GEÇTİ  kotsuz: alan elle girilebilir: false (beklenen false)
+GEÇTİ  elle girilen 18 m korunur: "18" (beklenen "18")
+GEÇTİ  elle girilende uyarı yok: false (beklenen false)
+5 geçti, 2 kaldı
