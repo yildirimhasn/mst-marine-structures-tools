@@ -33,14 +33,14 @@ module MAG
    end
    def rebar(e)
     t=type(e)
-    if t=='steel_pipe_pile' && api.respond_to?(:mst_pile_rebar_active) && api.mst_pile_rebar_active(e)
+    if t=='steel_pipe_pile' && api.respond_to?(:mst_pile_rebar_effective?) && api.mst_pile_rebar_effective?(e)   # v0.51.5 K59
      result=attribute(e,['pile_cage_rebar_kg']);return result.merge(value:result[:value]/1000.0,method:'bim:pile_cage_rebar_kg')
     end
     if api.respond_to?(:mst_element_rebar)
      if %w[bim_detail drawing_detail auto_detail].include?(e.get_attribute(DICT,'rebar_mode','').to_s)
       result=attribute(e,['rebar_t']);return result.merge(method:'bim:rebar_t')
      end
-     if %w[flat_precast channel_precast].include?(t) && e.get_attribute(DICT,'rebar_mode','').to_s.empty? && api.respond_to?(:mst_pc_def_rebar)
+     if %w[flat_precast channel_precast].include?(t) && e.get_attribute(DICT,'rebar_mode','').to_s.empty? && e.get_attribute(DICT,'pc_rebar_error','').to_s.empty? && api.respond_to?(:mst_pc_def_rebar)   # v0.51.5 K60
       data=api.mst_pc_def_rebar(e)
       return {value:number(data.fetch('rebar_t'),'definition_rebar_t'),state:'calculated',method:'bim:component_definition'} if data
      end

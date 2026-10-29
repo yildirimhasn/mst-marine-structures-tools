@@ -385,14 +385,32 @@ def mst_dr_clear!(e)
  %w[rebar_mode rebar_kg rebar_bar_count rebar_kind rebar_schedule_json rebar_drawing rebar_drawing_batches rebar_drawing_orient rebar_source rebar_auto_json].each{|k|e.delete_attribute(DICT,k)}
  e.set_attribute(DICT,'rebar_t',qto3_quantity(e,:concrete_m3)*rebar_rate('head_beam')/1000.0)
  mst_dr_purge_defs!(e.model)
- prev=(JSON.parse(e.get_attribute(DICT,'rebar_prev_json','{}').to_s) rescue {})
- e.delete_attribute(DICT,'rebar_prev_json')
- if prev['mode']=='bim_detail' && !prev['hb'].to_s.empty? && respond_to?(:mst_hb_rebar_build!) && !mst_hb_rebar_unsupported_reason(e)
-  begin
-   e.set_attribute(DICT,'hb_rebar_json',prev['hb']);mst_hb_rebar_build!(e,JSON.parse(prev['hb']))
-  rescue
-   mst_hb_rebar_clear!(e) rescue nil
-  end
+ # v0.51.5 K63: önceki BIM donatısı kaydı (rebar_prev_json) yalnız geri kurma başarılıysa silinir;
+ # kurulamazsa kayıt korunur, donatı pursantajda kalır, neden rebar_restore_error'a yazılır (Model Kontrolü)
+ raw_prev=e.get_attribute(DICT,'rebar_prev_json','').to_s
+ prev=(raw_prev.strip.empty? ? {} : (JSON.parse(raw_prev) rescue nil))
+ unless prev.is_a?(Hash)
+  e.set_attribute(DICT,'rebar_restore_error','Önceki BIM donatısı kaydı (rebar_prev_json) okunamadı; kayıt korundu.')
+  return true
+ end
+ unless prev['mode']=='bim_detail' && !prev['hb'].to_s.empty?
+  e.delete_attribute(DICT,'rebar_prev_json')
+  return true
+ end
+ why=if e.is_a?(Sketchup::ComponentInstance) then 'Component BK (tanım paylaşılabilir); donatı bu yoldan kurulmaz'
+     elsif !respond_to?(:mst_hb_rebar_build!) then 'BIM donatı kurucusu yok'
+     else mst_hb_rebar_unsupported_reason(e)
+     end
+ if why
+  e.set_attribute(DICT,'rebar_restore_error',"Önceki BIM donatısı geri yüklenemedi: #{why}")
+  return true
+ end
+ begin
+  e.set_attribute(DICT,'hb_rebar_json',prev['hb']);mst_hb_rebar_build!(e,JSON.parse(prev['hb']))
+  e.delete_attribute(DICT,'rebar_prev_json');e.delete_attribute(DICT,'rebar_restore_error')
+ rescue => ex
+  mst_hb_rebar_clear!(e) rescue nil
+  e.set_attribute(DICT,'rebar_restore_error',"Önceki BIM donatısı geri yüklenemedi: #{ex.message}")
  end
  true
 end
@@ -554,8 +572,12 @@ def mst_dr_remove_ui
  if sel.empty?
   all=[];collect_elements(model.entities,all);sel=all.select{|x|modes.include?(x.get_attribute(DICT,'rebar_mode','').to_s)}
  end
- return UI.messagebox('Çizimden / otomatik donatısı olan BK yok.') if sel.empty?
- return 0 unless UI.messagebox("#{sel.length} BK'nın çizimden donatısı silinsin mi? Donatı pursantaja döner. (tek Geri Al)\n#{sel.first(12).map{|x|element_visible_id(x)}.join(', ')}",MB_YESNO)==IDYES
+ # v0.51.5 K57: yalnız BK'nın çizimden / otomatik donatısı; paftadan metraj (PAFTA) ve prekast donatısı burada silinmez
+ cand=sel.length
+ sel=sel.select{|x|x.get_attribute(DICT,'element_type','').to_s=='head_beam' && x.get_attribute(DICT,'rebar_kind','').to_s!='PAFTA'}
+ note=cand>sel.length ? "\n\nPaftadan metrajı olan #{cand-sel.length} BK ve prekast donatısı bu işlemle silinmez (Paftadan Donatı / Prekast Donatısı → SİL)." : ''
+ return UI.messagebox("Çizimden / otomatik donatısı olan BK yok.#{note}") if sel.empty?
+ return 0 unless UI.messagebox("#{sel.length} BK'nın çizimden donatısı silinsin mi? Donatı pursantaja döner. (tek Geri Al)\n#{sel.first(12).map{|x|element_visible_id(x)}.join(', ')}#{note}",MB_YESNO)==IDYES
  model.start_operation('MST Çizimden Donatıyı Sil',true)
  begin
   sel.each{|x|mst_dr_clear!(x)}

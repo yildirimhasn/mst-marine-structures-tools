@@ -477,6 +477,9 @@ end
 def mst_rt_history_push!(e)
  sj=e.get_attribute(DICT,'rebar_schedule_json','').to_s
  return false if sj.empty?
+ # v0.51.5 R-4: bozuk geçmiş kaydı boş sayılıp üzerine yazılmaz (geçmiş yalnız ileri yazılır)
+ raw=e.get_attribute(DICT,'rebar_history_json','').to_s
+ raise "#{element_visible_id(e)}: donatı revizyon geçmişi (rebar_history_json) okunamadı; üzerine yazılmadı, işlem yapılmadı." unless raw.strip.empty? || (JSON.parse(raw) rescue nil).is_a?(Array)
  h=mst_rt_history(e)
  ent={'at'=>Time.now.strftime('%Y-%m-%d %H:%M'),'mode'=>e.get_attribute(DICT,'rebar_mode','').to_s,'source'=>(e.get_attribute(DICT,'rebar_source','').to_s.empty? ? e.get_attribute(DICT,'rebar_mode','').to_s : e.get_attribute(DICT,'rebar_source','').to_s),
       'kg'=>e.get_attribute(DICT,'rebar_kg',e.get_attribute(DICT,'rebar_t',0).to_f*1000.0).to_f,'sched'=>sj}

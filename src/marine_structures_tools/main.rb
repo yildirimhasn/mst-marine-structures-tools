@@ -1430,7 +1430,7 @@ def create_head_beam_for_piles(model,piles,data,id)
 
  pile_diameters=piles.map{|pi|pi[0].get_attribute(DICT,'diameter_mm',0).to_f}
  raise "Seçilen kazıklardan en az birinde çap metadata'sı bulunamadı." if pile_diameters.any?{|d|d<=0}
- pile_opening_area=pile_diameters.sum{|d_mm|Math::PI*(d_mm/1000.0)**2/4.0}
+ pile_opening_area=piles.sum{|pi|mst_pile_opening_m2(pi[0].get_attribute(DICT,'diameter_mm',0).to_f,mst_pile_opening_ratio(pi[0]))}   # v0.51.5: eğik kazıkta elips
  diameter_counts=pile_diameters.group_by{|d|d.round(3)}.transform_values(&:length)
  diameter_breakdown=diameter_counts.sort.map{|d,c|"#{c} x Ø#{format('%.1f',d)}"}.join(' + ')
  pile_ids=piles.map{|pi|pi[0].get_attribute(DICT,'pile_id','').to_s}.reject(&:empty?).join(', ')
@@ -1496,7 +1496,7 @@ def create_multi_axis_head_beam_for_piles(model,piles,data,id)
  vol=xlen.to_m*ylen.to_m*hei.to_m
  pile_diameters=piles.map{|pi|pi[0].get_attribute(DICT,'diameter_mm',0).to_f}
  raise "Seçilen kazıklardan en az birinde çap metadata'sı bulunamadı." if pile_diameters.any?{|d|d<=0}
- pile_opening_area=pile_diameters.sum{|d_mm|Math::PI*(d_mm/1000.0)**2/4.0}
+ pile_opening_area=piles.sum{|pi|mst_pile_opening_m2(pi[0].get_attribute(DICT,'diameter_mm',0).to_f,mst_pile_opening_ratio(pi[0]))}   # v0.51.5: eğik kazıkta elips
  diameter_counts=pile_diameters.group_by{|d|d.round(3)}.transform_values(&:length)
  diameter_breakdown=diameter_counts.sort.map{|d,c|"#{c} x Ø#{format('%.1f',d)}"}.join(' + ')
  pile_ids=piles.map{|pi|pi[0].get_attribute(DICT,'pile_id','').to_s}.reject(&:empty?).join(', ')
@@ -2448,8 +2448,19 @@ end
 
 def head_beam_pile_opening_area(group)
  stored=group.get_attribute(DICT,'pile_opening_area_m2',nil)
- return stored.to_f unless stored.nil?
- 0.0
+ return 0.0 if stored.nil?
+ # v0.51.5 08-R6: açıklık alt yüzdedir; alt yüzlerin (BOTTOM) hiçbiri kalıpta değilse brütte yoktur, düşülmez.
+ # Bir kısmı kalıptaysa eski kural (tamamı düşülür) — açıklığın hangi yüzde olduğu ayrıca belirlenmez.
+ bot=mst_hb_ents(group).grep(Sketchup::Face).select{|f|f.get_attribute(DICT,'formwork_type','').to_s=='BOTTOM'}
+ return 0.0 if !bot.empty? && bot.none?{|f|f.get_attribute(DICT,'formwork',false)}
+ stored.to_f
+end
+# v0.51.5: eğik kazığın yatay düzlemdeki açıklığı elips: π/4·d·d/cosθ (cosθ = 1/√(1+r²)); düşey kazıkta daire
+def mst_pile_opening_m2(d_mm,r=0.0)
+ Math::PI*(d_mm.to_f/1000.0)**2/4.0*Math.sqrt(1.0+r.to_f**2)
+end
+def mst_pile_opening_ratio(p)
+ p.get_attribute(DICT,'orientation_mode','').to_s.upcase=='BATTERED' ? pile_batter_ratio(p.get_attribute(DICT,'batter_ratio',0)) : 0.0
 end
 def head_beam_gross_formwork_area(group)
  head_beam_formwork_area(group)
@@ -2505,13 +2516,25 @@ def mst_bk_pile_embed(b)
  bot=bot.to_f
  top=b.get_attribute(DICT,'top_elevation_m',nil);top=(top.nil? || top.to_s.strip.empty?) ? bot+b.get_attribute(DICT,'height_m',0).to_f : top.to_f
  items=[]
+ # v0.51.5 K50 (ADR-0515 §5): gömülme kazık eksenindeki yerel taban kotundan (diş / taban bölgesi derinliği dahil).
+ # Kazık konumu: kazık grubunun orijini (kazık başı merkezi) BK yerel çerçevesinde; x = BK başından boy (m).
+ # Kazık BK ile aynı kapta değilse, BK Component ya da çok akslı (kutu) ise derinlik 0 (eski kural).
+ zh=nil;zlen=0.0
+ if b.is_a?(Sketchup::Group) && b.get_attribute(DICT,'head_beam_mode','').to_s!='multi_axis' && respond_to?(:mst_hb_bottom_depth)
+  zh=mst_attr_hash(b);zlen=zh['length_m'].to_f
+ end
  mst_bk_connected_piles(b).each do |p|
   pt=p.get_attribute(DICT,'top_elevation_m',nil);next if pt.nil? || pt.to_s.strip.empty?
-  emb=[pt.to_f,top].min-bot;next if emb<=1e-6
+  dep=0.0;ax=nil
+  if zh && zlen>0 && p.parent==b.parent
+   ax=p.transformation.origin.transform(b.transformation.inverse).x.to_m
+   dep=mst_hb_bottom_depth(zh,zlen,ax)
+  end
+  emb=[pt.to_f,top].min-(bot-dep);next if emb<=1e-6
   d=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0;next if d<=0
   r=p.get_attribute(DICT,'orientation_mode','').to_s.upcase=='BATTERED' ? pile_batter_ratio(p.get_attribute(DICT,'batter_ratio',0)) : 0.0
   v=Math::PI*d*d/4.0*emb*Math.sqrt(1.0+r*r)
-  items << {pile_id:p.get_attribute(DICT,'pile_id','').to_s,pid:p.persistent_id,embed_m:emb,diameter_mm:d*1000.0,batter:r,volume_m3:v}
+  items << {pile_id:p.get_attribute(DICT,'pile_id','').to_s,pid:p.persistent_id,embed_m:emb,diameter_mm:d*1000.0,batter:r,volume_m3:v,bottom_depth_m:dep,axis_a_m:ax}
  end
  {volume_m3:items.sum{|x|x[:volume_m3]},items:items}
 rescue
@@ -2783,6 +2806,28 @@ end
 # pursantajla (Ayarlar → Donatı Pursantajları, Başlık Kirişi) hesaplanır.
 def mst_hb_ents(hb)
  hb.is_a?(Sketchup::ComponentInstance) ? hb.definition.entities : hb.entities
+end
+# v0.51.5 K09 (ADR-0515 §2): çok örnekli Component'te örnek bazlı değişiklikten önce sorulur; yazmaz.
+# => :not_shared (Group / tek örnek) | :unique (yalnız bu parça ayrılacak) | :cancel
+def mst_shared_def_prompt(e,islem)
+ return :not_shared unless e.is_a?(Sketchup::ComponentInstance)
+ n=e.definition.count_instances
+ return :not_shared unless n>1
+ msg="#{element_visible_id(e)}: bu eleman Component; tanımı #{n} yerde kullanılıyor. #{islem} yalnız bu parçaya uygulanacaksa parça ayrılır (Make Unique), diğer #{n-1} parça değişmez.\n\nEvet: yalnız bu parçayı ayır ve devam et\nHayır: iptal"
+ UI.messagebox(msg,MB_YESNO)==IDYES ? :unique : :cancel
+end
+# Parçayı ayırır, tanım verisini korur (çağıranın işlemi içinde). Örnek öznitelikleri ve element_uid örnekte kalır.
+# Paylaşılan-tanım anahtarları (mst_def_kind/key/params) yeni tanıma yazılmaz: ayrılan tanım ortak tanım olarak bulunmaz.
+def mst_make_unique_keep_data!(e)
+ old=e.definition
+ keep={};(d=old.attribute_dictionary(DICT,false)) && d.each_pair{|k,v|keep[k.to_s]=v}
+ e.make_unique
+ nd=e.definition
+ return e if nd==old
+ keep.each{|k,v|nd.set_attribute(DICT,k,v) if nd.get_attribute(DICT,k,nil).nil?}
+ %w[mst_def_kind mst_def_key mst_def_params_json].each{|k|nd.delete_attribute(DICT,k)}
+ nd.set_attribute(DICT,'mst_def_unique_of',keep['mst_def_key'].to_s)
+ e
 end
 def mst_hb_rebar_unsupported_reason(hb)
  return 'eklenti dışında çizilmiş, "Mevcut Elemanı Tanıt" ile tanıtılmış eleman' if hb.get_attribute(DICT,'registered_external',false)==true || hb.get_attribute(DICT,'registered_external','').to_s=='true'
@@ -3379,7 +3424,7 @@ def mst_element_rebar(e)
  if MST_REBAR_BIM_TYPES.include?(typ) && %w[bim_detail drawing_detail auto_detail].include?(e.get_attribute(DICT,'rebar_mode','').to_s)   # v0.47.8 DR1 çizimden (tablo) / v0.48 AR1 otomatik (çizilen)
   return {'kg'=>e.get_attribute(DICT,'rebar_t',0).to_f*1000.0,'source'=>'BIM','rate'=>nil}
  end
- if %w[flat_precast channel_precast].include?(typ) && e.get_attribute(DICT,'rebar_mode','').to_s.empty? && respond_to?(:mst_pc_def_rebar) && (h=mst_pc_def_rebar(e))   # v0.50 PC2: tanımı donatılı Component
+ if %w[flat_precast channel_precast].include?(typ) && e.get_attribute(DICT,'rebar_mode','').to_s.empty? && e.get_attribute(DICT,'pc_rebar_error','').to_s.empty? && respond_to?(:mst_pc_def_rebar) && (h=mst_pc_def_rebar(e))   # v0.50 PC2: tanımı donatılı Component; v0.51.5 K60: çizim hatasında tanım kaydı okunmaz
   return {'kg'=>h['rebar_t'].to_f*1000.0,'source'=>'BIM','rate'=>nil}
  end
  key=MST_REBAR_RATE_KEYS[typ]
@@ -3419,7 +3464,7 @@ def mst_boq_rebar_breakdown(all,pile_infill=nil,topping_vol=nil)
  rows=[]
  if piles.any?{|p|mst_pile_rebar_active(p)}
   kg=piles.sum{|p|mst_pile_rebar_t(p)}*1000.0
-  rows << {key:'pile',name:'Kazık içi',count:piles.length,kg:kg,label:(piles.all?{|p|mst_pile_rebar_active(p)} ? 'BIM' : 'BIM + %')}
+  rows << {key:'pile',name:'Kazık içi',count:piles.length,kg:kg,label:(piles.all?{|p|mst_pile_rebar_effective?(p)} ? 'BIM' : 'BIM + %')}
  else
   rows << {key:'pile',name:'Kazık içi',count:[by.('pile_infill_concrete').length,piles.length].max,kg:pile_infill*rebar_rate('pile'),label:"% #{format('%.0f',rebar_rate('pile'))}"}
  end
@@ -3447,6 +3492,7 @@ def boq_set_prices(payload)
     model.set_attribute(DICT,"boq_price_#{code}",val.to_f)
   end
   (data['rebar_rates']||{}).each{|key,val| model.set_attribute(DICT,"rebar_rate_#{key}",val.to_f)}
+  pile_boq_codes_persist!(model)   # v0.51.5 K35: ayrı poz fiyatı kod-NN'ye bağlı; NN kalıcı
   commit_with_dependencies(model)
   send_boq(@d) if @d && @d.visible?
 rescue=>e
@@ -3559,8 +3605,54 @@ def pile_boq_group_quantities(key)
   when 'PILE_INFILL' then ps.sum{|p|pile_bim_qto_item(p)[:concrete_m3].to_f}
   end
   label=key=='PILE_INFILL' ? group.to_s : "Ø#{format('%.1f',group[0])} / #{format('%.1f',group[1])} mm"
-  [label,qty.to_f,ps]
+  [label,qty.to_f,ps,group]
  end.compact.select{|label,qty,ps|qty>0.00000001}
+end
+
+# v0.51.5 K35 (ADR-0515 §4, karar B): ayrı poz numarası (NN) kesit grubuna kalıcı bağlanır; anahtar biçimi (kod-NN) değişmez.
+# Model DICT pile_boq_group_codes_json = {kaynak:{grup_anahtarı:NN}}; kayıt yoksa son hakediş dönemindeki "(etiket)" ↔ NN,
+# kalanlar bugünkü sırayla en büyük NN'den sonra. Silinen numara yeniden kullanılmaz. Okuma yazmaz.
+PILE_BOQ_CODES_KEY='pile_boq_group_codes_json'.freeze
+def pile_boq_group_key(key,group)
+ key=='PILE_INFILL' ? group.to_s : format('d=%.3f|t=%.3f',group[0].to_f,group[1].to_f)
+end
+def pile_boq_codes_stored(model=Sketchup.active_model)
+ h=(JSON.parse(model.get_attribute(DICT,PILE_BOQ_CODES_KEY,'{}').to_s) rescue nil)
+ h.is_a?(Hash) ? h : {}
+end
+def pile_boq_codes_for(key,groups,stored=pile_boq_codes_stored)
+ map={};reserved=[0]
+ if stored[key].is_a?(Hash)
+  stored[key].each{|gk,nn|map[gk.to_s]=nn.to_i if nn.to_i>0}
+ else
+  last=(respond_to?(:prog2_last_period) ? prog2_last_period : nil) rescue nil
+  by_label=groups.group_by{|g|g[0].to_s}
+  Array(last && last['rows']).each do |lr|
+   k=(lr['key'] || '').to_s;next unless k.start_with?("#{key}@")
+   nn=k[/-(\d+)\z/,1].to_i;next unless nn>0
+   reserved << nn
+   lab=lr['name'].to_s[/\(([^()]*)\)\s*\z/,1];gs=lab && by_label[lab]
+   next unless gs && gs.length==1   # etiket iki gruba uyuyorsa tohumlanmaz
+   gk=pile_boq_group_key(key,gs[0][3])
+   map[gk]=nn unless map.key?(gk) || map.value?(nn)
+  end
+ end
+ groups.each{|g|gk=pile_boq_group_key(key,g[3]);map[gk]||=(map.values+reserved).max+1}
+ map
+end
+# Kalıcı yazım yalnız açık kullanıcı işlemlerinin içinde (çağıranın işlemi); değişiklik yoksa yazmaz.
+def pile_boq_codes_persist!(model=Sketchup.active_model)
+ mst_json_attr_guard!(model,PILE_BOQ_CODES_KEY,Hash,'Kazık ayrı poz numaraları')
+ stored=pile_boq_codes_stored(model)
+ out=JSON.parse(JSON.generate(stored))
+ PILE_BOQ_GROUP_KEYS.each do |key|
+  next unless pile_boq_mode(key)=='separate'
+  groups=pile_boq_group_quantities(key)
+  out[key]=pile_boq_codes_for(key,groups,stored) unless groups.empty?
+ end
+ return false if out==stored
+ model.set_attribute(DICT,PILE_BOQ_CODES_KEY,JSON.generate(out))
+ true
 end
 
 def pile_boq_expand_rows(rows)
@@ -3580,9 +3672,10 @@ def pile_boq_expand_rows(rows)
    next [rr]
   end
   # Use the authoritative grouped source for both row amounts and quantity reconciliation.
-  groups.each_with_index.map do |(label,qty,ps),idx|
+  codes=pile_boq_codes_for(key,groups)   # v0.51.5 K35: NN kesit grubuna bağlı (sıra numarası değil)
+  groups.map do |label,qty,ps,grp|
    rr=row.dup
-   rr[:code]="#{row[:code]}-#{format('%02d',idx+1)}"
+   rr[:code]="#{row[:code]}-#{format('%02d',codes[pile_boq_group_key(key,grp)])}"
    rr[:name]="#{row[:name]} (#{label})"
    rr[:quantity]=qty
    rr[:group_label]=label
@@ -3607,6 +3700,7 @@ def boq_set_pile_modes(payload)
   next unless PILE_BOQ_GROUP_KEYS.include?(key.to_s) && %w[combined separate].include?(mode.to_s)
   model.set_attribute(DICT,"pile_boq_mode_#{key}",mode.to_s)
  end
+ pile_boq_codes_persist!(model)   # v0.51.5 K35
  model.commit_operation
  send_boq(@d) if @d && @d.visible?
  @d.execute_script("pileBoqSaved(#{JSON.generate(Hash[PILE_BOQ_GROUP_KEYS.map{|k|[k,pile_boq_mode(k)]}])});") if @d && @d.visible?
@@ -3813,6 +3907,10 @@ def send_boq(dialog=@d)
    end
   end
   data={rows:rows,total:rows.sum{|r|r[:total].to_f},missing_prices:rows.count{|r|r[:total].nil?},currency:(respond_to?(:boq2_currency) ? boq2_currency : 'USD'),rebar_rates:Hash[REBAR_DEFAULTS.keys.map{|k| [k,rebar_rate(k)]}],fore_rebar_rate:bored_pile_boq_rebar_rate,project:(qto3_snapshot[:scopes][:projects].first || ''),pile_boq_modes:Hash[PILE_BOQ_GROUP_KEYS.map{|k|[k,pile_boq_mode(k)]}],rebar_sources:(mst_rebar_source_summary rescue [])}
+  # v0.51.5 K33/K39/K40: bilgi satırları toplam ve eksik fiyat sayısı hesaplandıktan SONRA eklenir (tutara girmez)
+  info=mst_boq_info_rows
+  data[:info_rows]=info
+  data[:rows]=rows+info
   dialog.execute_script("setBOQ(#{JSON.generate(data)});") if dialog
 rescue=>e
   UI.messagebox("BOQ oluşturma hatası: #{e.message}")
@@ -7141,7 +7239,8 @@ def mst_bk_follow_plan(specs,model=Sketchup.active_model)
     pl['warnings'] << "#{pl['id']}: bağlı kazık listesi (#{ids.length}) modeldeki kazıklarla (#{piles.length}) eşleşmiyor; kalıp kazık boşluğu güncellenmedi."
    else
     d_after=piles.map{|p|s=by_pile[p];s ? s['after']['d'].to_f : p.get_attribute(DICT,'diameter_mm',0).to_f}
-    open_new=d_after.sum{|dmm|Math::PI*(dmm/1000.0)**2/4.0}
+    r_after=piles.map{|p|s=by_pile[p];s ? (s['after']['mode'].to_s.upcase=='BATTERED' ? s['after']['r'].to_f.abs : 0.0) : mst_pile_opening_ratio(p)}
+    open_new=d_after.each_with_index.sum{|dmm,i|mst_pile_opening_m2(dmm,r_after[i])}   # v0.51.5: eğik kazıkta elips
     open_old=b.get_attribute(DICT,'pile_opening_area_m2',0).to_f
     gross=b.get_attribute(DICT,'formwork_gross_area_m2',b.get_attribute(DICT,'formwork_area_m2',0)).to_f
     pl['opening']=[open_old,open_new];pl['net_new']=[gross-open_new,0.0].max
@@ -7962,6 +8061,89 @@ def mst_audit_bk_links(elems)
   [out,checks]
 end
 
+# ===== v0.51.5 — pozsuz bilgi satırları (K33, K39, K40) =====
+# Yalnız BOQ ekranında (send_boq) ve Model Kontrolü'nde gösterilir: birim fiyat yok, toplam tutara girmez,
+# boq_rows'a eklenmez (hakediş, iş programı, Excel/CSV satırları değişmez). Mühendislik/poz kuralı değiştirmez.
+def mst_boq_info_rows(all=nil)
+ unless all
+  all=[];collect_elements(Sketchup.active_model.entities,all)
+ end
+ by=->(t){all.select{|e|e.get_attribute(DICT,'element_type','').to_s==t}}
+ out=[]
+ info=->(name,unit,qty,src,note){out << {code:'BİLGİ',name:name,unit:unit,quantity:qty,unit_price:nil,total:nil,source:src,
+  status:'BİLGİ · POZSUZ (toplama girmez)',library_price:true,info_only:true,mapping_reason:note,trace:{count:0,items:[]}}}
+ # K33: PRECAST_C35_45 / CAST_C35_45_OTHER yalnız C35/45 alır (boq_quantities); diğer sınıflar hiçbir beton pozunda yok
+ [['Prekast',by.('flat_precast')+by.('channel_precast')+by.('crane_precast'),' Montaj pozunda (PRECAST_INSTALL) var.'],['Bordür',by.('curb'),'']].each do |grp,es,extra|
+  es.reject{|e|qto_material_class(e).to_s.upcase.gsub(' ','')=='C35/45'}.group_by{|e|c=qto_material_class(e).to_s.strip;(c.empty? || c=='-') ? 'belirtilmemiş' : c}.sort.each do |cls,xs|
+   q=xs.sum{|e|qto3_quantity(e,:concrete_m3)};next if q<=1e-9
+   info.("Poz eşlenmemiş beton: #{format('%.3f',q)} m³ (#{grp}, sınıf #{cls}; #{xs.length} eleman)",'m³',q,"INFO:UNMAPPED_CONCRETE##{grp}##{cls}",
+    "C35/45 beton pozu yalnız C35/45 sınıfını alır; bu hacim hiçbir beton pozunda yok.#{extra} Poz/sınıf eşlemesi için proje poz listesi gerekli.")
+  end
+ end
+ # K39: tapa ağırlığı hesaplanıyor (pile_fabrication_qto_row) ama hiçbir pozda değil
+ pr=pile_fabrication_qto_row(by.('steel_pipe_pile'),'TOPLAM',true)
+ if pr && pr[8].to_f>1e-9
+  info.("Kazık tapası (pozsuz): #{pr[4].to_i} adet, #{format('%.1f',pr[8].to_f*1000.0)} kg",'kg',pr[8].to_f*1000.0,'INFO:PILE_PLUG',
+   'Tapa ağırlığı hiçbir BOQ pozuna girmiyor (kazık çeliği ve manipülasyon dahil değil). Tarif/poz belgesi gerekli.')
+ end
+ # K40: paftadan / çizimden 3B donatıda yerleştirilemeyen pozlar — tonajı pafta tablosundan REBAR'a girer
+ n_el=0;n_poz=0;kg=0.0
+ all.each do |e|
+  next unless e.get_attribute(DICT,'rebar_mode','').to_s=='drawing_detail' && e.get_attribute(DICT,'rebar_kind','').to_s=='DRAWING'
+  sch=(JSON.parse(e.get_attribute(DICT,'rebar_schedule_json','{}').to_s) rescue {})
+  next unless sch.is_a?(Hash)
+  miss=sch.values.select{|v|v.is_a?(Hash) && v.key?('drawn') && v['drawn'].to_i<=0 && v['count'].to_i>0}
+  next if miss.empty?
+  n_el+=1;n_poz+=miss.length;kg+=miss.sum{|v|v['kg'].to_f}
+ end
+ if kg>1e-9
+  info.("Donatı — 3B'ye yerleştirilemeyen pozlar: #{n_poz} poz / #{n_el} eleman, #{format('%.3f',kg/1000.0)} t",'t',kg/1000.0,'INFO:REBAR_UNPLACED',
+   'Bu tonaj pafta donatı tablosundan ÖBF-004 donatı miktarına DAHİLDİR; modelde 3B çubuğu yoktur (bilgi, ek miktar değil).')
+ end
+ out
+rescue => ex
+ [{code:'BİLGİ',name:"Bilgi satırları hesaplanamadı: #{ex.message}",unit:'',quantity:0.0,unit_price:nil,total:nil,source:'INFO:ERROR',
+   status:'BİLGİ · HATA',library_price:true,info_only:true,trace:{count:0,items:[]}}]
+end
+
+# ===== v0.51.5 G3 (ADR-0515 §11) — yazılıp okunmayan hata bayrakları ve hesap sınırları Model Kontrolü'nde =====
+# {anahtar => [seviye, ileti, öneri]}; B partisi (K22, K23, K53) bu sabite / işleve ekler.
+MST_AUDIT_ERROR_FLAGS={
+ 'pile_rebar_error'=>['ERROR','Kazık donatı kafesi hesaplanamadı (%s). Kazık donatısı iç beton × pursantaj ile sayılıyor.','Kazık İçi Donatı parametrelerini ve iç beton kotlarını kontrol edip kafesi yeniden uygulayın.'],
+ 'pc_rebar_error'=>['ERROR','Prekast donatısı çizilemedi (%s). Donatı pursantajla sayılıyor.','Prekast Donatısı → ÇİZ ile yeniden çizin (Component ise önce parçayı ayırın).'],
+ 'rebar_restore_error'=>['WARNING','%s — BK donatısı pursantajla sayılıyor; önceki kayıt korundu.','BK donatısını yeniden oluşturun (BIM Donatı / Çizimden Donatı).'],
+ 'culvert_error'=>['ERROR','Menfez: %s','Menfez → EKLE / TEMİZLE ile yeniden uygulayın.']
+}.freeze
+# => [[sev,e,check,msg,fix,pids], ...]  Salt okuma.
+def mst_audit_v0515(elems,all=elems)
+ out=[]
+ elems.each do |e|
+  MST_AUDIT_ERROR_FLAGS.each do |key,(sev,msg,fix)|
+   v=e.get_attribute(DICT,key,'').to_s.strip
+   next if v.empty?
+   next if key=='pile_rebar_error' && !mst_pile_rebar_active(e)
+   out << [sev,e,'Hesap Hatası',"#{element_visible_id(e)}: #{format(msg,v)}",fix,[e.persistent_id]]
+  end
+ end
+ # K50: kazık ayak izi taban derinliği değişimini kesiyorsa (diş / bölge sınırı ya da eğimli geçiş)
+ elems.select{|b|b.get_attribute(DICT,'element_type','').to_s=='head_beam' && b.is_a?(Sketchup::Group)}.each do |b|
+  h=nil
+  mst_bk_pile_embed(b)[:items].each do |it|
+   a=it[:axis_a_m];next if a.nil?
+   h||=mst_attr_hash(b);len=h['length_m'].to_f;rad=it[:diameter_mm].to_f/2000.0
+   pts=[a-rad,a,a+rad]+mst_hb_zone_segments(h,len).flat_map{|q|[q['a0'],q['f0'],q['f1'],q['a1']]}.select{|x|x>a-rad && x<a+rad}
+   ds=pts.map{|x|mst_hb_bottom_depth(h,len,x)}
+   next unless ds.max-ds.min>1e-6
+   out << ['WARNING',b,'Hesap Hatası',"#{element_visible_id(b)}: #{it[:pile_id]} kazığının ayak izi taban derinliği değişimini (diş / taban bölgesi sınırı) kesiyor; gömülme kazık eksenindeki taban kotundan hesaplandı.",'Kazık konumunu ve diş / bölge sınırını kontrol edin; gerekirse gömülme düşümünü elle doğrulayın.',[b.persistent_id,it[:pid]]]
+  end
+ end
+ # K33 / K39 / K40: pozsuz bilgi satırları
+ mst_boq_info_rows(all).each do |r|
+  out << ['WARNING',nil,'QTO → BOQ',"#{r[:name]} — #{r[:mapping_reason]}",'Bilgi: BOQ toplamına girmez; poz eşlemesi için proje poz listesi gerekli.',[]]
+ end
+ out
+end
+
 def model_audit
  model=Sketchup.active_model
  all=[];collect_elements(model.entities,all)
@@ -8115,6 +8297,11 @@ def model_audit
  rescue => bk1_ex
   add_issue.call('WARNING',nil,'BK ↔ Kazık',"Kazık gömülme kontrolü tamamlanamadı: #{bk1_ex.message}",'Modeli yeniden tarayın.',[])
  end
+ begin   # v0.51.5 G3 (ADR-0515 §11)
+  mst_audit_v0515(elems,all).each{|sev,e,check,msg,fix,pids|checks+=1;add_issue.call(sev,e,check,msg,fix,pids)}
+ rescue => v0515_ex
+  add_issue.call('WARNING',nil,'Hesap Hatası',"0.51.5 hesap kontrolleri tamamlanamadı: #{v0515_ex.message}",'Modeli yeniden tarayın.',[])
+ end
  begin
   audit_boq=boq_rows(false)
   central=%w[FORMWORK_CAST FORMWORK_PRECAST REBAR HB_DECK_CONCRETE CROWN_FORMWORK CROWN_CONCRETE CAST_C35_45_OTHER PRECAST_C35_45 PRECAST_INSTALL TOPPING_AREA PILE_INFILL PILE_STEEL PILE_MANIP PILE_RINGS PILE_SPLICES PILE_DRIVING PILE_PE PILE_DRILLING TOPPING_CONCRETE]
@@ -8148,7 +8335,7 @@ def model_audit
   'Organizasyon'=>['Proje Organizasyonu'],
   'Type Library'=>['Type Library'],
   'Dependency'=>['Dependency Graph','Pile → BK','PD/Kanal → BK','Deck → BK/PD','Tretuvar → Döşeme'],
-  'QTO'=>['Kazık Geometrisi','BK Metrajı','Prekast Metrajı','Kanal Geometrisi','Döşeme Metrajı','Tretuvar Metrajı','Malzeme','QTO Malzeme','QTO Donatı'],
+  'QTO'=>['Kazık Geometrisi','BK Metrajı','Prekast Metrajı','Kanal Geometrisi','Döşeme Metrajı','Tretuvar Metrajı','Malzeme','QTO Malzeme','QTO Donatı','Hesap Hatası'],
   'QTO → BOQ'=>['QTO → BOQ'],
   'Hakediş'=>['BOQ → Hakediş','Engineering QA']
  }
@@ -9250,6 +9437,9 @@ def rockfill_qto_alt1_data
       aa1=a1[code]||0.0; aa2=a2[code]||0.0
       vol=(aa1+aa2)*0.5*len; den=mat['density'].to_f; ton=vol*den
       next if aa1==0.0 && aa2==0.0
+      # v0.51.5 K55: kütüphanede olmayan / yoğunluğu geçersiz malzeme sessizce 0 t sayılmaz (Alternatif-02 ile aynı kural)
+      raise "#{code}: malzeme kütüphanesinde kayıt yok; yoğunluk bilinmediği için tonaj hesaplanamadı. Dolgu malzeme kütüphanesine ekleyin." unless by_code.key?(code)
+      raise "#{code}: yoğunluk sonlu ve sıfırdan büyük olmalı (t/m³)." unless den.finite? && den>0
       rows << {code:code,name:mat['name'].to_s,density:den,a1:aa1,a2:aa2,volume_m3:vol,tonnage_t:ton}
       z=(mats[code]||={code:code,name:mat['name'].to_s,density:den,volume_m3:0.0,tonnage_t:0.0})
       z[:volume_m3]+=vol; z[:tonnage_t]+=ton
@@ -11379,6 +11569,9 @@ def mst_precast_def_params(e,len=nil)
  h['fw']=flags.map{|f|f ? '1' : '0'}.join
  h['form_mat']=mat ? mat.name : ''
  h['seg']=1
+ # v0.51.5 K58: donatılı parça donatısız / farklı donatılı parçalarla aynı tanıma geçmez (donatısızların anahtarı değişmez)
+ pj=e.get_attribute(DICT,'pc_rebar_json','').to_s
+ h['rebar']='pc-v1:'+pj unless pj.empty?
  h
 end
 
@@ -12083,9 +12276,14 @@ def mst_pile_rebar_params_of(e)
  mst_pile_rebar_params(JSON.parse(e.get_attribute(DICT,'pile_rebar_json','{}').to_s))
 end
 
+# v0.51.5 K59: kafes hesabı hata verdiyse (pile_rebar_error) metraj pursantaj kuralına döner; parametreler korunur
+def mst_pile_rebar_effective?(p)
+ mst_pile_rebar_active(p) && p.get_attribute(DICT,'pile_rebar_error','').to_s.empty?
+end
+
 # Cage rebar tonnage of a pile for QTO (BIM cage, else the infill concrete × rate rule).
 def mst_pile_rebar_t(p)
- return p.get_attribute(DICT,'pile_cage_rebar_kg',0).to_f/1000.0 if mst_pile_rebar_active(p)
+ return p.get_attribute(DICT,'pile_cage_rebar_kg',0).to_f/1000.0 if mst_pile_rebar_effective?(p)
  pile_qto_concrete(p)*rebar_rate('pile')/1000.0
 end
 
@@ -12109,9 +12307,10 @@ def mst_pile_rebar_refresh!(pile)
   c=mst_pile_rebar_calc(->(k){pile.get_attribute(DICT,k,nil)},p,inf.get_attribute(DICT,'height_m',nil))
  rescue => ex
   # never block a pile edit: drop the drawn cage, keep the parameters, report the reason
+  # v0.51.5 K59: tonaj 0 yazılmaz; kafes tanımsız duruma döner (iç beton × pursantaj), hata Model Kontrolü'nde
   old.each{|g|g.erase! if g.valid?}
-  pile.set_attribute(DICT,'pile_cage_rebar_kg',0.0);pile.set_attribute(DICT,'pile_rebar_error',ex.message)
-  inf.set_attribute(DICT,'rebar_mode','bim_detail');inf.set_attribute(DICT,'rebar_t',0.0)
+  %w[pile_cage_rebar_kg pile_cage_rebar_bar_count].each{|k|pile.delete_attribute(DICT,k)};pile.set_attribute(DICT,'pile_rebar_error',ex.message)
+  inf.delete_attribute(DICT,'rebar_mode');inf.delete_attribute(DICT,'rebar_t')
   return
  end
  pile.delete_attribute(DICT,'pile_rebar_error')
@@ -12203,8 +12402,10 @@ def mst_pile_rebar_qto!(p)
   begin
    c=mst_pile_rebar_calc(->(k){p.get_attribute(DICT,k,nil)},mst_pile_rebar_params_of(p))
    p.set_attribute(DICT,'pile_cage_rebar_kg',c['kg']);p.set_attribute(DICT,'pile_cage_rebar_bar_count',c['n'])
-  rescue
-   p.set_attribute(DICT,'pile_cage_rebar_kg',0.0)
+   p.delete_attribute(DICT,'pile_rebar_error')
+  rescue => ex
+   # v0.51.5 K59: sessiz 0 yok — tonaj silinir (pursantaja döner), neden kaydedilir
+   %w[pile_cage_rebar_kg pile_cage_rebar_bar_count].each{|k|p.delete_attribute(DICT,k)};p.set_attribute(DICT,'pile_rebar_error',ex.message)
   end
  elsif !p.get_attribute(DICT,'pile_cage_rebar_kg',nil).nil?
   p.delete_attribute(DICT,'pile_cage_rebar_kg');p.delete_attribute(DICT,'pile_cage_rebar_bar_count')

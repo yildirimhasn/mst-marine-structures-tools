@@ -77,9 +77,10 @@ module MAG
     end
 
     def pile_qto_concrete(pile)
+      # v0.51.5 K36: "iç beton YOK" önce okunur — Component kazığın paylaşılan çocuğu silinmez, sayılmamalı
+      return 0.0 if pile.get_attribute(DICT, 'infill_enabled', nil).to_s == '0'
       children = pile_qto_infill_children(pile)
       return children.sum { |e| qto3_quantity(e, :concrete_m3) } unless children.empty?
-      return 0.0 if pile.get_attribute(DICT, 'infill_enabled', nil).to_s == '0'
       v = pile.get_attribute(DICT, 'infill_concrete_volume_m3', nil)
       return QuantityService.number(v,'infill_concrete_volume_m3') unless v.nil?
       bottom = pile.get_attribute(DICT, 'infill_bottom_elevation_m', nil)

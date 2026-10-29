@@ -225,12 +225,13 @@ def mst_pc_draw!(e,p=nil)
  e.delete_attribute(DICT,'rebar_drawing_orient')
  h=Hash[MST_PC_ATTRS.map{|k|[k,e.get_attribute(DICT,k)]}]
  mst_pc_peers(e).each{|x|next if x==e;h.each{|k,v|v.nil? ? x.delete_attribute(DICT,k) : x.set_attribute(DICT,k,v)}}
+ mst_pc_peers(e).each{|x|x.delete_attribute(DICT,'pc_rebar_error')}   # v0.51.5 K60: başarılı çizim eski hatayı kaldırır
  e.definition.set_attribute(DICT,'pc_rebar_attrs_json',JSON.generate(h)) if e.is_a?(Sketchup::ComponentInstance)
  pl
 end
 def mst_pc_clear!(e)
  mst_dr_set_of(e).each{|g|mst_dr_erase_set!(g)}
- mst_pc_peers(e).each{|x|MST_PC_ATTRS.each{|k|x.delete_attribute(DICT,k)}}
+ mst_pc_peers(e).each{|x|(MST_PC_ATTRS+['pc_rebar_error']).each{|k|x.delete_attribute(DICT,k)}}
  e.definition.delete_attribute(DICT,'pc_rebar_attrs_json') if e.is_a?(Sketchup::ComponentInstance)
  mst_dr_purge_defs!(e.model) rescue nil
 end
@@ -243,9 +244,24 @@ end
 # boy / ölçü değişince (Group yeniden kuruldu ya da Component tanımı değişti) donatıyı yeniden çiz
 def mst_pc_after_rebuild!(e)
  return unless e && e.valid? && !e.get_attribute(DICT,'pc_rebar_json','').to_s.empty?
+ # v0.51.5 K09/K58: tanım donatısı farklı (ya da donatısız) başka parçayla paylaşılıyorsa çizilmez (sızma olmaz)
+ if e.is_a?(Sketchup::ComponentInstance)
+  pj=e.get_attribute(DICT,'pc_rebar_json','').to_s
+  other=mst_pc_peers(e).count{|x|x!=e && x.get_attribute(DICT,'pc_rebar_json','').to_s!=pj}
+  raise "Component tanımı donatısı farklı #{other} parçayla paylaşılıyor; donatı çizilmedi. Parçayı ayırıp (Make Unique) Prekast Donatısı → ÇİZ ile yeniden çizin." if other>0
+ end
  mst_pc_draw!(e)
 rescue => ex
- e.set_attribute(DICT,'pc_rebar_error',ex.message) rescue nil
+ # v0.51.5 K60: eski boydan kalan tonaj metrajda kalmaz — 3B set (tanım paylaşılmıyorsa) ve donatı kayıtları silinir,
+ # parametre (pc_rebar_json) korunur, neden pc_rebar_error'a yazılır (Model Kontrolü); metraj pursantaja döner
+ msg=ex.message
+ begin
+  mst_dr_set_of(e).each{|g|mst_dr_erase_set!(g)} unless mst_pc_peers(e).length>1
+  (MST_PC_ATTRS-['pc_rebar_json']).each{|k|e.delete_attribute(DICT,k)}
+ rescue => ex2
+  msg="#{msg} · eski donatı temizlenemedi: #{ex2.message}"
+ end
+ e.set_attribute(DICT,'pc_rebar_error',msg) rescue nil
 end
 
 def mst_pc_ui
@@ -277,7 +293,10 @@ def mst_pc_ui
  p=mst_pc_params(fam,vals)
  txt=mst_pc_text(e0,fam,mst_pc_dims(e0),p,mst_pc_plan(fam,mst_pc_dims(e0),p))
  defs=es.map{|x|x.is_a?(Sketchup::ComponentInstance) ? x.definition : x}.uniq
- return 0 unless UI.messagebox("#{txt}\n\n#{es.length} parça (#{defs.length} ayrı tanım / grup). Donatı çizilsin mi? (tek Geri Al)",MB_YESNO)==IDYES
+ # v0.51.5 K09: seçilmemiş ama aynı Component tanımını paylaşan parçalar da donatıyı alır — onaydan önce söylenir
+ unsel=es.select{|x|x.is_a?(Sketchup::ComponentInstance)}.flat_map{|x|mst_pc_peers(x)}.uniq.reject{|x|es.include?(x)}.length
+ shared_note=unsel>0 ? "\nSeçilmemiş #{unsel} parça aynı tanımı paylaşıyor; donatı onlara da uygulanır." : ''
+ return 0 unless UI.messagebox("#{txt}\n\n#{es.length} parça (#{defs.length} ayrı tanım / grup).#{shared_note} Donatı çizilsin mi? (tek Geri Al)",MB_YESNO)==IDYES
  model.set_attribute(DICT,"mst_pc_last_#{fam}",JSON.generate(p))
  model.start_operation('MST Prekast Donatısı',true)
  begin

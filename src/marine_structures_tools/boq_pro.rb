@@ -163,6 +163,7 @@ def boq2_save_items(raw)
  begin
   boq2_set('items_json',JSON.generate(clean))
   boq2_write_prices(old,clean)
+  pile_boq_codes_persist!(model) if respond_to?(:pile_boq_codes_persist!)   # v0.51.5 K35
   model.commit_operation
  rescue
   model.abort_operation;raise
@@ -471,6 +472,10 @@ def prog2_quantities(row,date=nil)
  ex_a=fr.sum{|e,f,_|q[e]*f};ex_c=fr.sum{|e,_,c|q[e]*c}
  if fr.any?{|e,_,_|q[e]>0}
   {approved:[ex_a,qty].min,claimed:[ex_c,qty].min,manual:false,count:es.length}
+ elsif es.any?{|e|!q.key?(e) && progress_entity_quantity(e,src).to_f>0}
+  # v0.51.5 08-R3: yedek yol miktar ağırlıklı — ilerlemeli elemanların miktarı 0, satırın miktarı başka elemanlarda:
+  # eleman adedi oranı bu elemanlara pay vermez (ör. REBAR satırında donatısı 0 olan kazık)
+  {approved:0.0,claimed:0.0,manual:false,count:es.length}
  else
   {approved:qty*fr.sum{|_,f,_|f}/es.length,claimed:qty*fr.sum{|_,_,c|c}/es.length,manual:false,count:es.length}
  end
@@ -504,11 +509,23 @@ def progress_live_rows(date=nil)
   q=prog2_quantities(r,date)
   next if r[:quantity].to_f<=0 && previous.abs<1e-12 && q[:approved]<=0
   current=q[:approved]-previous
+  # v0.51.5 K34: REBAR tavanı (min Σ eleman, BOQ) değişmez; eleman eşlemesi olmayan donatı görünür kılınır
+  k34=nil
+  if prog2_base(r[:source])=='REBAR' && !r[:trace_pids] && r[:quantity].to_f>0
+   begin
+    gap=r[:quantity].to_f-prog2_row_entities(r).sum{|e|progress_entity_quantity(e,r[:source].to_s).to_f}
+    k34="Hakedişe eleman bazında girmeyen donatı: #{format('%.3f',gap)} t (kaplama, aksesuar ankrajı, kazık kafesi; eleman ilerlemesiyle ödenmez)" if gap>1e-6
+   rescue => ex
+    k34="Eleman bazında donatı karşılaştırılamadı: #{ex.message}"
+   end
+  end
+  w=(current< -1e-9 ? 'Önceki hakedişte ödenen miktar modelde azaldı' : (r[:unit_price].nil? && (current.abs>1e-9 || paid[key]) ? 'Birim fiyat yok'+(paid[key] ? ' · önceki tutar son hakedişten' : '') : nil))
+  w=[w,k34].compact.join(' · ') if k34
   out << {key:key,code:r[:code],name:r[:name],source:r[:source].to_s,unit:r[:unit],quantity:r[:quantity].to_f,
           unit_price:(r[:unit_price].nil? ? nil : r[:unit_price].to_f),price_missing:r[:unit_price].nil?,
           previous:previous,current_period:current,approved_quantity:q[:approved],claimed_quantity:q[:claimed],manual:q[:manual],
           previous_amount:(r[:unit_price].nil? ? paid[key] : nil),
-          warning:(current< -1e-9 ? 'Önceki hakedişte ödenen miktar modelde azaldı' : (r[:unit_price].nil? && (current.abs>1e-9 || paid[key]) ? 'Birim fiyat yok'+(paid[key] ? ' · önceki tutar son hakedişten' : '') : nil))}
+          warning:w}
  end
  # önceki hakedişte ödenmiş fakat artık keşifte olmayan (pasif / silinen / sıfırlanan) pozlar → alacak satırı
  Array(last && last['rows']).each do |lr|
@@ -587,6 +604,17 @@ def prog2_prev_cum(last=prog2_last_period,cur=boq2_currency)
  pc=boq2_icmal_cum(prog2_rec_icmal(last))
  Hash[pc.map{|k,v|[k,boq2_convert(v,prog2_rec_currency(last),cur)]}]
 end
+# v0.51.5 K38: icmal A kümülatifi (önceki A + Σ bu dönem × güncel fiyat) ile Hakediş Cetveli kümülatif tutarı
+# (Σ kümülatif × güncel fiyat; fiyatsız satırda önceki tutar) fiyat/kur dönemler arasında değişince ayrışır.
+# İki kural değiştirilmez (sözleşme belgesi gerekli); fark varsa [ileti, fark] döner, yoksa nil. Salt okuma.
+def prog2_icmal_cetvel_warning(rows,icmal,cur='')
+ a=Array(icmal).find{|l|l.is_a?(Hash) && l['key']=='A'};return nil unless a
+ rs=Array(rows).map{|r|Hash[r.map{|k,v|[k.to_sym,v]}]}
+ l=rs.sum{|r|r[:unit_price].nil? ? r[:previous_amount].to_f : (r[:previous].to_f+r[:current_period].to_f)*r[:unit_price].to_f}
+ d=a['cum'].to_f-l
+ return nil if d.abs<=[0.01,l.abs*1e-9].max
+ [format('UYARI: İcmal A kümülatifi %.2f %s, Hakediş Cetveli kümülatif tutarı %.2f %s (fark %.2f %s). Fiyat veya kur dönemler arasında değişmiş olabilir; iki hesap kuralı değiştirilmedi — sözleşmedeki fiyat farkı kuralına göre kontrol edin.',a['cum'].to_f,cur,l,cur,d,cur),d]
+end
 # A kümülatif = önceki A + Σ(bu dönem × birim fiyat) → icmal "bu dönem" = cetvel "bu dönem tutar" toplamı
 def prog2_live_icmal(rows,price_diff=prog2_view_pd)
  prev=prog2_prev_cum
@@ -612,6 +640,11 @@ def progress_payload(period_no=nil)
   p[:period_date]=prog2_view_date
   p[:price_diff]=prog2_view_pd
   p[:currency]=boq2_currency
+ end
+ # v0.51.5 K38: icmal ↔ cetvel kümülatif tutarı farklıysa uyarı (yalnız gösterim satırı; kayıt ve kurallar değişmez)
+ if (wk=prog2_icmal_cetvel_warning(p[:rows],p[:icmal],p[:currency]))
+  p[:icmal_warning]=wk[0]
+  p[:icmal]=Array(p[:icmal])+[{'key'=>'!','name'=>wk[0],'cum'=>wk[1],'prev'=>0.0,'cur'=>0.0}]
  end
  p[:last_date]=last && last['date']
  p[:contract]=boq2_contract
@@ -650,6 +683,7 @@ def progress_save(raw=nil,dialog=@d)
  icmal=prog2_live_icmal(rows,pd)
  model.start_operation('MST Hakediş Dönemini Kaydet',true)
  begin
+  pile_boq_codes_persist!(model) if respond_to?(:pile_boq_codes_persist!)   # v0.51.5 K35: satır anahtarlarındaki NN kalıcı
   hist=progress_history
   no=(hist.map{|h|h['no'].to_i}.max||0)+1
   rec={'no'=>no,'saved_at'=>Time.now.strftime('%d.%m.%Y %H:%M'),'date'=>date,'by'=>boq2_user,'currency'=>boq2_currency,
@@ -787,6 +821,9 @@ def prog2_manual_set(raw)
  date=d['date'].to_s.strip;date=boq2_today if date.empty?
  raise 'Tarih YYYY-AA-GG olmalı.' unless boq2_date_ok?(date)
  model=Sketchup.active_model
+ # v0.51.5 R-4: bozuk elle ilerleme kaydı boş sayılıp üzerine yazılmaz
+ raw=model.get_attribute(PROGRESS_DICT,'manual_progress_json','').to_s
+ raise 'Elle ilerleme kaydı (manual_progress_json) okunamadı; mevcut kaydın üzerine yazılmadı, değişiklik kaydedilmedi.' unless raw.strip.empty? || (JSON.parse(raw) rescue nil).is_a?(Hash)
  model.start_operation('MST Elle Hakediş İlerlemesi',true)
  begin
   h=prog2_manual;h[key]=prog2_rec_apply(prog2_norm(h[key]),pct,!!d['ok'],date)
@@ -999,6 +1036,7 @@ def boq2_hakedis_xlsx_write(path,period_no=nil)
   ic << [{v:l['key'],s:st.id(role)},{v:l['name'],s:st.id(role)},{v:l['cum'].to_f,s:st.id(role,boq2_money_fmt(cur))},{v:l['prev'].to_f,s:st.id(role,boq2_money_fmt(cur))},{v:l['cur'].to_f,s:st.id(role,boq2_money_fmt(cur))}]
  end
  ic << [] << [{v:'A "Bu Dönem" = Hakediş Cetveli "Bu Dönem Tutar" toplamı. Kesinti oranları sözleşme ayarlarından gelir; resmi hakediş öncesi sözleşmenizle kontrol edin.',s:st.id(:note)}]
+ (wk=prog2_icmal_cetvel_warning(rows,icmal,cur)) && ic << [{v:wk[0],s:st.id(:note)}]   # v0.51.5 K38
  hc=[[{v:'Hakediş Cetveli',s:st.id(:title)}],[{v:"Para birimi: #{cur}",s:st.id(:note)}],[]]
  hdr=['Poz No','İşin Tanımı','Birim','Sözleşme Miktarı','Önceki','Bu Dönem','Kümülatif','İlerleme','Birim Fiyat','Önceki Tutar','Bu Dönem Tutar','Kümülatif Tutar','Uyarı']
  hc << hdr.map{|h|{v:h,s:st.id(:header)}}

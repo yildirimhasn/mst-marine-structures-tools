@@ -37,7 +37,8 @@ module MAG
       mst_bim_children(pile,'pile_infill_concrete').first
     end
 
-    def pile_infill_enabled?(pile); !!pile_infill_child(pile); end
+    # v0.51.5 K36: Component kazıkta paylaşılan çocuk kalır; "YOK" kazığın kendi değeridir
+    def pile_infill_enabled?(pile); !!pile_infill_child(pile) && !(mst_component_pile?(pile) && pile.get_attribute(DICT,'infill_enabled',nil).to_s=='0'); end
 
     def pile_mfg_state(scope)
       piles=pile_mfg_targets(scope)
@@ -195,10 +196,10 @@ module MAG
     def set_pile_infill(pile,on)
       child=pile_infill_child(pile)
       if on
-        return false if child
+        return false if child && pile_infill_enabled?(pile)   # K36: Component'te YOK iken çocuk durur
         rebuild_saved_infill(pile); true
       else
-        return false unless child
+        return false unless child && pile_infill_enabled?(pile)
         save_infill_recipe(pile,child)
         child.erase! unless mst_component_pile?(pile)   # shared child of a Component is never erased
         pile.set_attribute(DICT,'infill_enabled','0'); pile.set_attribute(DICT,'infill_concrete_volume_m3',0.0); true

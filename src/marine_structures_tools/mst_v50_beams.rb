@@ -34,6 +34,26 @@ def mst_hb_zones_list(h)
  z.is_a?(Array) ? z.select{|q|q.is_a?(Hash)} : []
 end
 def mst_hb_zone_info(h,len)
+ zs=mst_hb_zone_segments(h,len)
+ {'base'=>(zs.map{|q|q['dz']}.max || 0.0),'zones'=>zs.select{|q|q['f1']-q['f0']>0.05}}
+end
+# v0.51.5 K50: BK başından a (m) konumunda ana gövde tabanının altındaki derinlik (uç dişleri + taban bölgeleri).
+# recess_profile_points ile aynı profil: düz kısım dz, eğimli geçiş doğrusal; geometriye girmeyen bölge (uç dişine taşan) 0.
+def mst_hb_bottom_depth(h,len,a)
+ lo=h['start_tooth_enabled'].to_s=='1' ? [h['start_tooth_length_m'].to_f,len].min : 0.0
+ hi=h['end_tooth_enabled'].to_s=='1' ? len-[h['end_tooth_length_m'].to_f,len].min : len
+ mst_hb_zone_segments(h,len).map do |q|
+  next 0.0 if q['kind']=='zone' && (q['a0']<lo-1e-6 || q['a1']>hi+1e-6 || q['a1']>len+1e-6)
+  a0,a1,f0,f1,dz=q['a0'],q['a1'],q['f0'],q['f1'],q['dz']
+  if a>=f0 && a<=f1 then dz
+  elsif a>=a0 && a<f0 then dz*(a-a0)/(f0-a0)
+  elsif a>f1 && a<=a1 then dz*(a1-a)/(a1-f1)
+  else 0.0
+  end
+ end.max || 0.0
+end
+# zone_info'nun süzmesiz listesi: a0..a1 (eğim dahil), f0..f1 (düz), dz derinlik
+def mst_hb_zone_segments(h,len)
  zs=[]
  if h['start_tooth_enabled'].to_s=='1'
   tl=[h['start_tooth_length_m'].to_f,len].min;sl=[[h['start_tooth_slope_m'].to_f,0.0].max,tl].min;dz=h['start_tooth_depth_m'].to_f
@@ -47,7 +67,7 @@ def mst_hb_zone_info(h,len)
   a0=q['a0'].to_f;a1=q['a1'].to_f;dz=q['depth'].to_f;sl=[[q['slope'].to_f,0.0].max,(a1-a0)/2.0].min
   zs << {'a0'=>a0,'a1'=>a1,'f0'=>a0+sl,'f1'=>a1-sl,'dz'=>dz,'kind'=>'zone'} if a1>a0 && dz>0
  end
- {'base'=>(zs.map{|q|q['dz']}.max || 0.0),'zones'=>zs.select{|q|q['f1']-q['f0']>0.05}}
+ zs
 end
 # recess_profile_points alt sınırına eklenecek bölgeler (inç; uçtan başa sıralı)
 def mst_hb_zone_profile_pts(data,l,lo,hi)
@@ -122,8 +142,15 @@ end
 def mst_cv_specs(hb);x=(JSON.parse(hb.get_attribute(DICT,'culverts_json','[]').to_s) rescue []);x.is_a?(Array) ? x : [];end
 # BK yeniden kurulunca (entities.clear!) menfezler kayıtlı tanımdan yeniden çizilir
 def mst_cv_redraw!(hb)
+ # v0.51.5 K09: çok örnekli Component BK'da paylaşılan tanıma menfez çizilmez/silinmez; neden culvert_error (Model Kontrolü)
+ if hb.is_a?(Sketchup::ComponentInstance) && hb.definition.count_instances>1
+  hb.set_attribute(DICT,'culvert_error',"Component tanımı #{hb.definition.count_instances} yerde kullanılıyor; menfez yeniden çizilmedi. Menfez → EKLE / TEMİZLE ile parçayı ayırarak uygulayın.") unless mst_cv_specs(hb).empty?
+  return
+ end
  mst_hb_culvert_groups(hb).each{|g|g.erase! if g.valid?}
- mst_cv_specs(hb).each{|s|mst_cv_draw!(hb,s) rescue nil}
+ bad=[]
+ mst_cv_specs(hb).each{|s|begin;mst_cv_draw!(hb,s);rescue => ex;bad << ex.message;end}
+ bad.empty? ? hb.delete_attribute(DICT,'culvert_error') : hb.set_attribute(DICT,'culvert_error',"#{bad.length} menfez çizilemedi: #{bad.first}")
 end
 MST_CV_FIELDS=[['a0','Menfez başlangıcı (m, BK başından boy boyunca)'],['la','Menfez boyu BK boyunca (m)'],
  ['c0','Menfez başlangıcı (m, BK yan yüzünden; 0 = yüzden)'],['lc','Menfez BK enine boyu (m; BK genişliği = boydan boya geçer)'],
@@ -138,8 +165,11 @@ def mst_cv_ui
  return 0 unless act
  if act[0]=='TEMİZLE'
   return 0 unless UI.messagebox("#{element_visible_id(hb)}: #{cur.length} menfez silinsin mi? (tek Geri Al)",MB_YESNO)==IDYES
+  ch=mst_shared_def_prompt(hb,'Menfez silme')   # v0.51.5 K09: soru işlemden önce
+  return 0 if ch==:cancel
   model.start_operation('MST Menfez Sil',true)
   begin
+   mst_make_unique_keep_data!(hb) if ch==:unique
    hb.set_attribute(DICT,'culverts_json','[]');mst_cv_redraw!(hb);mst_v50_after_bk_change!(hb);commit_with_dependencies(model)
   rescue
    model.abort_operation;raise
@@ -154,10 +184,14 @@ def mst_cv_ui
  msg=format("%s menfez:\nBoşluk %.3f m³ (BK betonundan düşülür) · sac %.1f kg (t=%d mm) · yüz kalıbı düşümü %.2f m²\nBK donatısı yeniden çizilirse menfezden geçen çubuklar kesilir, iki yanına takviye konur.\nUygulansın mı? (tek Geri Al)",
   element_visible_id(hb),pl['void'],pl['steel_kg'],spec['t_mm'].round,pl['form_deduct'])
  return 0 unless UI.messagebox(msg,MB_YESNO)==IDYES
+ ch=mst_shared_def_prompt(hb,'Menfez ekleme')   # v0.51.5 K09: soru işlemden önce
+ return 0 if ch==:cancel
  model.start_operation('MST Menfez Ekle',true)
  begin
+  mst_make_unique_keep_data!(hb) if ch==:unique
   hb.set_attribute(DICT,'culverts_json',JSON.generate(cur+[spec]))
   mst_cv_draw!(hb,spec)
+  hb.delete_attribute(DICT,'culvert_error')
   mst_v50_after_bk_change!(hb)
   commit_with_dependencies(model)
  rescue
