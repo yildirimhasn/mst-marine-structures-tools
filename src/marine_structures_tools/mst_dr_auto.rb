@@ -183,8 +183,11 @@ end
 
 # ---------------------------------------------------------------- ana kurucu
 # fl: bölgenin varlıkları. dönüş: {'spec','report','ok'}
-def mst_dra_build(fl,name='BK')
+# ftol: kroki zinciri birleştirme toleransı (çizim birimi). v0.51.5: çağıran $INSUNITS / kullanıcı birimiyle verir
+# (0.6 = eski sabit; cm çizimde 6 mm). unote: birim varsayımı (rapora yazılır).
+def mst_dra_build(fl,name='BK',ftol=0.6,unote=nil)
  rep=[];warn=[]
+ warn << "Çizim birimi #{unote}; kroki zinciri toleransı #{format('%.4g',ftol)} çizim birimi" if unote
  sc=mst_dxr_scan(fl)
  rows=sc['rows'].select{|r|r['poz']>0 && r['len'].to_f>0}
  raise 'Paftada donatı tablosu (poz + "adet Ø" + "L = …" krokileri) bulunamadı.' if rows.empty?
@@ -192,7 +195,6 @@ def mst_dra_build(fl,name='BK')
  raise 'Paftada donatı çizgisi (rebar / demir katmanı) yok.' if rsegs.empty?
  # birim: kroki zinciri boyu / L — çizim birimi / m
  hmed=rows.map{|r|r['h'] || 0}.max
- ftol=0.6
  chains=mst_dra_chains(rsegs,ftol).map{|c|p=mst_dra_path(c,ftol);{'segs'=>c,'path'=>p,'len'=>c.sum{|a,b,_|Math.hypot(b[0]-a[0],b[1]-a[1])},'bb'=>mst_dra_bb(c.flat_map{|a,b,_|[a,b]})}}
  ks=[]
  rows.each{|r|c=chains.min_by{|ch|bb=ch['bb'];dx=r['x']<bb[0] ? bb[0]-r['x'] : (r['x']>bb[2] ? r['x']-bb[2] : 0);dy=[(r['y']-bb[1]).abs,(r['y']-bb[3]).abs,(r['y']>bb[1] && r['y']<bb[3]) ? 0 : 1e9].min;dx+dy};ks << c['len']/r['len'] if c && c['len']>0}
@@ -596,7 +598,16 @@ def mst_dra_ui(path=nil)
  path||=UI.openpanel('BK donatı paftası (DXF)',nil,'DXF|*.dxf||')
  return 0 unless path && File.file?(path)
  t0=Time.now
- fl=mst_dxf_flatten(mst_dxf_read(path))
+ dx=mst_dxf_read(path)
+ fl=mst_dxf_flatten(dx)
+ # v0.51.5 DXF birim: zincir toleransı 6 mm'nin çizim birimi karşılığı ($INSUNITS; tanımsızsa kullanıcıya sorulur, varsayılan cm = eski 0.6)
+ u=MST_DXF_INSUNITS[dx['insunits'].to_i];unote=u ? "#{mst_dxf_unit_name(u)} ($INSUNITS #{dx['insunits'].to_i})" : nil
+ unless u
+  r=UI.inputbox(['Paftanın çizim birimi'],['cm'],['mm|cm|m'],"Paftadan 3B Donatı — birim ($INSUNITS #{dx['insunits'].to_i}: tanımsız)")
+  return 0 unless r
+  u={'mm'=>0.001,'cm'=>0.01,'m'=>1.0}[r[0].to_s] || 0.01;unote="#{mst_dxf_unit_name(u)} (kullanıcı seçimi; $INSUNITS tanımsız)"
+ end
+ ftol=0.006/u
  ds=mst_dra_details(fl)
  ds=[{'name'=>File.basename(path,'.*')[0,24],'title'=>File.basename(path),'x'=>0,'y'=>0,'h'=>10.0,'frame'=>nil,'all'=>true}] if ds.empty?
  d=ds.first
@@ -608,7 +619,7 @@ def mst_dra_ui(path=nil)
   d=ds.find{|x|x['name']==r[0]} || ds.first
  end
  reg=d['all'] ? fl : mst_dra_region(fl,d)
- res=mst_dra_build(reg,"#{d['name']} · #{File.basename(path,'.*')}")
+ res=mst_dra_build(reg,"#{d['name']} · #{File.basename(path,'.*')}",ftol,unote)
  spec=res['spec']
  plans=sel.map do |e|
   pts,edges,tris=mst_dr_geometry(e)

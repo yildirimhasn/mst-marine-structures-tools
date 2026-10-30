@@ -19,16 +19,33 @@ def mst_dxr_parse_cd(t)
  k=(m[1] || '1').to_i;n=m[2] ? m[2].split('+').map(&:to_i).sum : nil
  {'n'=>n ? k*n : nil,'d'=>m[3].tr(',','.').to_f,'s'=>m[4] ? m[4].tr(',','.').to_f : nil,'raw'=>t.to_s}
 end
-def mst_dxr_parse_l(t)
- m=t.to_s.match(/L\s*=\s*(\d+(?:[.,]\d+)?)\s*(m|cm|mm)?/i)
+# lu: birimsiz "L = …" değerinin 1 biriminin metre karşılığı (v0.51.5: $INSUNITS ya da kullanıcı; varsayılan 1.0 = m, eski davranış)
+def mst_dxr_parse_l(t,lu=1.0)
+ m=t.to_s.match(/L\s*=\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?/i)
  return nil unless m
  v=m[1].tr(',','.').to_f
+ return v*lu if m[2].nil?
  v=v/100.0 if m[2].to_s.downcase=='cm';v=v/1000.0 if m[2].to_s.downcase=='mm'
  v
 end
+# v0.51.5 DXF birim: paftada birimsiz "L = …" yazısı var mı
+def mst_dxr_unitless_l?(fl)
+ fl.any?{|e|%w[TEXT MTEXT ATTRIB].include?(e['t']) && e['text'].to_s=~/\AL\s*=\s*\d/i && e['text'].to_s.match(/L\s*=\s*\d+(?:[.,]\d+)?\s*(mm|cm|m)?/i)[1].nil?}
+end
+# Birimsiz "L =" boylarının birimi: $INSUNITS biliniyorsa o (mst_dxf.rb MST_DXF_INSUNITS), yoksa kullanıcıya sorulur.
+# => [metre/birim, açıklama] | nil (kullanıcı vazgeçti). Varsayım önizleme metninde gösterilir.
+def mst_dxr_l_unit(dx,fl)
+ return [1.0,'yok (bütün L yazıları birimli)'] unless mst_dxr_unitless_l?(fl)
+ u=MST_DXF_INSUNITS[dx['insunits'].to_i]
+ return [u,"#{mst_dxf_unit_name(u)} ($INSUNITS #{dx['insunits'].to_i})"] if u
+ r=UI.inputbox(['Birimsiz "L = …" boyları hangi birimde?'],['m'],['mm|cm|m'],"Paftadan Donatı — birim ($INSUNITS #{dx['insunits'].to_i}: tanımsız)")
+ return nil unless r
+ u={'mm'=>0.001,'cm'=>0.01,'m'=>1.0}[r[0].to_s] || 1.0
+ [u,"#{mst_dxf_unit_name(u)} (kullanıcı seçimi; $INSUNITS tanımsız)"]
+end
 
 # fl: mst_dxf_flatten → {'rows'=>[kroki], 'table'=>[poz], 'unmatched'=>[L yazısı], 'no_count'=>[...]}
-def mst_dxr_scan(fl)
+def mst_dxr_scan(fl,lu=1.0)
  tx=fl.select{|e|%w[TEXT MTEXT ATTRIB].include?(e['t']) && e['text'].to_s.strip!='' && e['x'] && e['y']}
  ls=tx.select{|e|e['text']=~/\AL\s*=\s*\d/i}
  cds=tx.select{|e|e['text']=~/Ø\s*\d/ && mst_dxr_parse_cd(e['text'])}
@@ -41,7 +58,7 @@ def mst_dxr_scan(fl)
   (un << l['text'];next) unless c
   hc=[c['h'].to_f,h].max
   pz=pzs.select{|q|(q['y']-c['y']).abs<1.5*hc && q['x']<c['x']+0.5*hc && c['x']-q['x']<6*hc}.min_by{|q|c['x']-q['x']}
-  cd=mst_dxr_parse_cd(c['text']);len=mst_dxr_parse_l(l['text'])
+  cd=mst_dxr_parse_cd(c['text']);len=mst_dxr_parse_l(l['text'],lu)
   (nocount << "#{pz ? pz['text'] : '?'}: #{c['text']} #{l['text']}";next) if cd['n'].nil? || cd['n']<=0
   rows << {'poz'=>(pz ? pz['text'].strip.to_i : 0),'n'=>cd['n'],'d'=>cd['d'],'s'=>cd['s'],'len'=>len,'cd'=>c['text'],'l'=>l['text'],'x'=>l['x'],'y'=>l['y']}
  end
@@ -74,6 +91,7 @@ def mst_dxr_text(e,sc,file)
  md=mst_dxr_model_by_d(e)
  (mst_dxr_by_d(tab).keys|md.keys).sort.each{|d|l << format('  Ø%-3d %10.1f kg %10.1f kg',d,mst_dxr_by_d(tab)[d].to_f,md[d].to_f)}
  l << format('TOPLAM pafta %.3f t%s · modelde şimdi %.3f t (%s)',kg/1000.0,vol>0 ? format(' (%.0f kg/m³)',kg/vol) : '',cur['kg'].to_f/1000.0,cur['source'])
+ l << "Birimsiz \"L =\" boyları: #{sc['l_unit']}" if sc['l_unit']   # v0.51.5 DXF birim varsayımı görünür
  sc['no_count'].first(4).each{|x|l << "  adetsiz (atlandı): #{x}"}
  sc['unmatched'].first(4).each{|x|l << "  eşleşmeyen: #{x}"}
  l.join("\n")
@@ -116,7 +134,10 @@ def mst_dxr_ui(path=nil)
  return 0 unless path && File.file?(path)
  t0=Time.now
  dx=mst_dxf_read(path,%w[TEXT MTEXT INSERT ATTRIB])
- sc=mst_dxr_scan(mst_dxf_flatten(dx))
+ fl=mst_dxf_flatten(dx)
+ lu,lnote=mst_dxr_l_unit(dx,fl)   # v0.51.5: birimsiz L → $INSUNITS ya da kullanıcı (önceden hep metre)
+ return 0 unless lu
+ sc=mst_dxr_scan(fl,lu);sc['l_unit']=lnote
  raise 'Paftada "L = …" boylu kroki satırı bulunamadı (poz balonu + "adet Ø" + "L =" yazıları).' if sc['table'].empty?
  txt=mst_dxr_text(es[0],sc,path)+format("\n(okuma %.1f s)",Time.now-t0);puts txt
  r=UI.messagebox("#{txt[0,2800]}\n\nEVET: #{es.length} elemanın donatı metrajı bu paftadan alınsın (3B donatı varsa görsel kalır).\nHAYIR: yalnız karşılaştırma (model değişmez).",MB_YESNO)

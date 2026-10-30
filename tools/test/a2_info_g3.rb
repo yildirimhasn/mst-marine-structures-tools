@@ -25,6 +25,12 @@ A1.load(Host, main, 'def qto_material_class(', 'def send_boq(', 'def mst_attr_ha
 NEW = A1.load_opt(Host, main, 'def mst_boq_info_rows(') & A1.load_opt(Host, main, 'def mst_audit_v0515(')
 A1.load(Host, bm, 'def mst_hb_zones_list('); A1.load_opt(Host, bm, 'def mst_hb_zone_segments('); A1.load_opt(Host, bm, 'def mst_hb_bottom_depth(')
 a2_const(Host, main, 'MST_AUDIT_ERROR_FLAGS') if NEW
+# Parti B düzeneği: mst_audit_v0515'e eklenen K22/K23/K10/K53/K54/K21 denetimlerinin çağırdığı yardımcılar (bu testteki öğelerde uyarı üretmezler)
+%w[mst_tr_scale_info mst_bk_span_frame_error mst_pv_tooth_seat_warnings].each { |f| A1.load_opt(Host, main, "def #{f}(") }
+A1.load_opt(Host, A1.src('mst_rebar_tools.rb'), 'def mst_rt_world_tr(')
+%w[mst_collect_toppings mst_topping_parent_deck mst_uid_owner].each { |f| A1.load_opt(Host, A1.src('dependency_rebuild.rb'), "def #{f}(") }
+A1.load_opt(Host, bm, 'def mst_vk_support_state(')
+class Host; def pile_bim_qto_item(_p); {}; end; end
 obs('bilgi satırı / G3 işlevleri tanımlı', NEW)
 h = Host.new
 D = A1::DICT

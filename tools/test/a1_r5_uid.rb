@@ -17,6 +17,9 @@ end
 A1.load(Host, main, 'def ensure_uid(', 'def revision_diff(', 'def mst_copy_dicts!(', 'def repair_bim_identity', 'def mst_world_box_center(')
 A1.load(Host, dep, 'def dependency_graph(')
 has_owner = A1.load_opt(Host, dep, 'def mst_uid_owner(')
+# Parti B (K07) düzeneği: dependency_graph kaplamaları ayrı toplayıcıyla ekler (bu testte kaplama yok)
+module Sketchup; class Group < FakeEnt; end; end unless defined?(Sketchup::Group)
+A1.load_opt(Host, dep, 'def mst_collect_toppings('); A1.load_opt(Host, dep, 'def mst_topping_parent_deck(')
 obs('mst_uid_owner tanımlı', has_owner)
 h = Host.new
 box = ->(x0, x1) { { 'x' => [x0, x1], 'y' => [0.0, 5.0] } }

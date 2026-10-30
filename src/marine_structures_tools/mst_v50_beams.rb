@@ -140,11 +140,20 @@ def mst_cv_draw!(hb,spec)
  g
 end
 def mst_cv_specs(hb);x=(JSON.parse(hb.get_attribute(DICT,'culverts_json','[]').to_s) rescue []);x.is_a?(Array) ? x : [];end
+# v0.51.5 K17 (R-4): kayıt boş değil ama okunamıyor / dizi değil → bozuk (boş sayılıp üzerine yazılmaz)
+def mst_cv_specs_bad?(hb)
+ raw=hb.get_attribute(DICT,'culverts_json','').to_s
+ !raw.strip.empty? && !(JSON.parse(raw) rescue nil).is_a?(Array)
+end
 # BK yeniden kurulunca (entities.clear!) menfezler kayıtlı tanımdan yeniden çizilir
 def mst_cv_redraw!(hb)
  # v0.51.5 K09: çok örnekli Component BK'da paylaşılan tanıma menfez çizilmez/silinmez; neden culvert_error (Model Kontrolü)
  if hb.is_a?(Sketchup::ComponentInstance) && hb.definition.count_instances>1
   hb.set_attribute(DICT,'culvert_error',"Component tanımı #{hb.definition.count_instances} yerde kullanılıyor; menfez yeniden çizilmedi. Menfez → EKLE / TEMİZLE ile parçayı ayırarak uygulayın.") unless mst_cv_specs(hb).empty?
+  return
+ end
+ if mst_cv_specs_bad?(hb)   # v0.51.5 K17: bozuk kayıtta mevcut menfezler silinmez, sessiz kalınmaz
+  hb.set_attribute(DICT,'culvert_error','Menfez kaydı (culverts_json) okunamadı; menfezler yeniden çizilmedi. Menfez → TEMİZLE ile kaydı boşaltıp yeniden ekleyin.')
   return
  end
  mst_hb_culvert_groups(hb).each{|g|g.erase! if g.valid?}
@@ -163,8 +172,9 @@ def mst_cv_ui
  cur=mst_cv_specs(hb)
  act=UI.inputbox(['İşlem'],['EKLE'],[ 'EKLE|TEMİZLE' ],"Menfez — #{element_visible_id(hb)} (#{cur.length} menfez)")
  return 0 unless act
+ bad_rec=mst_cv_specs_bad?(hb)   # v0.51.5 K17
  if act[0]=='TEMİZLE'
-  return 0 unless UI.messagebox("#{element_visible_id(hb)}: #{cur.length} menfez silinsin mi? (tek Geri Al)",MB_YESNO)==IDYES
+  return 0 unless UI.messagebox(bad_rec ? "#{element_visible_id(hb)}: menfez kaydı okunamıyor (bozuk). TEMİZLE kaydı boşaltır ve BK'daki menfez kutularını siler. Devam edilsin mi? (tek Geri Al)" : "#{element_visible_id(hb)}: #{cur.length} menfez silinsin mi? (tek Geri Al)",MB_YESNO)==IDYES
   ch=mst_shared_def_prompt(hb,'Menfez silme')   # v0.51.5 K09: soru işlemden önce
   return 0 if ch==:cancel
   model.start_operation('MST Menfez Sil',true)
@@ -176,6 +186,7 @@ def mst_cv_ui
   end
   return 1
  end
+ raise "#{element_visible_id(hb)}: menfez kaydı (culverts_json) okunamadı; mevcut kaydın üzerine yazılmadı, menfez eklenmedi. Önce TEMİZLE ile kaydı boşaltın." if bad_rec   # K17
  d=['0.5','1.0','0',format('%.2f',wid),format('%.2f',hei*0.4),'0.60','10','C']
  r=UI.inputbox(MST_CV_FIELDS.map{|_,l|l},d,"Menfez Ekle — #{element_visible_id(hb)} (#{format('%.2f × %.2f × %.2f',len,wid,hei)} m)")
  return 0 unless r
@@ -191,7 +202,7 @@ def mst_cv_ui
   mst_make_unique_keep_data!(hb) if ch==:unique
   hb.set_attribute(DICT,'culverts_json',JSON.generate(cur+[spec]))
   mst_cv_draw!(hb,spec)
-  hb.delete_attribute(DICT,'culvert_error')
+  hb.delete_attribute(DICT,'culvert_error') if cur.all?{|s|(mst_cv_plan(s,len,wid,hei) rescue nil)}   # K16: başka menfez kaydının hatası silinmez
   mst_v50_after_bk_change!(hb)
   commit_with_dependencies(model)
  rescue
@@ -205,7 +216,12 @@ end
 # BK'da geometri / boşluk değişince: kalıp özeti, donatı (BIM ise) yeniden
 def mst_v50_after_bk_change!(hb)
  gross=head_beam_formwork_area(hb) rescue 0.0
- hb.set_attribute(DICT,'formwork_net_area_m2',head_beam_net_formwork_area(hb)) rescue nil
+ begin   # v0.51.5 K18: yazım hatası yutulmaz; formwork_net_error (Model Kontrolü), eski net kalıp kalmış olabilir
+  hb.set_attribute(DICT,'formwork_net_area_m2',head_beam_net_formwork_area(hb))
+  hb.delete_attribute(DICT,'formwork_net_error') if hb.get_attribute(DICT,'formwork_net_error',nil)
+ rescue => ex
+  hb.set_attribute(DICT,'formwork_net_error',ex.message) rescue nil
+ end
  if hb.get_attribute(DICT,'rebar_mode','').to_s=='bim_detail' && !hb.get_attribute(DICT,'hb_rebar_json','').to_s.empty?
   mst_hb_rebar_build!(hb,JSON.parse(hb.get_attribute(DICT,'hb_rebar_json','{}').to_s))
  end
@@ -371,6 +387,12 @@ def mst_vk_plan(b1,b2,p)
  {'start'=>st,'dir'=>[vx,vy],'along'=>[ux,uy],'span'=>span,'width'=>w,'height'=>h,'top'=>top,'bottom'=>bot,'pos'=>pos,
   'contact'=>cont.map{|a,b|[b.persistent_id,a]},'w1'=>w1,'w2'=>w2}
 end
+# v0.51.5 K10 ara çözüm: VK / BBK bağımlılık grafiğinde değil; oluşturulduğu andaki destek BK durumu saklanır
+# [pid, bk_revision_no, üst kot (m), orijin x (m), orijin y (m)] — Model Kontrolü BK revizyon / kot / aks değişince uyarır. Salt okuma.
+def mst_vk_support_state(b)
+ o=b.transformation.origin;f=39.37007874015748
+ [b.persistent_id,b.get_attribute(DICT,'bk_revision_no',0).to_i,b.get_attribute(DICT,'top_elevation_m',0).to_f.round(4),(o.x.to_f/f).round(4),(o.y.to_f/f).round(4)]
+end
 def mst_vk_next_id(role,model=Sketchup.active_model)
  all=[];collect_elements(model.entities,all)
  used=all.map{|e|e.get_attribute(DICT,'head_beam_id','').to_s}
@@ -409,7 +431,8 @@ def mst_vk_create!(b1,b2,p,model=Sketchup.active_model)
   'support_left_pid'=>b1.persistent_id,'support_right_pid'=>b2.persistent_id,'link_pos_m'=>pl['pos'],
   'link_contact_json'=>JSON.generate(pl['contact']),'rail_type'=>rail,'rail_kg_m'=>rkg,'rail_length_m'=>(rkg>0 ? l+(pl['w1']+pl['w2'])/2.0 : 0.0),
   'rail_clip_spacing_m'=>p['clip_spacing_m'].to_f,'rail_clip_kg'=>p['clip_kg'].to_f,'axis'=>b1.get_attribute(DICT,'axis','').to_s,
-  'rebar_t'=>l*w*h*rebar_rate('head_beam')/1000.0}.each{|k,v|g.set_attribute(DICT,k,v)}
+  'rebar_t'=>l*w*h*rebar_rate('head_beam')/1000.0,
+  'link_support_state_json'=>JSON.generate([b1,b2].map{|b|mst_vk_support_state(b)})}.each{|k,v|g.set_attribute(DICT,k,v)}   # v0.51.5 K10 (yeni anahtar)
  %w[project system structure ano zone qto_zone].each{|k|v=b1.get_attribute(DICT,k,'').to_s;g.set_attribute(DICT,k,v) unless v.empty?}
  finalize_bim_identity(g,model)
  g.set_attribute(DICT,'head_beam_id',id);g.name=id

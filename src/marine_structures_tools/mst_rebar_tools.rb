@@ -543,7 +543,16 @@ def mst_rt_segdist(p1,q1,p2,q2)
  elsif t>1 then t=1.0;s=a>1e-12 ? [[(b-c)/a,0.0].max,1.0].min : 0.0 end
  [Math.sqrt((0..2).sum{|k|(p1[k]+d1[k]*s-p2[k]-d2[k]*t)**2}),(0..2).map{|k|p1[k]+d1[k]*s}]
 end
-def mst_rt_world_tr(e);e.respond_to?(:transformation) ? e.transformation : Geom::Transformation.new;end
+# v0.51.5 K61: elemandan model köküne tam dönüşüm zinciri (üst grup / tek örnekli Component içindeki eleman).
+# Üst tanım birden çok örnekliyse zincir orada durur (hangi örnek olduğu belirsiz; collect_elements de elemanı bir kez verir).
+def mst_rt_world_tr(e)
+ return Geom::Transformation.new unless e.respond_to?(:transformation)
+ tr=e.transformation;pa=(e.parent rescue nil);n=0
+ while pa.is_a?(Sketchup::ComponentDefinition) && pa.instances.length==1 && n<64
+  ins=pa.instances[0];tr=ins.transformation*tr;pa=(ins.parent rescue nil);n+=1
+ end
+ tr
+end
 # elems: donatılı elemanlar; çubuklar dünya koordinatında; yalnız farklı elemanların çubukları karşılaştırılır
 def mst_rt_clashes(elems,cell=0.5,tol=0.002)
  data=elems.map do |e|
@@ -600,11 +609,11 @@ def mst_rt_clash_ui
  begin
   mat=(material_for(model,'MST Çakışma','#E00000') rescue nil)
   hits.each{|h|[h[:bar_a][:inst],h[:bar_b][:inst]].each{|i|next unless i && i.valid?;i.set_attribute(DICT,'clash',1);i.material=mat if mat}}
+  mst_rt_set_visible!(true,model) unless mst_rt_visible?(model)   # v0.51.5 K62: görünürlük aynı işlemde (tek Geri Al)
   model.commit_operation
  rescue
   model.abort_operation;raise
  end
- mst_rt_set_visible!(true,model) unless mst_rt_visible?(model)
  hits.length
 rescue => ex
  UI.messagebox("Çakışma kontrolü: #{ex.message}")

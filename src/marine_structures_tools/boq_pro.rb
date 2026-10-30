@@ -356,7 +356,13 @@ alias_method :progress_entity_quantity_base, :progress_entity_quantity unless me
 def progress_entity_quantity(e,source)
  base=prog2_base(source)
  if base=='PILE_INFILL' && e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'
-  return (pile_bim_qto_item(e)[:concrete_m3].to_f rescue 0.0)
+  # v0.51.5 K21 (S7): hata sessiz 0 değil — konsola yazılır; Model Kontrolü (mst_audit_v0515) aynı hesabı HATA olarak gösterir
+  begin
+   return pile_bim_qto_item(e)[:concrete_m3].to_f
+  rescue => ex
+   warn("MST ilerleme miktarı (kazık iç betonu, #{element_visible_id(e)}): #{ex.message}")
+   return 0.0
+  end
  end
  progress_entity_quantity_base(e,base)
 end

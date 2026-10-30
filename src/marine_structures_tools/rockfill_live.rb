@@ -240,9 +240,10 @@ def rf_live_action(action,json,dialog)
   begin
    count=0;rf_live_walk(roots){|e,t,c|if e.is_a?(Sketchup::Face);e.set_attribute(DICT,RF_LIVE_MATERIAL,code);count+=1;end}
    raise 'Malzeme atanacak kapalı yüzey bulunamadı.' if count==0
+   state.delete('last_result');model.set_attribute(DICT,RF_LIVE_KEY,JSON.generate(state))   # v0.51.5 K62: durum aynı işlemde (tek Geri Al)
    model.commit_operation
   rescue;model.abort_operation;raise;end
-  state.delete('last_result');rf_live_store(state);rf_live_send(dialog,state,'Seçilen kesit yüzeylerine malzeme atandı.');return
+  rf_live_send(dialog,state,'Seçilen kesit yüzeylerine malzeme atandı.');return
  when 'type','type_update'
   editing=action=='type_update'
   if editing
@@ -310,12 +311,17 @@ def rf_live_action(action,json,dialog)
   if action=='loft';rf_live_create_loft(state,dialog);return;end
   if action=='calculate' || action=='activate'
    result=rf_live_result(state);state['last_result']=result
-   rf_live_store(state)
    if action=='activate'
-    rf_live_qto
+    # v0.51.5 K62: proje durumu + canlı QTO kaynağı tek işlemde (tek Geri Al); doğrulama (rf_live_qto) aynı işlem içinde
     model.start_operation('Alternatif-02 Canlı QTO Kaynağı',true)
-    begin;model.set_attribute(DICT,ROCKFILL_SOURCE_KEY,JSON.generate({'mode'=>'geometry'}));model.commit_operation;rescue;model.abort_operation;raise;end
+    begin
+     model.set_attribute(DICT,RF_LIVE_KEY,JSON.generate(state))
+     rf_live_qto
+     model.set_attribute(DICT,ROCKFILL_SOURCE_KEY,JSON.generate({'mode'=>'geometry'}));model.commit_operation
+    rescue;model.abort_operation;raise;end
     send_boq(dialog);qto_summary(dialog)
+   else
+    rf_live_store(state)
    end
    rf_live_send(dialog,state,'Geometriden hesaplandı. BOQ aynı geometriyi yeniden okuyarak miktarı günceller.');return
   elsif action=='show'

@@ -44,6 +44,8 @@ A1.load(Host, main, 'def rockfill_save_library(', 'def rockfill_autosave_library
 A1.load(Host, acc, 'def user_accessory_library_dir', 'def user_accessory_index_path', 'def user_accessory_items', 'def user_accessory_write(',
         'def user_accessory_register_selected', 'def user_accessory_delete(')
 A1.load_opt(Host, acc, 'def user_accessory_items_for_write')
+# Parti B (K14 / S9) düzeneği: dolgu kayıtları mst_rf_write! ile yazılır, otomatik kayıt hatası mst_rf_autosave_warn ile bildirilir
+A1.load_opt(Host, main, 'def mst_rf_write!('); A1.load_opt(Host, main, 'def mst_rf_autosave_warn(')
 h = Host.new
 D = A1::DICT
 try = lambda do |&b|

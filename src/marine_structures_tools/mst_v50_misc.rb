@@ -81,7 +81,13 @@ def mst_v50_chair_kg(e)
  tot>0 ? r['kg']*ch/tot : 0.0
 end
 def mst_v50_acc_anchor_kg
- (accessory_rows rescue []).sum{|r|r['quantity'].to_f*r['anchor_rebar_kg'].to_f}
+ # v0.51.5 K21 (S8): okuma hatası sessiz 0 kg değil — konsola yazılır; Model Kontrolü aynı okumayı HATA olarak gösterir
+ rows=begin
+  accessory_rows
+ rescue => ex
+  warn("MST aksesuar ankraj donatısı: #{ex.message}");[]
+ end
+ rows.sum{|r|r['quantity'].to_f*r['anchor_rebar_kg'].to_f}
 end
 # mst_boq_rebar_breakdown satırlarına: sehpa ayrı satır (taşındığı satırdan düşülür) + aksesuar ankrajı
 def mst_v50_breakdown_extras(rows,all)

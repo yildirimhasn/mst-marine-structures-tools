@@ -24,8 +24,9 @@ module MAG
     {value:0.0,state:'missing',method:"attribute:#{keys.join('|')}"}
    end
    def pile_owned_concrete(e)
-    return {value:0.0,state:'not_applicable',method:'physical_child_owner'} unless api.pile_qto_infill_children(e).empty?
+    # v0.51.5 K36 (A2→B): "iç beton YOK" önce — Component kazığın paylaşılan çocuğu tanımda kalabilir
     return {value:0.0,state:'not_applicable',method:'infill_disabled'} if e.get_attribute(DICT,'infill_enabled',nil).to_s=='0'
+    return {value:0.0,state:'not_applicable',method:'physical_child_owner'} unless api.pile_qto_infill_children(e).empty?
     raw=e.get_attribute(DICT,'infill_concrete_volume_m3',nil)
     return attribute(e,['infill_concrete_volume_m3']) unless raw.nil?
     return {value:0.0,state:'not_applicable',method:'no_infill'} if e.get_attribute(DICT,'infill_bottom_elevation_m',nil).nil?

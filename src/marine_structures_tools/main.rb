@@ -190,6 +190,13 @@ end
 def html_escape(v)
  v.to_s.gsub('&','&amp;').gsub('<','&lt;').gsub('>','&gt;').gsub('"','&quot;')
 end
+# v0.51.5 K29: arayüz callback'inden gelen JSON okunamazsa Türkçe ileti, işlem yapılmaz (nil)
+def mst_cb_json(j,label)
+ JSON.parse(j.to_s)
+rescue JSON::ParserError, TypeError => ex
+ UI.messagebox("#{label}: arayüzden gelen veri okunamadı; işlem yapılmadı.\n(#{ex.message[0,200]})")
+ nil
+end
 
 def color_from_hex(hex, fallback='#F4B183')
  h=hex.to_s.strip
@@ -257,6 +264,20 @@ def build_crane_precast_solid(entities, length_len, width_m, thickness_m, extra_
  face.reverse! if face.normal.y<0
  face.pushpull(m(w))
  true
+end
+
+# v0.51.5 K54 (yalnız uyarı): ilave derinlikli vinç prekastında uç diş boyu oturma boyundan kısaysa derin orta bölüm
+# BK gövdesine girer (prekast yerel X: 0 → boy; oturma 0..sol oturma ve boy−sağ oturma..boy). Geometri / metraj değişmez.
+def mst_pv_tooth_seat_warnings(e)
+ g=->(k){e.get_attribute(DICT,k,0).to_f}
+ ed=g.('extra_depth_m');w=g.('width_m');return [] unless ed>0 && w>0
+ sl=e.get_attribute(DICT,'seat_left_m',e.get_attribute(DICT,'seat_each_side_m',0)).to_f
+ sr=e.get_attribute(DICT,'seat_right_m',e.get_attribute(DICT,'seat_each_side_m',0)).to_f
+ [['sol',g.('left_tooth_m'),sl],['sağ',g.('right_tooth_m'),sr]].map do |yan,t,s|
+  next nil unless s-t>1e-6
+  format('%s: %s diş boyu (%.3f m) oturma boyundan (%.3f m) kısa; ilave derinlikli orta bölüm BK gövdesine %.3f m giriyor. Bu kesişim hacmi (%.3f m³) BK ve prekast betonunda iki kez sayılıyor olabilir.',
+   element_visible_id(e),yan,t,s,s-t,w*ed*(s-t))
+ end.compact
 end
 
 def paint_crane_precast_formwork(group, form_mat=nil)
@@ -2209,6 +2230,16 @@ def bk_formwork_face_key(face)
   "#{kind.empty? ? 'FACE' : kind}_#{n.x.round(3)}_#{n.y.round(3)}_#{n.z.round(3)}"
  end
 end
+# v0.51.5 K51 (ADR-0515 §10): aynı eski anahtarı paylaşan yüzler (ör. ana taban + diş tabanı) konumla ayrılır.
+# => {face=>[konumlu, eski]}; konumlu "#{eski}@#{i}/#{n}" — aynı eski anahtarlı n yüzün yerel bounds.min [x,z,y] (mm) sırası.
+# Uygulamada önce konumlu, yoksa eski anahtar okunur; yüz sayısı (n) değişirse eski anahtara düşer.
+def bk_formwork_face_keys(group)
+ out={}
+ mst_hb_ents(group).grep(Sketchup::Face).group_by{|f|bk_formwork_face_key(f)}.each do |k,fs|
+  fs.sort_by{|f|b=f.bounds.min;[(b.x.to_f*25.4).round,(b.z.to_f*25.4).round,(b.y.to_f*25.4).round]}.each_with_index{|f,i|out[f]=["#{k}@#{i}/#{fs.length}",k]}
+ end
+ out
+end
 
 def bk_formwork_override_map(group, capture_legacy=true)
  raw=group.get_attribute(DICT,'formwork_face_overrides','').to_s
@@ -2222,10 +2253,10 @@ def bk_formwork_override_map(group, capture_legacy=true)
  if capture_legacy
   # Migration from v0.37.4/v0.37.5: existing face-level manual overrides are
   # captured before geometry is cleared, so the user's saved model is preserved.
-  group.entities.grep(Sketchup::Face).each do |f|
+  bk_formwork_face_keys(group).each do |f,(pos,_legacy)|   # v0.51.5 K51: yalnız konumlu anahtar yazılır
    ov=f.get_attribute(DICT,'formwork_manual_override','').to_s
    next unless ['include','exclude'].include?(ov)
-   map[bk_formwork_face_key(f)]=ov
+   map[pos]=ov
   end
  end
  map
@@ -2237,8 +2268,8 @@ end
 
 def bk_apply_formwork_overrides(group,map,form_mat=nil)
  return head_beam_formwork_area(group) unless map.is_a?(Hash) && !map.empty?
- group.entities.grep(Sketchup::Face).each do |f|
-  ov=map[bk_formwork_face_key(f)].to_s
+ bk_formwork_face_keys(group).each do |f,(pos,legacy)|
+  ov=(map.key?(pos) ? map[pos] : map[legacy]).to_s   # v0.51.5 K51: önce konumlu, yoksa eski anahtar
   next unless ['include','exclude'].include?(ov)
   flag=(ov=='include')
   f.set_attribute(DICT,'formwork',flag)
@@ -2266,6 +2297,7 @@ def set_selected_faces_formwork(flag)
   UI.messagebox("Head Beam içindesiniz; şimdi bir veya daha fazla yüzey seçin."); return
  end
  model.start_operation(flag ? 'Kalıba Dahil Et' : 'Kalıptan Çıkar',true)
+ begin   # v0.51.5 K13: hata yolunda işlem açık kalmaz
  faces.each do |face|
   face.set_attribute(DICT,'formwork',flag)
   hex=hb.get_attribute(DICT,flag ? 'formwork_color':'concrete_color',flag ? '#F4B183':'#D9D9D9')
@@ -2277,6 +2309,9 @@ def set_selected_faces_formwork(flag)
  hb.set_attribute(DICT,'formwork_gross_area_m2',new_area)
  hb.set_attribute(DICT,'formwork_net_area_m2',[new_area-head_beam_pile_opening_area(hb),0.0].max)
  commit_with_dependencies(model)
+ rescue => ex
+  model.abort_operation;UI.messagebox("Kalıp yüzeyi güncellenemedi: #{ex.message}");return
+ end
  UI.messagebox("#{faces.length} yüzey #{flag ? 'kalıba dahil edildi':'kalıptan çıkarıldı'}.\\nYeni Head Beam kalıp alanı: #{format('%.2f',new_area)} m²")
 end
 
@@ -2311,22 +2346,28 @@ class MSTBKFormworkFaceTool
    UI.messagebox("Önce Başlık Kirişi grubuna çift tıklayıp düzenleme moduna girin.\nArdından 'BK Yüzeyi Seç / Kalıp Toggle' düğmesine basın.")
    @model.select_tool(nil); return
   end
+  # v0.51.5 K29: Component BK'da yüzler tanımdadır (hb.entities yok); çok kopyalı tanıma tek parça için yazılmaz
+  if hb.is_a?(Sketchup::ComponentInstance) && hb.definition.count_instances>1
+   UI.messagebox("Bu BK Component (ortak tanım, #{hb.definition.count_instances} parça). Tek parçanın kalıp yüzünü değiştirmek için önce parçayı ayırın (Make Unique).")
+   @model.select_tool(nil); return
+  end
   ph=view.pick_helper; ph.do_pick(x,y)
   face=nil
   ph.count.times do |i|
    e=ph.leaf_at(i) rescue nil
-   if e.is_a?(Sketchup::Face) && hb.entities.include?(e); face=e; break; end
+   if e.is_a?(Sketchup::Face) && MarineStructuresTools.mst_hb_ents(hb).include?(e); face=e; break; end
   end
   unless face
    UI.beep; Sketchup.status_text='BK içinde bir yüzeye tıklayın.'; return
   end
   old=face.get_attribute(MarineStructuresTools::DICT,'formwork',false) ? true : false
   flag=!old
-  @model.start_operation(flag ? 'BK Yüzeyi Kalıba Dahil Et' : 'BK Yüzeyi Kalıptan Çıkar',true)
+  pos_key=MarineStructuresTools.bk_formwork_face_keys(hb)[face]   # K51: işlemden önce (yüz konumu değişmeden)
+  @model.start_operation(flag ? 'BK Yüzeyi Kalıba Dahil Et' : 'BK Yüzeyi Kalıptan Çıkar',true);op=true
   face.set_attribute(MarineStructuresTools::DICT,'formwork',flag)
   face.set_attribute(MarineStructuresTools::DICT,'formwork_manual_override',flag ? 'include' : 'exclude')
   ovmap=MarineStructuresTools.bk_formwork_override_map(hb,false)
-  ovmap[MarineStructuresTools.bk_formwork_face_key(face)]=flag ? 'include' : 'exclude'
+  ovmap[pos_key ? pos_key[0] : MarineStructuresTools.bk_formwork_face_key(face)]=flag ? 'include' : 'exclude'   # v0.51.5 K51: konumlu anahtar
   MarineStructuresTools.bk_store_formwork_override_map(hb,ovmap)
   if flag
    hex=hb.get_attribute(MarineStructuresTools::DICT,'formwork_color','#66BB6A')
@@ -2341,13 +2382,12 @@ class MSTBKFormworkFaceTool
   hb.set_attribute(MarineStructuresTools::DICT,'formwork_area_m2',gross)
   hb.set_attribute(MarineStructuresTools::DICT,'formwork_gross_area_m2',gross)
   hb.set_attribute(MarineStructuresTools::DICT,'formwork_net_area_m2',net)
-  MarineStructuresTools.commit_with_dependencies(@model)
-  @model.commit_operation
+  MarineStructuresTools.commit_with_dependencies(@model);op=false   # v0.51.5 K11: commit_with_dependencies kapatır (ikinci commit yok)
   state=flag ? 'KALIBA DAHİL' : 'KALIPTAN HARİÇ'
   Sketchup.status_text="#{state} • Yüzey #{format('%.2f',MarineStructuresTools.face_area_m2(face))} m² • Brüt #{format('%.2f',gross)} m² • Net #{format('%.2f',net)} m² • ESC=çıkış"
   view.invalidate
  rescue => e
-  @model.abort_operation rescue nil
+  (@model.abort_operation if op) rescue nil
   UI.messagebox("BK yüzey yönetimi hatası:\n#{e.message}")
  end
 end
@@ -2412,7 +2452,7 @@ class MSTUniversalFormworkFaceTool
   unless face; UI.beep; return; end
   type=owner.get_attribute(MarineStructuresTools::DICT,'element_type','').to_s
   old=face.get_attribute(MarineStructuresTools::DICT,'formwork',false) ? true : false; flag=!old
-  @model.start_operation(flag ? 'Yüzeyi Kalıba Dahil Et' : 'Yüzeyi Kalıptan Çıkar',true)
+  @model.start_operation(flag ? 'Yüzeyi Kalıba Dahil Et' : 'Yüzeyi Kalıptan Çıkar',true);op=true
   face.set_attribute(MarineStructuresTools::DICT,'formwork',flag)
   face.set_attribute(MarineStructuresTools::DICT,'formwork_manual_override',flag ? 'include' : 'exclude')
   if flag
@@ -2429,11 +2469,11 @@ class MSTUniversalFormworkFaceTool
    gross=MarineStructuresTools.mst_marked_formwork_area(owner.entities)
    owner.set_attribute(MarineStructuresTools::DICT,'formwork_area_m2',gross); owner.set_attribute(MarineStructuresTools::DICT,'formwork_gross_area_m2',gross); owner.set_attribute(MarineStructuresTools::DICT,'formwork_net_area_m2',gross)
   end
-  MarineStructuresTools.commit_with_dependencies(@model); @model.commit_operation
+  MarineStructuresTools.commit_with_dependencies(@model);op=false   # v0.51.5 K11: tek commit
   Sketchup.status_text="#{MarineStructuresTools.mst_formwork_label(type)} • #{flag ? 'KALIBA DAHİL' : 'KALIPTAN HARİÇ'} • Kalıp #{format('%.2f',gross)} m² • ESC=çıkış"
   view.invalidate
  rescue => e
-  @model.abort_operation rescue nil; UI.messagebox("Kalıp yüzey yönetimi hatası:\n#{e.message}")
+  (@model.abort_operation if op) rescue nil; UI.messagebox("Kalıp yüzey yönetimi hatası:\n#{e.message}")
  end
 end
 
@@ -4361,22 +4401,48 @@ def next_element_uid(model,prefix)
  format("%s-E%05d",prefix,seq)
 end
 
+# v0.51.5 K22 aşama 1 (ADR-0515 §3): prekast açıklığı / boyu BK'ların model X sınır kutusundan ölçülür; bu yalnız
+# BK ekseni model Y'ye paralel (ya da eksene dik, 90°'nin katı) iken doğrudur. Eksen 90°'nin katı değilse ve sınır kutusunun
+# X genişliği BK genişliğini 5 mm'den fazla aşıyorsa Türkçe hata döner (nil = ölçülebilir; döndürülmemiş yapıda 0.51.4 ile aynı).
+# Salt okuma. Aşama 2 (BK yerel ekseninde ölçüm) açık.
+def mst_bk_span_frame_error(b)
+ return nil unless b && b.respond_to?(:transformation)
+ xa=b.transformation.xaxis
+ ang=Math.atan2(xa.x.to_f,xa.y.to_f).abs*180.0/Math::PI   # model Y'ye göre, 0..180
+ off=ang%90.0;off=[off,90.0-off].min
+ return nil if off<=0.01
+ w=b.get_attribute(DICT,'width_m',0).to_f
+ return nil if w>0 && b.bounds.width.to_f/39.37007874015748-w<=0.005
+ a=ang>90.0 ? 180.0-ang : ang
+ "#{element_visible_id(b)}: başlık kirişi model eksenine göre #{format('%.1f',a)}° döndürülmüş. Prekast boyu yalnız model Y eksenine paralel BK'lar arasında ölçülebiliyor; bu yapıda boy yanlış çıkar. Prekast oluşturulmadı."
+end
+
 def create_flat_precast(data=nil)
  model=Sketchup.active_model;sel=selected_head_beams
  if sel.length<2;UI.messagebox("Prekast yerleşimi için en az iki komşu Head Beam seçiniz.");return;end
  data||={}
  if sel.length>2
-  ordered=sel.sort_by{|g|g.bounds.center.x};original=sel.dup;completed=0
+  ordered=sel.sort_by{|g|g.bounds.center.x};original=sel.dup;completed=0;ok=false
+  # v0.51.5 K15: bütün aralıklar tek işlem (tek Geri Al); aralık işlevleri çağıranın işlemi içinde çalışır.
+  # Bir aralık durursa işlem geri alınır: model değişmez (yarım toplu yerleşim kalmaz).
+  model.start_operation('Prekast Yerleşimi - Toplu',true)
   begin
    @precast_batch_mode=true
    ordered.each_cons(2){|a,b|model.selection.clear;model.selection.add(a);model.selection.add(b);break unless create_flat_precast(data)==true;completed+=1}
+   ok=completed==ordered.length-1
   ensure
-   @precast_batch_mode=false;model.selection.clear;original.each{|g|model.selection.add(g) if g&&g.valid?}
+   @precast_batch_mode=false
+   ok ? commit_with_dependencies(model) : model.abort_operation
+   model.selection.clear;original.each{|g|model.selection.add(g) if g&&g.valid?}
   end
-  UI.messagebox("Toplu prekast yerleşimi #{completed==ordered.length-1 ? 'tamamlandı' : 'durduruldu'}.\nOluşturulan BK aralığı: #{completed} / #{ordered.length-1}")
-  return completed==ordered.length-1
+  UI.messagebox(ok ? "Toplu prekast yerleşimi tamamlandı.\nOluşturulan BK aralığı: #{completed} / #{ordered.length-1}" :
+   "Toplu prekast yerleşimi durduruldu (#{completed+1}. BK aralığı oluşturulamadı).\nÖnceki #{completed} aralık da geri alındı; model değişmedi.")
+  return ok
  end
- lb,rb=sel.sort_by{|g|g.bounds.center.x};clear=rb.bounds.min.x-lb.bounds.max.x
+ lb,rb=sel.sort_by{|g|g.bounds.center.x}
+ # v0.51.5 K22 (aşama 1): açıklık model X'inde ölçülüyor; döndürülmüş BK'da boy yanlış çıkacağı için oluşturulmaz
+ if (er=mst_bk_span_frame_error(lb) || mst_bk_span_frame_error(rb));UI.messagebox(er);return;end
+ clear=rb.bounds.min.x-lb.bounds.max.x
  z1=lb.get_attribute(DICT,'top_elevation_m',nil);z2=rb.get_attribute(DICT,'top_elevation_m',nil)
  if clear<=0||z1.nil?||z2.nil?||(z1.to_f-z2.to_f).abs>0.005;UI.messagebox('BK açıklığı veya üst kot bilgisi geçersiz/farklı.');return;end
  z=z1.to_f;seat=data['pd_seat_m'].to_s.empty? ? 0.15:data['pd_seat_m'].to_f;joint=data['pd_joint_m'].to_s.empty? ? 0.02:data['pd_joint_m'].to_f;yoff=data['pd_y_offset_m'].to_f
@@ -4395,7 +4461,7 @@ def create_flat_precast(data=nil)
  pd_form_hex=data['pd_formwork_color'].to_s.strip;pd_form_hex='#66A9E8' if pd_form_hex.empty?;pd_form_mat=material_for(model,"MAG PD Kalıp #{pd_form_hex}",pd_form_hex)
  ch_form_hex=data['channel_formwork_color'].to_s.strip;ch_form_hex='#6DBE73' if ch_form_hex.empty?;ch_form_mat=material_for(model,"MAG Kanal Kalıp #{ch_form_hex}",ch_form_hex)
  tooth_form_mat=material_for(model,'MAG Dişli Prekast Kalıp #FFD966','#FFD966')
- model.start_operation('Prekast Yerleşimi - Çoklu Tip',true)
+ model.start_operation('Prekast Yerleşimi - Çoklu Tip',true) unless @precast_batch_mode   # K15: toplu yerleşimde çağıranın işlemi
  begin
   c=model.active_entities.add_group;c.name='Prekast Layout';c.set_attribute(DICT,'element_type','precast_layout')
   counts={'PD'=>0,'PDO'=>0,'PV'=>0,'PK'=>0}
@@ -4427,11 +4493,12 @@ def create_flat_precast(data=nil)
    end
   end
   # Save the editable type library in the SketchUp model for traceability / future migration.
-  model.set_attribute(DICT,'precast_type_library_json',JSON.generate(lib));commit_with_dependencies(model)
+  model.set_attribute(DICT,'precast_type_library_json',JSON.generate(lib));commit_with_dependencies(model) unless @precast_batch_mode
   unless @precast_batch_mode;UI.messagebox("Prekast yerleşimi oluşturuldu.\nPD: #{counts['PD']}\nPDÖ: #{counts['PDO']}\nPV: #{counts['PV']}\nPK: #{counts['PK']}\nBoy: #{format('%.3f',lm)} m");end
   true
  rescue=>e
-  model.abort_operation;UI.messagebox("Prekast oluşturma hatası: #{e.message}");false
+  model.abort_operation unless @precast_batch_mode   # K15: toplu yerleşimde çağıran geri alır
+  UI.messagebox("Prekast oluşturma hatası: #{e.message}");false
  end
 end
 
@@ -4516,6 +4583,7 @@ def create_crane_precast(d)
   UI.messagebox('Vinç Prekastı için iki komşu Başlık Kirişi seçiniz.');return false
  end
  lb,rb=hbs.sort_by{|g|g.bounds.center.x}
+ if (er=mst_bk_span_frame_error(lb) || mst_bk_span_frame_error(rb));UI.messagebox(er);return false;end   # v0.51.5 K22 aşama 1
  clear=rb.bounds.min.x-lb.bounds.max.x
  if clear<=0;UI.messagebox('Seçilen BK açıklığı geçersiz.');return false;end
  z1=lb.get_attribute(DICT,'top_elevation_m',nil);z2=rb.get_attribute(DICT,'top_elevation_m',nil)
@@ -4545,7 +4613,8 @@ def create_crane_precast(d)
   sig=precast_signature('CRANE',len,w,t,[ed,lt,rt].map{|x|(x*1000).round}.join(':'))
   {'element_type'=>'crane_precast','precast_id'=>id,'precast_type_id'=>id,'element_uid'=>uid,'library_type_id'=>id,'type_signature'=>sig,'precast_family'=>'PV','precast_type'=>id,'length_m'=>len,'width_m'=>w,'layout_width_m'=>w,'height_m'=>t,'thickness_m'=>t,'extra_depth_m'=>ed,'left_tooth_m'=>lt,'right_tooth_m'=>rt,'bottom_elevation_m'=>bottom-ed,'main_bottom_elevation_m'=>bottom,'top_elevation_m'=>bottom+t,'seat_left_m'=>sl,'seat_right_m'=>sr,'concrete_class'=>cc,'cover_cm'=>d['cover_cm'].to_f,'rebar_rate_kg_m3'=>d['rebar_rate'].to_f,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.each{|k,v|g.set_attribute(DICT,k,v)}
   finalize_bim_identity(g,model);commit_with_dependencies(model);model.selection.clear;model.selection.add(g)
-  UI.messagebox("Vinç Prekastı oluşturuldu.\nTip: #{id}\nBoy: #{format('%.3f',len)} m\nGenişlik: #{format('%.3f',w)} m\nBeton: #{format('%.3f',vol)} m³")
+  k54=(mst_pv_tooth_seat_warnings(g) rescue [])   # v0.51.5 K54: yalnız uyarı (commit sonrası; hata işlemi etkilemez)
+  UI.messagebox("Vinç Prekastı oluşturuldu.\nTip: #{id}\nBoy: #{format('%.3f',len)} m\nGenişlik: #{format('%.3f',w)} m\nBeton: #{format('%.3f',vol)} m³#{k54.empty? ? '' : "\n\nUYARI:\n#{k54.join("\n")}"}")
   true
  rescue=>e
   model.abort_operation;UI.messagebox("Vinç Prekastı oluşturma hatası: #{e.message}");false
@@ -5654,6 +5723,9 @@ def mst_deck_regenerate!(deck,model=Sketchup.active_model,skip_same=false)
  raise 'Döşeme geçersiz.' unless deck && deck.valid?
  did=element_visible_id(deck)
  data=mst_deck_input_data(deck)
+ # v0.51.5 K53 (ADR-0515 §9): oluşturmadan sonra değişen kaplama durumu (Kaplama Ekle / Kaplama Eğimi) korunur;
+ # mst_deck_fill! bunu deck_input_json'a da yazar. Eğim genişliği yeniden hesaplanmaz; fiziksel kaplama yeniden kurulmaz.
+ %w[topping_enabled topping_thickness_m topping_concrete_class].each{|k|v=deck.get_attribute(DICT,k,nil);data[k]=v.to_s unless v.nil?}
  hbs=mst_deck_support_beams(deck,model)
  raise "#{did}: dayandığı BK'lar bulunamadı (#{hbs.length})." if hbs.length<2
  ins=mst_deck_inputs(model,hbs,data)
@@ -5710,7 +5782,8 @@ def mst_deck_after_edit(beams,model=Sketchup.active_model,quiet=false)
   end
   commit_with_dependencies(model)
  rescue Exception => e
-  model.abort_operation
+  # v0.51.5 K12 kuralı: saydam işlem abort edilmez (kullanıcının BK işlemini de geri alabilir); kapatılır, hata bildirilir
+  (model.commit_operation rescue nil)
   errs << e.message
  end
  unless quiet && errs.empty? && res.all?{|r|(r['old'][0]-r['new'][0]).abs<1e-6}
@@ -6014,7 +6087,8 @@ def create_existing_deck_topping(data)
  top_z=m(top_m.to_f)
  tol=1.0.mm
  # Prevent accidental duplicate physical topping.
- old=mst_all_elements.find{|e| e.respond_to?(:get_attribute) && e.get_attribute(DICT,'element_type','').to_s=='deck_topping' && e.get_attribute(DICT,'parent_deck_id','').to_s==did}
+ # v0.51.5 K07: kaplama collect_elements'e girmez; ayrı toplayıcı (önceden kontrol hiç eşleşmiyordu)
+ old=mst_collect_toppings(model.entities).find{|e| e.get_attribute(DICT,'parent_deck_id','').to_s==did}
  if old && old.valid?
   UI.messagebox("#{did} için fiziksel kaplama zaten mevcut. Önce mevcut kaplamayı silin veya düzenleyin.")
   return
@@ -6095,6 +6169,7 @@ def create_existing_deck_topping(data)
  g.set_attribute(DICT,'topping_id',"TOP-#{did}")
  g.set_attribute(DICT,'parent_deck_id',did)
  g.set_attribute(DICT,'parent_uid',ensure_uid(deck))
+ g.set_attribute(DICT,'parent_deck_revision_no',deck.get_attribute(DICT,'deck_revision_no',0).to_i)   # v0.51.5 K53 (yeni anahtar, Integer)
  g.set_attribute(DICT,'thickness_m',th)
  g.set_attribute(DICT,'concrete_class',cc)
  g.set_attribute(DICT,'concrete_volume_m3',vol)
@@ -6243,8 +6318,12 @@ def unregister_selected_element
  unless e;UI.messagebox('Tanımı kaldırmak için Marine Structures elemanı seçin.');return;end
  return unless UI.messagebox('Seçili elemanın Marine Structures tanımı kaldırılsın mı? Geometri silinmez.',MB_YESNO)==IDYES
  model.start_operation('Marine Structures Tanımını Kaldır',true)
- e.attribute_dictionaries.delete(DICT) if e.attribute_dictionaries && e.attribute_dictionaries[DICT]
- commit_with_dependencies(model)
+ begin   # v0.51.5 K13: hata yolunda işlem açık kalmaz
+  e.attribute_dictionaries.delete(DICT) if e.attribute_dictionaries && e.attribute_dictionaries[DICT]
+  commit_with_dependencies(model)
+ rescue => ex
+  model.abort_operation;UI.messagebox("Tanım kaldırılamadı: #{ex.message}");return
+ end
  UI.messagebox('Marine Structures tanımı kaldırıldı. Geometri korunmuştur.')
  qto_summary(@d) if @d && @d.visible?
 end
@@ -7580,6 +7659,7 @@ def repair_bim_identity
  missing_uids=elems.select{|e|e.get_attribute(DICT,'element_uid','').to_s.strip.empty?}
  uid_groups=elems.group_by{|e|e.get_attribute(DICT,'element_uid','').to_s.strip}.reject{|k,a|k.empty?||a.length<2}
  id_groups=elems.group_by{|e|[e.get_attribute(DICT,'element_type','').to_s,element_visible_id(e)]}.reject{|k,a|k[1].start_with?('PID-')||a.length<2}
+ id_owner={};id_groups.each{|k,arr|id_owner[k]=mst_uid_owner(arr)[0]}   # A2→B: fiziksel ID'yi asıl öğe korur (yazmadan önce karar)
  # ADR-0515 §1 / K06: asıl öğe mst_uid_owner ile (kayıtlı sahip / UID içindeki PID / en eski PID); öbürleri kopya
  uid_plan=uid_groups.map{|u,arr|own,why=mst_uid_owner(arr);[u,own,arr-[own],why]}
  pairs=uid_plan.flat_map{|u,own,cps,why|cps.map{|c|"#{element_visible_id(own)} (PID #{own.persistent_id}) → #{element_visible_id(c)} (PID #{c.persistent_id}) · #{why}"}}
@@ -7633,7 +7713,7 @@ def repair_bim_identity
  id_groups.each do |(t,old_id),arr|
   key=mst_identity_id_key(t);next unless key
   prefix=bim_type_prefix(t)
-  arr[1..-1].each do |e|
+  (arr-[id_owner[[t,old_id]] || arr.first]).each do |e|   # asıl öğe (mst_uid_owner) kendi ID'sini korur
    nid=mst_next_unique_physical_id(prefix,used_by_type[t]);used_by_type[t][nid]=true
    e.set_attribute(DICT,key,nid);e.name=nid if e.respond_to?(:name=)
    renamed+=1
@@ -8112,8 +8192,16 @@ MST_AUDIT_ERROR_FLAGS={
  'pile_rebar_error'=>['ERROR','Kazık donatı kafesi hesaplanamadı (%s). Kazık donatısı iç beton × pursantaj ile sayılıyor.','Kazık İçi Donatı parametrelerini ve iç beton kotlarını kontrol edip kafesi yeniden uygulayın.'],
  'pc_rebar_error'=>['ERROR','Prekast donatısı çizilemedi (%s). Donatı pursantajla sayılıyor.','Prekast Donatısı → ÇİZ ile yeniden çizin (Component ise önce parçayı ayırın).'],
  'rebar_restore_error'=>['WARNING','%s — BK donatısı pursantajla sayılıyor; önceki kayıt korundu.','BK donatısını yeniden oluşturun (BIM Donatı / Çizimden Donatı).'],
- 'culvert_error'=>['ERROR','Menfez: %s','Menfez → EKLE / TEMİZLE ile yeniden uygulayın.']
+ 'culvert_error'=>['ERROR','Menfez: %s','Menfez → EKLE / TEMİZLE ile yeniden uygulayın.'],
+ 'formwork_net_error'=>['WARNING','Net kalıp alanı güncellenemedi (%s); kayıtlı net kalıp eski değerde kalmış olabilir.','BK kalıp yüzlerini kontrol edip BK\'yı yeniden oluşturun / revize edin.']   # v0.51.5 K18
 }.freeze
+# v0.51.5 K23: dönüşümün eksen ölçekleri ve aynalama (SketchUp Transformation#to_a: 16 değer, sütun sıralı). Salt okuma.
+def mst_tr_scale_info(t)
+ a=t.to_a.map(&:to_f);w=a[15].abs<1e-12 ? 1.0 : a[15]
+ s=[a[0..2],a[4..6],a[8..10]].map{|v|Math.sqrt(v.sum{|x|x*x})/w}
+ det=a[0]*(a[5]*a[10]-a[6]*a[9])-a[4]*(a[1]*a[10]-a[2]*a[9])+a[8]*(a[1]*a[6]-a[2]*a[5])
+ [s,det<0]
+end
 # => [[sev,e,check,msg,fix,pids], ...]  Salt okuma.
 def mst_audit_v0515(elems,all=elems)
  out=[]
@@ -8136,6 +8224,64 @@ def mst_audit_v0515(elems,all=elems)
    next unless ds.max-ds.min>1e-6
    out << ['WARNING',b,'Hesap Hatası',"#{element_visible_id(b)}: #{it[:pile_id]} kazığının ayak izi taban derinliği değişimini (diş / taban bölgesi sınırı) kesiyor; gömülme kazık eksenindeki taban kotundan hesaplandı.",'Kazık konumunu ve diş / bölge sınırını kontrol edin; gerekirse gömülme düşümünü elle doğrulayın.',[b.persistent_id,it[:pid]]]
   end
+ end
+ # ---- v0.51.5 Parti B (yalnız uyarı / hata satırı; metraj ve model değişmez)
+ typ=->(e){e.get_attribute(DICT,'element_type','').to_s}
+ by_pid={};all.each{|e|by_pid[e.persistent_id]=e if e.respond_to?(:persistent_id)}
+ # K22 aşama 1: döndürülmüş BK'lar arasındaki mevcut prekastın boyu model X'inde ölçülmüştü
+ elems.select{|e|%w[flat_precast channel_precast crane_precast].include?(typ[e])}.each do |p|
+  bs=%w[support_left_pid support_right_pid].map{|k|by_pid[p.get_attribute(DICT,k,0).to_i]}.compact.select{|b|typ[b]=='head_beam'}.uniq
+  er=bs.map{|b|mst_bk_span_frame_error(b)}.compact.first;next unless er
+  out << ['WARNING',p,'PD/Kanal → BK',"#{element_visible_id(p)}: dayandığı #{er.sub(/ Prekast oluşturulmadı\.\z/,'')} Bu prekastın boyu ve metrajı yanlış olabilir.",'Prekast boyunu elle doğrulayın; BK yerel ekseninde ölçüm (aşama 2) henüz yok.',[p.persistent_id]+bs.map(&:persistent_id)]
+ end
+ # K23: ölçekli / aynalı dönüşüm zinciri — metraj öznitelikten okunur, ölçek uygulanmaz
+ elems.each do |e|
+  next unless e.respond_to?(:transformation) && e.transformation
+  s,mir=mst_tr_scale_info(mst_rt_world_tr(e))
+  next unless mir || s.any?{|v|(v-1.0).abs>1e-4}
+  out << ['WARNING',e,'Hesap Hatası',format('%s: dönüşüm zincirinde ölçek (X×%.4f, Y×%.4f, Z×%.4f)%s var. Metraj öznitelikten okunur, ölçek uygulanmaz; geometri ile metraj uyuşmayabilir.',element_visible_id(e),s[0],s[1],s[2],mir ? ', aynalama' : ''),'Ölçeği / aynalamayı geri alın veya elemanı MST araçlarıyla yeniden oluşturun.',[e.persistent_id]]
+ end
+ # K10 ara çözüm: VK / BBK oluşturulduktan sonra dayandığı BK değişti (revizyon / üst kot / konum)
+ elems.select{|v|typ[v]=='head_beam' && %w[VK BBK].include?(v.get_attribute(DICT,'beam_role','').to_s)}.each do |v|
+  st=(JSON.parse(v.get_attribute(DICT,'link_support_state_json','').to_s) rescue nil);next unless st.is_a?(Array)
+  st.each do |pid,rev,top,ox,oy|
+   b=by_pid[pid.to_i]
+   unless b && b.valid?
+    out << ['WARNING',v,'Dependency Graph',"#{element_visible_id(v)}: dayandığı BK (PID #{pid}) modelde bulunamadı; vinç / boylama kirişi güncel olmayabilir.",'VK / BBK\'yı yeniden oluşturun.',[v.persistent_id]];next
+   end
+   cur=mst_vk_support_state(b);why=[]
+   why << format('revizyon RV-%02d → RV-%02d',rev.to_i,cur[1]) if cur[1]>rev.to_i
+   why << format('üst kot %.3f → %.3f m',top.to_f,cur[2]) if (cur[2]-top.to_f).abs>0.001
+   why << format('konum %.3f m kaydı',Math.hypot(cur[3]-ox.to_f,cur[4]-oy.to_f)) if Math.hypot(cur[3]-ox.to_f,cur[4]-oy.to_f)>0.001
+   next if why.empty?
+   out << ['WARNING',v,'Dependency Graph',"#{element_visible_id(v)}: dayandığı #{element_visible_id(b)} oluşturulduktan sonra değişti (#{why.join(', ')}); VK / BBK BK'yı izlemez, geometri ve metrajı eski olabilir.",'VK / BBK\'yı silip yeniden oluşturun veya ölçülerini elle doğrulayın.',[v.persistent_id,b.persistent_id]]
+  end
+ end
+ # K53: kaplama, döşeme revizyonundan eski (fiziksel kaplama yeniden kurulmaz); K52: kaplama durumu kayıtlı olmayan eski döşeme
+ decks=all.select{|e|typ[e]=='deck_slab'}
+ (mst_collect_toppings(Sketchup.active_model.entities) rescue []).each do |t|
+  r0=t.get_attribute(DICT,'parent_deck_revision_no',nil);next if r0.nil?
+  d=mst_topping_parent_deck(t,decks);next unless d
+  r1=d.get_attribute(DICT,'deck_revision_no',0).to_i;next unless r1>r0.to_i
+  out << ['WARNING',t,'Döşeme Metrajı',format('%s kaplaması döşeme RV-%02d için oluşturuldu; döşeme şimdi RV-%02d. Fiziksel kaplama yeniden kurulmaz; geometrisi eski olabilir (metraj döşemenin kaplama alanından).',element_visible_id(d),r0.to_i,r1),'Kaplamayı silip Kaplama Ekle ile yeniden oluşturun.',[t.persistent_id,d.persistent_id]]
+ end
+ decks.select{|d|d.get_attribute(DICT,'topping_enabled',nil).nil?}.each do |d|
+  out << ['WARNING',d,'Döşeme Metrajı',"#{element_visible_id(d)}: kaplama durumu kayıtlı değil (eski döşeme). BOQ kaplamayı bu döşemede 0,10 m ile sayıyor; metraj raporu kaplama satırı göstermiyor.",'Kaplama varsa Kaplama Ekle / Kaplama Eğimi ile kaydedin; yoksa döşemeyi yeniden oluşturun. (Belge: kaplama niyeti)',[d.persistent_id]]
+ end
+ # K54: PV diş < oturma (yalnız uyarı)
+ elems.select{|e|typ[e]=='crane_precast'}.each{|e|mst_pv_tooth_seat_warnings(e).each{|w|out << ['WARNING',e,'Prekast Metrajı',w,'Diş boyunu oturma boyuna eşit / büyük seçin ya da kesişimi elle düşün.',[e.persistent_id]]}}
+ # K21 (S7 / S8): sessiz 0 yerine görünür hata
+ elems.select{|e|typ[e]=='steel_pipe_pile'}.each do |p|
+  begin
+   pile_bim_qto_item(p)
+  rescue => ex
+   out << ['ERROR',p,'Hesap Hatası',"#{element_visible_id(p)}: kazık imalat / iç beton metrajı hesaplanamadı (#{ex.message}); hakediş ilerleme miktarı 0 sayılıyor.",'Kazık kesit ve iç beton kotlarını kontrol edin.',[p.persistent_id]]
+  end
+ end
+ begin
+  accessory_rows if respond_to?(:accessory_rows)
+ rescue => ex
+  out << ['ERROR',nil,'Hesap Hatası',"Aksesuar listesi okunamadı (#{ex.message}); aksesuar ankraj donatısı 0 kg sayılıyor.",'Aksesuar kayıtlarını / kütüphanesini kontrol edin.',[]]
  end
  # K33 / K39 / K40: pozsuz bilgi satırları
  mst_boq_info_rows(all).each do |r|
@@ -9347,11 +9493,34 @@ def mst_json_attr_guard!(model,key,klass,label)
  true
 end
 
+# v0.51.5 K14: dolgu kayıtları işlem içinde (tek Geri Al); değişmeyen değer yazılmaz, değişiklik yoksa işlem açılmaz.
+# pairs: [[anahtar, değer], ...] (model DICT). => true (yazıldı) / false (değişiklik yok)
+def mst_rf_write!(name,pairs)
+ model=Sketchup.active_model
+ ch=pairs.reject{|k,v|model.get_attribute(DICT,k,nil)==v}
+ return false if ch.empty?
+ model.start_operation(name,true)
+ begin
+  ch.each{|k,v|model.set_attribute(DICT,k,v)}
+  model.commit_operation
+ rescue
+  model.abort_operation;raise
+ end
+ true
+end
+# v0.51.5 K21 (S9): otomatik kayıt hatası yalnız konsolda kalmaz; aynı ileti oturumda bir kez kullanıcıya gösterilir
+def mst_rf_autosave_warn(msg)
+ @mst_rf_autosave_warned||={}
+ return if @mst_rf_autosave_warned[msg]
+ @mst_rf_autosave_warned[msg]=true
+ UI.messagebox("Dolgu otomatik kaydı yapılamadı: #{msg}\n(Bu ileti oturumda bir kez gösterilir; değişikliği Kaydet düğmesiyle kaydedin.)")
+end
+
 def rockfill_save_library(json,dialog)
  a=JSON.parse(json); raise 'Malzeme kütüphanesi boş olamaz.' unless a.is_a?(Array)&&!a.empty?
  mst_json_attr_guard!(Sketchup.active_model,ROCKFILL_LIBRARY_KEY,Array,'Dolgu malzeme kütüphanesi')
  a.each{|x| raise 'Malzeme kodu ve adı boş olamaz.' if x['code'].to_s.strip.empty?||x['name'].to_s.strip.empty?; raise 'Yoğunluk sıfırdan büyük olmalıdır.' unless x['density'].to_f>0}
- Sketchup.active_model.set_attribute(DICT,ROCKFILL_LIBRARY_KEY,JSON.generate(a)); dialog.execute_script("rockfillLibraryLoaded(#{JSON.generate(a)})")
+ mst_rf_write!('MST Dolgu Kütüphanesi',[[ROCKFILL_LIBRARY_KEY,JSON.generate(a)]]); dialog.execute_script("rockfillLibraryLoaded(#{JSON.generate(a)})")
 rescue=>e; UI.messagebox("Dolgu kütüphanesi hatası: #{e.message}"); end
 
 def rockfill_load_library(dialog)
@@ -9376,8 +9545,7 @@ end
 def rockfill_save_project(json,dialog)
  d=JSON.parse(json); alt=(d['alternative']||'01').to_s; sections=d['sections']; raise 'En az iki kesit gereklidir.' unless sections.is_a?(Array)&&sections.length>=2
  stations=sections.map{|x|x['station'].to_f}; raise 'Kesit istasyonları aynı olamaz.' unless stations.uniq.length==stations.length
- Sketchup.active_model.set_attribute(DICT,ROCKFILL_ACTIVE_ALT_KEY,alt)
- Sketchup.active_model.set_attribute(DICT,rockfill_project_key(alt),JSON.generate({'sections'=>sections}))
+ mst_rf_write!('MST Dolgu Kesit Zinciri',[[ROCKFILL_ACTIVE_ALT_KEY,alt],[rockfill_project_key(alt),JSON.generate({'sections'=>sections})]])   # K14
  dialog.execute_script("rockfillProjectLoaded(#{JSON.generate({'sections'=>sections,'alternative'=>alt})})")
 rescue=>e; UI.messagebox("Dolgu kesit zinciri hatası: #{e.message}"); end
 
@@ -9385,22 +9553,24 @@ rescue=>e; UI.messagebox("Dolgu kesit zinciri hatası: #{e.message}"); end
 def rockfill_autosave_library(json)
  a=JSON.parse(json); raise 'Kütüphane verisi geçersiz.' unless a.is_a?(Array)
  mst_json_attr_guard!(Sketchup.active_model,ROCKFILL_LIBRARY_KEY,Array,'Dolgu malzeme kütüphanesi')
- Sketchup.active_model.set_attribute(DICT,ROCKFILL_LIBRARY_KEY,JSON.generate(a))
+ mst_rf_write!('MST Dolgu Kütüphanesi (otomatik kayıt)',[[ROCKFILL_LIBRARY_KEY,JSON.generate(a)]])   # K14
 rescue=>e
  puts "Marine Structures rockfill library autosave: #{e.message}"
+ mst_rf_autosave_warn(e.message)
 end
 
 def rockfill_autosave_project(json)
  d=JSON.parse(json); alt=(d['alternative']||'01').to_s; sections=d['sections']; return unless sections.is_a?(Array) && sections.length>=2
- Sketchup.active_model.set_attribute(DICT,ROCKFILL_ACTIVE_ALT_KEY,alt)
- Sketchup.active_model.set_attribute(DICT,rockfill_project_key(alt),JSON.generate({'sections'=>sections}))
+ mst_rf_write!('MST Dolgu Kesit Zinciri (otomatik kayıt)',[[ROCKFILL_ACTIVE_ALT_KEY,alt],[rockfill_project_key(alt),JSON.generate({'sections'=>sections})]])   # K14
 rescue=>e
  puts "Marine Structures rockfill project autosave: #{e.message}"
+ mst_rf_autosave_warn(e.message)
 end
 
 def rockfill_load_project(dialog,alt=nil)
  alt=(alt||Sketchup.active_model.get_attribute(DICT,ROCKFILL_ACTIVE_ALT_KEY,'01')).to_s
- Sketchup.active_model.set_attribute(DICT,ROCKFILL_ACTIVE_ALT_KEY,alt)
+ # v0.51.5 K14: salt yüklemede yazma yok; yalnız kullanıcı başka alternatifi seçtiyse etkin alternatif işlem içinde değişir
+ mst_rf_write!('MST Dolgu Alternatifi',[[ROCKFILL_ACTIVE_ALT_KEY,alt]]) unless alt==Sketchup.active_model.get_attribute(DICT,ROCKFILL_ACTIVE_ALT_KEY,'01').to_s
  raw=Sketchup.active_model.get_attribute(DICT,rockfill_project_key(alt),'').to_s
  d=raw.empty? ? {'sections'=>[]} : (JSON.parse(raw) rescue {'sections'=>[]})
  d['alternative']=alt
@@ -9421,7 +9591,7 @@ end
 def rockfill_qto_alt1_data
   raw=Sketchup.active_model.get_attribute(DICT,rockfill_project_key,'').to_s
   d=raw.empty? ? {'sections'=>[]} : (JSON.parse(raw) rescue {'sections'=>[]})
-  sections=(d['sections']||[]).sort_by{|x|x['station'].to_f}
+  sections=(d['sections']||[]).each_with_index.sort_by{|x,i|[x['station'].to_f,i]}.map(&:first)   # v0.51.5 K56: aynı istasyonda kayıt sırası korunur (kararlı sıralama)
   lib=rockfill_library
   by_code={}; lib.each{|m|by_code[m['code'].to_s]=m}
   mats={}; intervals=[]
@@ -10077,13 +10247,13 @@ def show_dialog
    html = <<~HTML
    <!doctype html><html><head><meta charset="utf-8"><style>
    *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#29495d;background:#f7fafc;font-size:12px}.head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:#eaf4fa;border-bottom:1px solid #cbdde8}.head b{font-size:15px;color:#12608f}.body{padding:15px}.note{background:#eef7fc;border-left:3px solid #2c8abd;padding:8px 10px;margin-bottom:12px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}label{font-size:11px;color:#587184}input,select{display:block;width:100%;min-width:0;height:34px;margin-top:4px;border:1px solid #b9cbd7;border-radius:4px;padding:5px 7px;background:white}.readonly{background:#eef3f6!important;color:#496879;font-weight:600}.section{grid-column:1/-1;border-top:1px solid #dce7ed;margin-top:5px;padding-top:10px;font-weight:bold;color:#1b668f}.actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 15px;border-top:1px solid #dce7ed;background:white}button{padding:8px 18px;border:1px solid #8eb4cb;border-radius:4px;background:#1674a8;color:white;cursor:pointer}.ghost{background:white;color:#42677d}.span2{grid-column:span 2}@media(max-width:620px){.grid{grid-template-columns:1fr 1fr}}
-   </style></head><body><div class="head"><b>⚙ Kazık Özel Ayarları</b><span>#{payload['axis_name']}</span></div><div class="body"><div class="note">Boş bırakılan alanlar genel kazık ayarını kullanır.</div><div class="grid">
+   </style></head><body><div class="head"><b>⚙ Kazık Özel Ayarları</b><span>#{html_escape(payload['axis_name'])}</span></div><div class="body"><div class="note">Boş bırakılan alanlar genel kazık ayarını kullanır.</div><div class="grid">
    <label>Kazık Noktası<select id="pt"></select></label><label>Pile ID<input id="pile_id" class="readonly" readonly title="Otomatik Pile ID"></label><label>Kazık Grubu<input id="pile_group" class="readonly" readonly title="Sistem / Yapıdan otomatik"></label>
    <div class="section">Konum Override</div><label>ΔX (m)<input id="dx" type="number" step="0.01"></label><label>ΔY (m)<input id="dy" type="number" step="0.01"></label><div></div>
    <div class="section">Geometri / Doğrultu</div><label>Doğrultu<select id="orientation_mode"><option value="">Genel</option><option value="VERTICAL">Düşey</option><option value="BATTERED">Batarlı</option></select></label><label>H/V<input id="batter_ratio"></label><label>Azimut (°)<input id="azimuth_deg" type="number" step="0.1"></label><label>Ø (mm)<input id="diameter_mm" type="number" step="0.1"></label><label>t (mm)<input id="thickness_mm" type="number" step="0.1"></label><label>L (m)<input id="length_m" type="number" step="0.01"></label><label>Çelik Sınıfı<input id="steel_grade"></label><div></div><div></div>
    <div class="section">Özel Kazık Üst Kotu / BIM Bağlantısı</div><label>Kot Tipi<select id="elevation_mode"><option value="GENERAL">Genel</option><option value="SPECIAL">Özel</option></select></label><label>Özel Üst Kot (m)<input id="top_elevation_m" type="number" step="0.01"></label><label>Kot Sebebi<select id="elevation_reason"><option value="">—</option><option value="UTILITY_CHANNEL">Tesisat Kanalı</option><option value="CRANE_BEAM">Vinç Kirişi</option><option value="HEAD_BEAM">Başlık Kirişi</option><option value="OTHER">Diğer</option></select></label><label>Bağlı Eleman ID<input id="linked_element_id" placeholder="örn. BK-03 / VK-01"></label><div class="note span2">BK / Vinç Kirişi modülleri geldiğinde Bağlı Eleman alanı BIM ID dropdown olacaktır.</div>
    </div></div><div class="actions"><button class="ghost" onclick="resetVals()">Genel Değerlere Dön</button><button onclick="save()">Kaydet</button></div>
-   <script>const payload=#{JSON.generate(payload)};let cur=0;const ids=['pile_id','pile_group','dx','dy','orientation_mode','batter_ratio','azimuth_deg','diameter_mm','thickness_mm','length_m','steel_grade','elevation_mode','top_elevation_m','elevation_reason','linked_element_id'];const pt=document.getElementById('pt');payload.points.forEach((p,i)=>{let o=document.createElement('option');o.value=i;o.textContent=payload.axis_name+'/'+p.point_name;pt.appendChild(o)});function load(){cur=+pt.value||0;let d=payload.points[cur].data||{};ids.forEach(id=>{document.getElementById(id).value=(d[id]===undefined||d[id]===null)?'':d[id]});document.getElementById('dx').value=d.dx||0;document.getElementById('dy').value=d.dy||0;toggle()}function toggle(){let sp=document.getElementById('elevation_mode').value==='SPECIAL';['top_elevation_m','elevation_reason','linked_element_id'].forEach(id=>document.getElementById(id).disabled=!sp)}document.getElementById('elevation_mode').onchange=toggle;pt.onchange=load;function data(){let d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.dx=parseFloat(d.dx)||0;d.dy=parseFloat(d.dy)||0;if(d.elevation_mode!=='SPECIAL'){d.top_elevation_m='';d.elevation_reason='';d.linked_element_id=''}return d}function save(){sketchup.pile_override_save(JSON.stringify({axis_index:payload.axis_index,point_index:payload.points[cur].point_index,data:data()}))}function resetVals(){ids.filter(id=>!['pile_id','pile_group'].includes(id)).forEach(id=>document.getElementById(id).value='');let d=payload.points[cur].data||{};document.getElementById('pile_id').value=d.pile_id||'';document.getElementById('pile_group').value=d.pile_group||'';document.getElementById('dx').value=0;document.getElementById('dy').value=0;document.getElementById('elevation_mode').value='GENERAL';toggle()}pt.value='0';load();</script></body></html>
+   <script>const payload=#{JSON.generate(payload).gsub('</','<\/')};let cur=0;const ids=['pile_id','pile_group','dx','dy','orientation_mode','batter_ratio','azimuth_deg','diameter_mm','thickness_mm','length_m','steel_grade','elevation_mode','top_elevation_m','elevation_reason','linked_element_id'];const pt=document.getElementById('pt');payload.points.forEach((p,i)=>{let o=document.createElement('option');o.value=i;o.textContent=payload.axis_name+'/'+p.point_name;pt.appendChild(o)});function load(){cur=+pt.value||0;let d=payload.points[cur].data||{};ids.forEach(id=>{document.getElementById(id).value=(d[id]===undefined||d[id]===null)?'':d[id]});document.getElementById('dx').value=d.dx||0;document.getElementById('dy').value=d.dy||0;toggle()}function toggle(){let sp=document.getElementById('elevation_mode').value==='SPECIAL';['top_elevation_m','elevation_reason','linked_element_id'].forEach(id=>document.getElementById(id).disabled=!sp)}document.getElementById('elevation_mode').onchange=toggle;pt.onchange=load;function data(){let d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.dx=parseFloat(d.dx)||0;d.dy=parseFloat(d.dy)||0;if(d.elevation_mode!=='SPECIAL'){d.top_elevation_m='';d.elevation_reason='';d.linked_element_id=''}return d}function save(){sketchup.pile_override_save(JSON.stringify({axis_index:payload.axis_index,point_index:payload.points[cur].point_index,data:data()}))}function resetVals(){ids.filter(id=>!['pile_id','pile_group'].includes(id)).forEach(id=>document.getElementById(id).value='');let d=payload.points[cur].data||{};document.getElementById('pile_id').value=d.pile_id||'';document.getElementById('pile_group').value=d.pile_group||'';document.getElementById('dx').value=0;document.getElementById('dy').value=0;document.getElementById('elevation_mode').value='GENERAL';toggle()}pt.value='0';load();</script></body></html>
    HTML
    @pile_override_dialog.close if @pile_override_dialog && @pile_override_dialog.visible?
    @pile_override_dialog=mst_html_dialog('pile_override',dialog_title:'Kazık Özel Ayarları',preferences_key:'MAG_MST_PileOverride',width:900,height:650,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
@@ -10143,6 +10313,8 @@ def show_dialog
   actual=piles.map{|g|g.get_attribute(DICT,'pile_id','').to_s}
   raise 'Model seçimi değişti; kazıkları yeniden yükleyin.' unless actual.sort==ids.sort && !ids.empty?
   changes.each{|k,v| if k=='infill_concrete_class';raise 'Geçersiz beton sınıfı' unless %w[C30/37 C35/45 C40/50 C45/55 C50/60].include?(v.to_s);elsif k.end_with?('_enabled');raise 'Geçersiz durum' unless %w[0 1].include?(v.to_s);else;n=Float(v.to_s.tr(',','.'));raise 'Geçersiz sayısal değer' unless n.finite?;raise 'Pozitif miktar gerekli' if !%w[infill_bottom_elevation_m plug_clearance_mm].include?(k) && n<=0;raise 'Tam sayı gerekli' if k.include?('count_per_pile') && n!=n.to_i;end}
+  # v0.51.5 K29 (N8): JS sayıyı JSON number gönderir (tam sayı → Integer); kayıtta oluşturma ile aynı tip: adet Integer, ölçü Float
+  changes=changes.map{|k,v|[k,(k=='infill_concrete_class' || k.end_with?('_enabled')) ? v : (k.include?('count_per_pile') ? Float(v.to_s.tr(',','.')).to_i : Float(v.to_s.tr(',','.')))]}.to_h
   piles.each do |pile|
    d=changes.key?('diameter_mm') ? changes['diameter_mm'].to_f : pile.get_attribute(DICT,'diameter_mm',0).to_f
    t=changes.key?('thickness_mm') ? changes['thickness_mm'].to_f : pile.get_attribute(DICT,'thickness_mm',0).to_f
@@ -10272,8 +10444,8 @@ def show_dialog
  @d.add_action_callback('create_crown_wall'){|_,j|crown_create_action(j)}
  @d.add_action_callback('load_crown_wall'){|_|crown_load_selected(@d)}
  @d.add_action_callback('update_crown_wall'){|_,j|crown_update_action(j)}
- @d.add_action_callback('autoHeadBeam'){|_,j|auto_head_beam(JSON.parse(j))}
- @d.add_action_callback('autoHeadBeamsBulk'){|_,j|auto_head_beams_bulk(JSON.parse(j))}
+ @d.add_action_callback('autoHeadBeam'){|_,j|(cbj=mst_cb_json(j,'Otomatik BK')) && auto_head_beam(cbj)}
+ @d.add_action_callback('autoHeadBeamsBulk'){|_,j|(cbj=mst_cb_json(j,'Toplu otomatik BK')) && auto_head_beams_bulk(cbj)}
  @d.add_action_callback('mstBKProjectContext'){|_|begin
   model=Sketchup.active_model;sys=model.get_attribute(DICT,'project_system_type','ISKELE').to_s.upcase;sys='ISKELE' unless %w[DOLFEN ISKELE RIHTIM].include?(sys)
   systems={};active={};%w[DOLFEN ISKELE RIHTIM].each{|x|systems[x]=mst_structures_for_system(x,model);active[x]=mst_active_structure_for_system(x,model)}
@@ -10395,7 +10567,7 @@ def show_dialog
  @d.add_action_callback('universal_edit'){|_,j|update_selected_element(j)}
  @d.add_action_callback('export_professional_excel'){|_|export_professional_excel}
  @d.add_action_callback('pd_bk_length_info'){|_|pd_bk_length_info}
- @d.add_action_callback('create_flat_precast'){|_,json| r=create_flat_precast(JSON.parse(json));mst_kn_open_pockets(true) if r==true}   # v0.38 KN2
+ @d.add_action_callback('create_flat_precast'){|_,json| cbj=mst_cb_json(json,'Prekast yerleşimi');r=cbj ? create_flat_precast(cbj) : nil;mst_kn_open_pockets(true) if r==true}   # v0.38 KN2
  @d.add_action_callback('load_precast_type_library'){|_| raw=Sketchup.active_model.get_attribute(DICT,'precast_type_library_json','').to_s; @d.execute_script("loadPrecastTypeLibrary(#{raw.inspect})") unless raw.empty? }
  @d.add_action_callback('sync_precast'){|_|sync_precast_to_head_beams}
  @d.add_action_callback('precast_type_rename'){|_|mst_precast_type_rename}
@@ -10410,13 +10582,13 @@ def show_dialog
  @d.add_action_callback('formwork_yes'){|_|set_selected_faces_formwork(true)}
  @d.add_action_callback('formwork_no'){|_|set_selected_faces_formwork(false)}
  @d.add_action_callback('read_channel_bk'){|_|read_channel_bk(@d)}
- @d.add_action_callback('create_channel_precast'){|_,j|create_channel_precast(JSON.parse(j))}
- @d.add_action_callback('create_crane_precast'){|_,j|create_crane_precast(JSON.parse(j))}
- @d.add_action_callback('create_deck_slab'){|_,j|create_deck_slab(JSON.parse(j))}
- @d.add_action_callback('deck_preview'){|_,j|deck_preview(JSON.parse(j))}
- @d.add_action_callback('deck_rebar_bim'){|_,j|deck_rebar_selected(JSON.parse(j),@d)}
+ @d.add_action_callback('create_channel_precast'){|_,j|(cbj=mst_cb_json(j,'Kanal prekastı')) && create_channel_precast(cbj)}
+ @d.add_action_callback('create_crane_precast'){|_,j|(cbj=mst_cb_json(j,'Vinç prekastı')) && create_crane_precast(cbj)}
+ @d.add_action_callback('create_deck_slab'){|_,j|(cbj=mst_cb_json(j,'Döşeme')) && create_deck_slab(cbj)}
+ @d.add_action_callback('deck_preview'){|_,j|(cbj=mst_cb_json(j,'Döşeme önizleme')) && deck_preview(cbj)}
+ @d.add_action_callback('deck_rebar_bim'){|_,j|(cbj=mst_cb_json(j,'Döşeme donatısı')) && deck_rebar_selected(cbj,@d)}
  @d.add_action_callback('deck_refresh'){|_|deck_refresh_selected}
- @d.add_action_callback('create_existing_deck_topping'){|_,j|create_existing_deck_topping(JSON.parse(j))}
+ @d.add_action_callback('create_existing_deck_topping'){|_,j|(cbj=mst_cb_json(j,'Kaplama')) && create_existing_deck_topping(cbj)}
  @d.add_action_callback('register_element'){|_|register_selected_element}
  @d.add_action_callback('edit_registered_element'){|_|edit_registered_element}
  @d.add_action_callback('unregister_element'){|_|unregister_selected_element}
@@ -10547,7 +10719,8 @@ unless file_loaded?(__FILE__)
    c.small_icon=File.join(__dir__,'icons',ic+'_24.png');c.large_icon=File.join(__dir__,'icons',ic+'_32.png')
    tb.add_item(c)
   end
-  tb.show
+  # v0.51.5 K45: kullanıcının kapattığı araç çubuğu yeniden açılışta geri gelmez (TB_HIDDEN: SketchUp UI::Toolbar sabiti)
+  tb.show unless defined?(TB_HIDDEN) && tb.get_last_state==TB_HIDDEN
  end
  file_loaded(__FILE__)
 end
@@ -11385,6 +11558,7 @@ def mst_precast_resize_plan(dep,beam_by_pid,vec,registry)
   l=beam_by_pid[dep.get_attribute(DICT,'support_left_pid',0).to_i];r=beam_by_pid[dep.get_attribute(DICT,'support_right_pid',0).to_i]
   return [nil,nil] unless l && r && l!=r && l.valid? && r.valid?   # no support link: caller keeps the generic warning
   l,r=[l,r].sort_by{|b|b.bounds.center.x.to_f}
+  er=mst_bk_span_frame_error(l) || mst_bk_span_frame_error(r);return [nil,er] if er   # v0.51.5 K22 aşama 1
   vl=vec[l]||[0.0,0.0];vr=vec[r]||[0.0,0.0]
   return [nil,"#{id}: dayandığı BK'lar Y yönünde farklı kayıyor; prekast yerinde kaldı, kontrol edin."] if (vl[1]-vr[1]).abs>MST_AXIS_TOL
   z1=l.get_attribute(DICT,'top_elevation_m',nil);z2=r.get_attribute(DICT,'top_elevation_m',nil)
@@ -11951,6 +12125,9 @@ def mst_kn_place_plan(model=Sketchup.active_model,only_beams=nil,elems=nil,pocke
       ty=mst_kn_find_pk_type(model,elems,ow,oh)
       unless ty
         warns << "#{span}: cebe uyan kanal tipi yok — dış genişlik #{f3[ow]} m (cep #{f3[a1-a0]} − 2 × derz #{f3[joint]}), yükseklik #{f3[oh]} m (PD üstü − cep tabanı). Prekast tip kütüphanesine bu ölçüde PK tipi ekleyin.";next
+      end
+      if (er=mst_bk_span_frame_error(l) || mst_bk_span_frame_error(r))   # v0.51.5 K22 aşama 1
+        warns << "#{span}: #{er}";next
       end
       lb=wb[l];rb=wb[r];clear=rb['x'][0]-lb['x'][1]
       cands << {'l'=>l,'r'=>r,'span'=>span,'pocket'=>p,'type'=>ty,'x0'=>lb['x'][1]-seat,'length'=>clear+2*seat,'y0'=>a0+joint,

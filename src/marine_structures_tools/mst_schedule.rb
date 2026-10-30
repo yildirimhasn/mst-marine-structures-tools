@@ -294,12 +294,13 @@ def mst_sp_settings_ui
    newp['start']=r[grp.length].to_s.strip;newp['reverse']=r[grp.length+1].to_s.strip=='1' ? 1.0 : 0.0
   end
  end
- model.start_operation('MST İş Programı Ayarları',true)
+ model.start_operation('MST İş Programı Ayarları',true);op=true
  model.set_attribute(DICT,'sp_params_json',JSON.generate(newp))
- model.commit_operation
+ model.commit_operation;op=false
  UI.messagebox('İş programı ayarları kaydedildi.')
  1
 rescue => ex
+ model.abort_operation if op   # v0.51.5 K13: açık kalan işlem kapatılır
  UI.messagebox("İş programı ayarları: #{ex.message}")
  0
 end

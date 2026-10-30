@@ -297,9 +297,9 @@ def mst_pc_ui
  unsel=es.select{|x|x.is_a?(Sketchup::ComponentInstance)}.flat_map{|x|mst_pc_peers(x)}.uniq.reject{|x|es.include?(x)}.length
  shared_note=unsel>0 ? "\nSeçilmemiş #{unsel} parça aynı tanımı paylaşıyor; donatı onlara da uygulanır." : ''
  return 0 unless UI.messagebox("#{txt}\n\n#{es.length} parça (#{defs.length} ayrı tanım / grup).#{shared_note} Donatı çizilsin mi? (tek Geri Al)",MB_YESNO)==IDYES
- model.set_attribute(DICT,"mst_pc_last_#{fam}",JSON.generate(p))
  model.start_operation('MST Prekast Donatısı',true)
  begin
+  model.set_attribute(DICT,"mst_pc_last_#{fam}",JSON.generate(p))   # v0.51.5 K62: işlem içinde (tek Geri Al)
   done={}
   es.each do |e|
    k=e.is_a?(Sketchup::ComponentInstance) ? e.definition : e

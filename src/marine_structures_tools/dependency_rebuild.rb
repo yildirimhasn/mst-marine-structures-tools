@@ -52,6 +52,15 @@ module MAG
         next unless supports.length == 2 && supports.all? { |pid| by_pid[pid] && by_pid[pid].get_attribute(DICT, 'element_type') == 'head_beam' }
         decks.each { |deck| link.call(precast, deck) if (supports - deck_supports[deck]).empty? }
       end
+      # ADR-0515 §9 / K07: physical toppings are not in collect_elements; they
+      # join the graph as children of their deck (translation-only followers).
+      toppings = mst_collect_toppings(model.entities).select { |t| t.valid? && !by_pid.key?(t.persistent_id) }
+      unless toppings.empty?
+        all = (all + toppings).sort_by(&:persistent_id)
+        toppings.each { |t| by_pid[t.persistent_id] = t }
+        toppings.each { |t| (by_uid[t.get_attribute(DICT, 'element_uid', '').to_s] ||= []) << t }
+        toppings.each { |t| d = mst_topping_parent_deck(t, decks, by_uid, deck_ids); link.call(d, t) if d }
+      end
       (types['curb'] || []).each do |curb|
         uid = curb.get_attribute(DICT, 'parent_uid', '').to_s
         matches = if uid.empty?
@@ -82,6 +91,40 @@ module MAG
       in_uid = list.select { |e| e.get_attribute(DICT, 'element_uid', '').to_s[/\AMST-(\d+)-/, 1].to_i == e.persistent_id }
       return [in_uid.first, 'UID içindeki PID'] if in_uid.length == 1
       [list.min_by(&:persistent_id), 'en eski PID']
+    end
+
+    # ADR-0515 §9 / K07 (read-only): physical deck toppings ('deck_topping'
+    # Groups). collect_elements / MST_COLLECTED_TYPES stay unchanged; this walks
+    # only untyped (organisational) groups, never into MST element geometry.
+    def mst_collect_toppings(entities, out = [])
+      entities.each do |e|
+        next unless e.is_a?(Sketchup::Group)
+        t = e.get_attribute(DICT, 'element_type', '').to_s
+        if t == 'deck_topping'
+          out << e
+        elsif t.empty?
+          mst_collect_toppings(e.entities, out)
+        end
+      end
+      out
+    end
+
+    # ADR-0515 §9 (read-only): the deck a topping belongs to, or nil.
+    # parent_uid (duplicated UID: owner by stored owner / UID-PID only, as for
+    # curbs); without parent_uid, parent_deck_id with exactly one match.
+    def mst_topping_parent_deck(t, decks, by_uid = nil, deck_ids = nil)
+      uid = t.get_attribute(DICT, 'parent_uid', '').to_s
+      if uid.empty?
+        deck_ids ||= decks.group_by { |e| element_visible_id(e) }
+        matches = deck_ids[t.get_attribute(DICT, 'parent_deck_id', '').to_s] || []
+        return matches.length == 1 ? matches.first : nil
+      end
+      matches = (by_uid ? (by_uid[uid] || []) : decks.select { |e| e.get_attribute(DICT, 'element_uid', '').to_s == uid }).select { |e| decks.include?(e) }
+      if matches.length > 1
+        owner, reason = mst_uid_owner(matches)
+        matches = reason == 'en eski PID' ? [] : [owner]
+      end
+      matches.length == 1 ? matches.first : nil
     end
 
     def dependency_changes(model)

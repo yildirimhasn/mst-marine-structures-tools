@@ -470,8 +470,9 @@ def mst_kd_ui(path=nil)
    mst_kd_apply_grid!(ax,tg,model)
    model.commit_operation
   rescue => ge
-   model.abort_operation
-   UI.messagebox("Kazıklar oluşturuldu, ancak aks ızgarası kurulamadı: #{ge.message}")
+   # v0.51.5 K12: saydam işlem önceki (kazık) işlemine birleşir; abort onu da geri alabilir → commit + bildirim
+   model.commit_operation
+   UI.messagebox("Kazıklar oluşturuldu, ancak aks ızgarası kurulamadı: #{ge.message}\nIzgara kısmen yazılmış olabilir; Geri Al kazıklarla birlikte geri alır.")
   end
  end
  made
