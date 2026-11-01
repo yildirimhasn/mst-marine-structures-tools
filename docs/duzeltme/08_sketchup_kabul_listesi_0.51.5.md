@@ -4,7 +4,7 @@ Hazırlayan: mst-dokumantasyon (parti raporlarındaki "SketchUp testi bekliyor" 
 Sonuç sütunları **kullanıcı dolduracak**. Ajan değerlendirmesi (mst-kabul-denetim) ayrı satırda "ajan değerlendirmesi" olarak yazılır; onay sayılmaz.
 
 Ön koşullar:
-- Paket: `MST_v0.51.5_TB1_FIX1_TEST.rbz`, SHA-256: ______ (paketleme sonrası).
+- Paket: `MST_v0.51.5_TB1_FIX1_TEST.rbz`, SHA-256: `e1ad035fc2c1e730f384fbe0be8a0b1c7969053095101fe7427a2d4bdea28d87` (kaynak commit 98222c5).
 - SketchUp 2020; kurulu sürüm SHA-256 ile doğrulandı mı: ______.
 - Tüm adımlar **model kopyası** üzerinde; asıl `.skp` açılmaz. Model kopyası adı her satıra yazılır.
 - Karşılaştırma için aynı kopya 0.51.4 ile de açılıp BOQ/QTO CSV alınır (golden-master).
