@@ -61,6 +61,8 @@ module MAG
     end
 
     def drilling_edit_action(action,json)
+      # v0.51.5 F2: eski foraj düzenleyicisinin JS işlevleri 0.38'den beri yok; çağrı korumalı, işlev yoksa yönlendirme iletisi
+      moved='Bu işlem bu sürümde Kazık sayfasındaki “✎ Mevcut Kazığı Düzenle / Güncelle” akışıyla yapılır: kazığı yükleyin, Kazık Detayları → Foraj alanını değiştirin, “✓ Mevcut Kazığı Güncelle” düğmesine basın.'
       data=JSON.parse(json || '{}');message=''
       case action
       when 'read'
@@ -71,9 +73,9 @@ module MAG
       else
         raise 'Bilinmeyen foraj işlemi.'
       end
-      @d.execute_script("setDrillingEditor(#{JSON.generate(drilling_edit_state(data['scope']).merge(message:message))});")
+      @d.execute_script("if(typeof setDrillingEditor==='function'){setDrillingEditor(#{JSON.generate(drilling_edit_state(data['scope']).merge(message:message))});}else{alert(#{JSON.generate(message.empty? ? moved : "#{message}\n#{moved}")});}")
     rescue=>ex
-      @d.execute_script("drillingEditError(#{JSON.generate(ex.message)});") if @d
+      @d.execute_script("if(typeof drillingEditError==='function'){drillingEditError(#{JSON.generate(ex.message)});}else{alert(#{JSON.generate("#{moved}\n#{ex.message}")});}") if @d
     end
   end
 end

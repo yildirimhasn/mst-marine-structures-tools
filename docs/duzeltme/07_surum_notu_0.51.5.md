@@ -40,6 +40,7 @@ Değerler sahte örneklerdir (elle beklenen = test sonucu, SketchUp dışı). Sa
 | 08-R3 | Hakediş (yedek yol) | Miktar ağırlıklı | 7,6 t → 0 | A2 |
 | K35 | Kazık ayrı poz hakedişi | NN kesit etiketine kalıcı bağlanır (`pile_boq_group_codes_json`) | sayısal örnek raporda yok; geçiş öncesi kaymış dönemler geri hesaplanmaz | A2, ADR §4 |
 | K06 | Hakediş ilerlemesi (kopya öğe) | BIM kimlik onarımı kopyanın ilerlemesini `progress_inherited_json`'a taşır (onaysız) | kopyanın onaylı miktarı düşer; `previous_*` değişmez | A1 |
+| F1 | Ayrıntılı Metraj (Excel) sayfası — kazık içi beton | ad uyuşmazlığı ("Kazık İçi Betonu" ↔ "Kazık İçi Beton") yüzünden fiziksel iç beton satırı silinmiyor, yedek satır aynı hacmi tekrar ekliyordu (0.51.4'ten beri); ad tek yerden alınır | fikstür: 35,377 → 26,251 m³, donatı 8,344 → 6,063 t; yalnız bu Excel sayfası, Keşif/Özet değişmez (golden 321/321 aynı) | F, f1_infill_excel |
 
 Plan G2'de metraj etkili sayılıp parti raporunda metraj etkisi yazılmayan: K42 (kazık formunda kot silinince çakım alanı temizlenir; C). K22 ADR'de "metraj: hayır" (prekast oluşturulmaz, aşama 1). Doğrulanmalı.
 

@@ -8938,7 +8938,7 @@ def export_professional_excel
   elems=all.select{|e|allowed.include?(e.get_attribute(DICT,'element_type','').to_s)}
   path=UI.savepanel('Ayrıntılı Metraj (Excel) Raporu','','MST_Ayrintili_Metraj.xlsx');return unless path
   path+='.xlsx' unless path.downcase.end_with?('.xlsx')
-  type_names={'steel_pipe_pile'=>'Çelik Boru Kazık','pile_infill_concrete'=>'Kazık İçi Betonu','head_beam'=>'Başlık Kirişi','flat_precast'=>'Normal Prekast','channel_precast'=>'Kanal Prekastı','crane_precast'=>'Vinç Prekastı','deck_slab'=>'Döşeme','curb'=>'Bordür / Tretuvar','crown_wall'=>'Kronman','bored_pile'=>'Fore Kazık'}
+  type_names={'steel_pipe_pile'=>'Çelik Boru Kazık','pile_infill_concrete'=>'Kazık İçi Beton','head_beam'=>'Başlık Kirişi','flat_precast'=>'Normal Prekast','channel_precast'=>'Kanal Prekastı','crane_precast'=>'Vinç Prekastı','deck_slab'=>'Döşeme','curb'=>'Bordür / Tretuvar','crown_wall'=>'Kronman','bored_pile'=>'Fore Kazık'}
   snapshot=qto3_snapshot
   groups=elems.group_by{|e|[e.get_attribute(DICT,'element_type','').to_s,e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s,qto_material_class(e)]}
   detail=[]
@@ -8961,7 +8961,7 @@ def export_professional_excel
   snapshot[:concrete_by_class].sort.each{|cc,vol|summary<<["Beton #{cc}",vol,'m³']}
   fallback=snapshot[:rows].find{|row|row[:type]=='pile_infill_concrete'}
   if fallback
-    detail.reject!{|row|row[0]=='Kazık İçi Beton'}
+    detail.reject!{|row|row[0]==type_names['pile_infill_concrete']}   # v0.51.5 F1: fiziksel iç beton satırları Özet satırında zaten var
     detail<<['Kazık İçi Beton','Tüm kaynaklar','Sınıf bazında Özet',fallback[:count],fallback[:length_m],fallback[:concrete_m3],fallback[:formwork_m2],fallback[:steel_t],0.0,fallback[:steel_t]]
   end
   library=elems.group_by{|e|e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s}.sort.map do |typ,arr|
@@ -10403,7 +10403,7 @@ def show_dialog
   @d.execute_script("mstBatchApplied(#{JSON.generate(tid+' • '+peers.length.to_s+' benzer kazık güncellendi. TİP + fiziksel geometri + metraj yenilendi.')})") if @d
  rescue=>e;Sketchup.active_model.abort_operation rescue nil;UI.messagebox("Aynı tip kazık güncellemesi başarısız: #{e.message}");end}
  @d.add_action_callback('pile_batch_details_from_page'){|_|batch_update_selected_pile_details}
- @d.add_action_callback('pile_load_selected_bim'){|_|begin;p=mst_selected_bim_pile_payload;@d.execute_script("loadSelectedBimPile(#{JSON.generate(p)})") if @d;rescue=>e;UI.messagebox("BIM kazığı yüklenemedi: #{e.message}");end}
+ @d.add_action_callback('pile_load_selected_bim'){|_|begin;p=mst_selected_bim_pile_payload;@d.execute_script("if(typeof loadSelectedBimPile==='function'){loadSelectedBimPile(#{JSON.generate(p)})}else{alert(#{JSON.generate('Bu işlem bu sürümde Kazık sayfasındaki “✎ Mevcut Kazığı Düzenle / Güncelle” → “↻ Modelden Seçili Kazığı Yükle” düğmesiyle yapılır.')})}") if @d;rescue=>e;UI.messagebox("BIM kazığı yüklenemedi: #{e.message}");end}
  @d.add_action_callback('pile_update_selected_bim'){|_,j|begin;msg=mst_update_selected_bim_pile(JSON.parse(j));@d.execute_script("selectedBimPileUpdated(#{JSON.generate(msg)})") if @d;rescue=>e;UI.messagebox("BIM kazığı güncellenemedi: #{e.message}");end}
  @d.add_action_callback('pile_target_preview'){|_,j|begin
   @d.execute_script("mstPileTargetPreviewLoaded(#{JSON.generate(mst_pile_target_preview_payload(JSON.parse(j)))})") if @d

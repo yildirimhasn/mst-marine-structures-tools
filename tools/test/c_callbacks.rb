@@ -74,11 +74,15 @@ JS_KW = %w[if for while switch return typeof try].freeze
 BASE_UNDEFINED = %w[drillingEditError loadSelectedBimPile setDrillingEditor].freeze
 direct = rb_text.scan(/(?:execute_script|mst_host_exec)\(\s*(?:"|'|%Q?[{(])\s*(?:window\.)?([A-Za-z_$][A-Za-z0-9_$]*)\(/).flatten.uniq.sort - JS_KW
 guarded = (rb_text.scan(/(?:execute_script|mst_host_exec)\(\s*["']\s*(?:if\s*\()?window\.([A-Za-z_$][A-Za-z0-9_$]*)\s*(?:&&|\))/).flatten +
-           rb_text.scan(/(?:execute_script|mst_host_exec)\(\s*["'][^"'\n]*?\bif\s*\(\s*window\.([A-Za-z_$][A-Za-z0-9_$]*)\s*\)/).flatten).uniq.sort
+           rb_text.scan(/(?:execute_script|mst_host_exec)\(\s*["'][^"'\n]*?\bif\s*\(\s*window\.([A-Za-z_$][A-Za-z0-9_$]*)\s*\)/).flatten +
+           # Parti F / F2: `if(typeof ad==='function'){ad(...)}else{...}` korumasi — islev yoksa cagrilmaz (ReferenceError yok)
+           rb_text.scan(/(?:execute_script|mst_host_exec)\(\s*["']\s*if\s*\(\s*typeof\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*===?\s*['"]function['"]\s*\)/).flatten).uniq.sort
 undef_direct = direct.reject { |n| defined_js.(n) }
 obs('execute_script doğrudan çağrılan farklı işlev', direct.size)
 obs('tanımsız ve 872d3a3 tabanında da tanımsız (devralınan)', undef_direct & BASE_UNDEFINED)
 t('execute_script doğrudan çağrılan, src içinde tanımsız YENİ JS işlevi', undef_direct - BASE_UNDEFINED, [])
-obs('execute_script window.<ad> korumalı çağrı', guarded)
+t('F2: tabandan devralınan tanımsız işlevler artık korumasız çağrılmıyor (f7046b5: 3 işlev)', undef_direct & BASE_UNDEFINED, [])
+t('F2: üç işlev typeof korumalı çağrılıyor', BASE_UNDEFINED - guarded, [])
+obs('execute_script window.<ad> / typeof korumalı çağrı', guarded)
 obs('korumalı çağrılardan tanımsız olan (sessiz atlanır; hata sayılmaz)', guarded.reject { |n| defined_js.(n) })
 a1_finish
