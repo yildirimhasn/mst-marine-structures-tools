@@ -1,3 +1,33 @@
+Marine Structures Tools 0.51.5 TB1 FIX1 — 02.11.2026
+
+Paket: MST_v0.51.5_TB1_FIX1_TEST.rbz (VERSION 0.51.5, MST_BUILD v0.51.5 TB1 FIX1).
+Temel: MST_v0.51.4_TB1_Ruby25_TEST.rbz. Bu paket, 0.51.4 denetiminde (29.10.2026) bulunan hataların
+düzeltmelerini içerir. Ayrıntılı değişiklik notu, metrajı değiştiren düzeltmeler, yeni kayıt alanları ve
+bilinen sınırlar sürüm notundadır (RELEASE_UI9.txt sonundaki "0.51.5 TB1 FIX1" kaydı).
+
+KANIT DURUMU
+- Statik: Ruby 2.5 dilbilgisi denetimi (66 dosya, 0 hata) ve ruby -c sözdizimi hatasız — Parti C sonrası
+  ana oturum çıktısı (02.11.2026); sürüm adı değişikliğinden sonraki son paket için yeniden çalıştırılmalı.
+- Sahte nesne testleri (SketchUp dışı, yalnız mantık): A1, A2, B partilerinin 17 testi "0 kaldı".
+- Golden-master BOQ/QTO karşılaştırması (0.51.4 ↔ 0.51.5): yapılmadı.
+- SketchUp 2020 içinde: denenmedi. Kabul kullanıcı tarafından model kopyası üzerinde yapılacak.
+
+KURULUM (denenmedi)
+1. SketchUp 2020 > Window > Extension Manager > Install Extension > MST_v0.51.5_TB1_FIX1_TEST.rbz
+2. SketchUp'ı tamamen kapatıp yeniden açın. Ana pencere başlığında "Marine Structures Tools v0.51.5" görünmeli.
+3. İlk denemeyi projenizin KOPYASINDA yapın; asıl .skp dosyasını açmayın.
+
+UYARI — TB1 entegrasyon test eklentisi (mst_tb1_integration_runner 1.1.0)
+Kurulu test eklentisi 0.51.4 paketini bekler. Bu pakette sürüm adı ve dosya SHA-256 kontrolleri
+beklenen şekilde BAŞARISIZ olur; bu sonuç pakette hata olduğunu göstermez. Yöntem adı kontrolleri geçerlidir.
+
+Metrajı değiştiren düzeltmeler vardır: aynı modelin 0.51.4 ve 0.51.5 BOQ/QTO çıktılarını karşılaştırın.
+
+=====================================================================
+Aşağıdaki bölüm v0.36.7 paketinin notudur. Yerine geçti: 0.51.5 TB1 FIX1 notu (yukarıda).
+Kayıt amaçlı korunmuştur; içindeki sürüm, test sayıları ve kurulum adımları güncel değildir.
+=====================================================================
+
 Marine Structures Tools v0.36.7 — Audit / BOQ / QTO birleşmiş sürüm
 
 Temel alınan dosya:

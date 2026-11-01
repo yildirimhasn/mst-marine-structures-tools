@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 module MAG
   module MarineStructuresTools
-    VERSION = '0.51.4'.freeze unless const_defined?(:VERSION)
+    VERSION = '0.51.5'.freeze unless const_defined?(:VERSION)
 
     def normalize_pile_inputs!(data)
       numeric = %w[diameter_mm thickness_mm length_m top_elevation_m seabed_elevation_m driving_length_m

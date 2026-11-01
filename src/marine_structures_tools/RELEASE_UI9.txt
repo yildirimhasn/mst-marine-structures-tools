@@ -248,3 +248,41 @@ v0.49.1 UP1
   * 31 yeni renkli ikon (mavi=genel, turkuaz=kazık/aks, turuncu=donatı, mor=proje, yeşil=metraj/program).
   * TestRunner menüsü tek alt menüye indirildi: "MST | TESTLER".
   * Paftadan 3B donatı sonunda "donatı Tag'i görünür olmalı" notu.
+
+0.51.3 TB1 Integrated ve 0.51.4 TB1 RUBY25 — sürüm notu pakette yoktu (02.11.2026'da denetim raporundan eklendi)
+- 0.51.3 Integrated: TB1'e göre 20 yeni Ruby dosyası (Model Sağlığı, kayıt onarımı, kontrollü düzenleyici, kot eşitleme,
+  Proje Çalışma Alanı, miktar servisi vb.) ve yeni MAG_MST_HealthHistory sözlüğü. Paketle gelen açıklama/test kaydı yok.
+- 0.51.4 = 0.51.3 Integrated + 5 dosya: sürüm adları; Ruby 2.5 uyumu için filter_map ve .then kaldırıldı.
+- Kaynak: 0.51.4 birleşik denetim raporu (29.10.2026). Bu iki sürüm için test sonucu kaydı yoktur.
+
+0.51.5 TB1 FIX1 — 02.11.2026 (0.51.4 denetim bulgularının düzeltmesi)
+Kanıt: statik (Ruby 2.5 dilbilgisi, ruby -c, node --check) ve sahte nesne testleri (SketchUp dışı, 17 test, 0 kalan).
+Golden-master BOQ/QTO karşılaştırması yapılmadı. SketchUp 2020 içinde denenmedi.
+Uyarı: kurulu TB1 entegrasyon test eklentisi (1.1.0) 0.51.4'ü bekler; sürüm ve SHA-256 kontrolleri başarısız olur.
+
+Metraj sonucunu değiştirenler (sahte örneklerde önce → sonra):
+  * K50 BK betonu: kazık gömülmesi kazık eksenindeki taban kotundan (diş/alçak bölge). Örnek düşüm 0,1621 → 0,5675 m³.
+  * K36 Component kazıkta "iç beton YOK": iç beton ve donatısı artık sayılmaz. Örnek 9,126 m³ / 2,281 t → 0 / 0.
+  * K59 kazık kafes hesabı hata verirse donatı 0 yerine pursantaj değeri + Model Kontrolü HATA. Örnek 0 → 2,2814 t.
+  * K58 donatılı Component prekast boyu değişince donatı başka parçalara sızmaz. Örnek 0,42 t sızma → yok.
+  * K60 prekast donatı çizim hatasında eski tonaj kalmaz. Örnek 0,5 t → 172,8 kg.
+  * 08-R6 BK alt yüzü kalıp dışındaysa kazık açıklığı kalıptan düşülmez. Örnek 19,968 → 22,4 m².
+  * Eğik kazık açıklığı daire yerine elips. Örnek 0,810732 → 0,821915 m².
+  * 08-R3 hakediş yedek yolu miktar ağırlıklı. Örnek 7,6 t → 0.
+  * K55 Dolgu Alt-1 bilinmeyen malzeme: sessiz 0 t yerine hata.
+  * K53 döşeme yenilenince kaplama değerleri korunur. Örnek 0 → 50 m² / 6,0 m³.
+  * K56 aynı istasyonda iki kesit (Alt-1) sıralaması kararlı.
+  * K17 bozuk menfez kaydında menfez silinmez.
+  * DXF "L=" birimi ($INSUNITS; yoksa sorulur, varsayılan m) ve otomatik pafta toleransı.
+  * K35 kazık ayrı poz hakediş numarası (NN) kesit etiketine kalıcı bağlanır.
+  * K06 BIM kimlik onarımında kopyanın onaylı ilerlemesi devralınmış (onaysız) kayda taşınır.
+  * K09, K57, K63, K51 donatı/kalıp seçimi ve silme davranışı (ayrıntı sürüm notunda).
+Yeni uyarılar (metraj değişmez): Model Kontrolü "Hesap Hatası" grubu; döndürülmüş BK'da prekast oluşturulmaz (K22, aşama 1);
+  ölçekli/aynalı öğe (K23); BK'sı değişen VK/BBK (K10); PV diş/oturma (K54); kaplama revizyonu (K53); BOQ'da pozsuz "BİLGİ"
+  satırları (K33/K39/K40, toplam dışı); icmal ↔ cetvel farkı (K38); eşlenmemiş donatı notu (K34).
+Düzeltmeler: revizyon arşivi otomatik silinmez, numara tekrarlanmaz, fark yoksa revizyon oluşmaz (K02/K03/K26);
+  Eleman Kütüphanesi'ni açmak kayıt yazmaz (K04/K05); bozuk JSON kayıtları ezilmez (K19/K20/K27); kopyada UID (K06);
+  Undo noktaları (K11-K15, K28, K62); donatı geçmişi kırpılmaz.
+Arayüz: skp: yolları sketchup.<ad>() oldu (K24); Eleman Düzenle yalnız önizleme (K01); eski menü Keşif/BOQ (K31);
+  kapatılan araç çubuğu geri gelmez (K45); Pano Kaplama satırı (K08); QTO sütunları (K41); Türkçe hata metinleri (K48).
+Ayrıntı: depo docs\duzeltme\07_surum_notu_0.51.5.md (pakete girmez).
