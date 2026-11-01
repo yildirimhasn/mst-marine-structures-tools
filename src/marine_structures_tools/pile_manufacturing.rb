@@ -289,9 +289,9 @@ module MAG
         lines << detail
         case key
         when 'drilling_enabled'
-          lines << format("  BOQ: %.3f m → %.3f m (%+.3f m)",before[:drilling_m],after[:drilling_m],after[:drilling_m]-before[:drilling_m])
+          lines << format("  Keşif: %.3f m → %.3f m (%+.3f m)",before[:drilling_m],after[:drilling_m],after[:drilling_m]-before[:drilling_m])
         when 'pe_enabled'
-          lines << format("  BOQ: %.2f m² → %.2f m² (%+.2f m²)",before[:pe_m2],after[:pe_m2],after[:pe_m2]-before[:pe_m2])
+          lines << format("  Keşif: %.2f m² → %.2f m² (%+.2f m²)",before[:pe_m2],after[:pe_m2],after[:pe_m2]-before[:pe_m2])
         when 'upper_ring_enabled'
           lines << format("  Miktar: %.3f kg → %.3f kg (%+.3f kg)",before[:upper_kg],after[:upper_kg],after[:upper_kg]-before[:upper_kg])
         when 'lower_ring_enabled'
@@ -303,7 +303,7 @@ module MAG
       if infill!='keep'
         current=piles.count{|p|pile_infill_enabled?(p)}; target=(infill=='1' ? piles.length : 0)
         lines << "KAZIK İÇİ BETON — #{infill=='1' ? 'VAR' : 'YOK'}: mevcut #{current}/#{piles.length}, yeni #{[target-current,0].max}, kaldırılacak #{[current-target,0].max}"
-        lines << format("  BOQ: %.3f m³ → %.3f m³ (%+.3f m³)",before[:infill_m3],after[:infill_m3],after[:infill_m3]-before[:infill_m3])
+        lines << format("  Keşif: %.3f m³ → %.3f m³ (%+.3f m³)",before[:infill_m3],after[:infill_m3],after[:infill_m3]-before[:infill_m3])
       end
       lines << '' << 'Bu değerlerle modele uygulanacak. Devam edilsin mi?'
       UI.messagebox(lines.join("\n"),MB_YESNO)==IDYES

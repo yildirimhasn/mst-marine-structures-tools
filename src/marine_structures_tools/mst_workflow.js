@@ -18,7 +18,7 @@ var FLOW=[
  {n:7, key:'rebar', title:'Donatı BIM', page:'rebar', desc:'Hangi elemanın donatısı modellendi (BIM), hangisi pursantajla hesaplanıyor.', need:['beam']},
  {n:8, key:'audit', title:'Model Kontrolü', emb:'model_audit', open:'model_audit', desc:'Hata ve uyarılar; listeden seçip modelde göster, güvenli onarım.', need:[]},
  {n:9, key:'qto', title:'Metraj', page:'qto', desc:'Tek hesap motorundan beton, kalıp, donatı, çelik ve dolgu metrajı.', need:[]},
- {n:10,key:'boq', title:'BOQ / Hakediş', page:'boq', desc:'ÖBF iş kalemleri, birim fiyat, revizyon ve hakediş.', need:['qto'], subs:[{title:'Revizyonlar', page:'revision', extra:'revisionRefresh()'},{title:'Hakediş / İlerleme', page:'progress', extra:'progressRefresh()'}]}
+ {n:10,key:'boq', title:'Keşif / Hakediş', page:'boq', desc:'ÖBF iş kalemleri, birim fiyat, revizyon ve hakediş.', need:['qto'], subs:[{title:'Revizyonlar', page:'revision', extra:'revisionRefresh()'},{title:'Hakediş / İlerleme', page:'progress', extra:'progressRefresh()'}]}
 ];
 var TOOLS=[
  {key:'editor', title:'Eleman Düzenle', page:'editor', desc:'Seçili BIM elemanının kimliği, ilişkileri ve kontrollü güncelleme.'},
@@ -249,7 +249,7 @@ function trimPanels(){
 /* ---- yeni sayfalar: Donatı BIM (7) ve Model Bakımı ---- */
 function newPage(id,html){if($('#'+id))return;var d=document.createElement('div');d.id=id;d.className='page';d.innerHTML=html;var ref=$('#settings')||$('.page');ref.parentNode.insertBefore(d,ref);}
 function buildPages(){
- newPage('rebar','<section class="mst-flow-card"><h3>Donatı nereden geliyor?</h3><p class="small">Donatısı <b>BIM</b> olarak çizilen elemanlarda metraj, BOQ, rapor ve hakediş modellenen çubukların tonajını kullanır. Çizilmeyenlerde beton hacmi × pursantaj kullanılır. Bir elemanın donatısını BIM yapmak için ilgili adımdaki “Donatı BIM” bölümünü kullanın.</p><div id="mstRebarTable" class="small">okunuyor…</div><h4 style="margin:14px 0 6px;color:#073f73">Donatı metrajı — çap çap</h4><p class="small">Hakediş (BOQ ÖBF-004) tek poz; bu tablo kontrol ve sipariş içindir.</p><div id="mstRebarDia" class="small">okunuyor…</div></section>'+
+ newPage('rebar','<section class="mst-flow-card"><h3>Donatı nereden geliyor?</h3><p class="small">Donatısı <b>BIM</b> olarak çizilen elemanlarda metraj, keşif, rapor ve hakediş modellenen çubukların tonajını kullanır. Çizilmeyenlerde beton hacmi × pursantaj kullanılır. Bir elemanın donatısını BIM yapmak için ilgili adımdaki “Donatı BIM” bölümünü kullanın.</p><div id="mstRebarTable" class="small">okunuyor…</div><h4 style="margin:14px 0 6px;color:#073f73">Donatı metrajı — çap çap</h4><p class="small">Hakediş (Keşif ÖBF-004) tek poz; bu tablo kontrol ve sipariş içindir.</p><div id="mstRebarDia" class="small">okunuyor…</div></section>'+
   '<section class="mst-flow-card"><h3>Donatı araçları</h3><p class="small" id="mstRebarSet">Ayarlar okunuyor…</p><div class="mst-flow-grid">'+
   '<button type="button" class="secondary" onclick="mstRebarTool(\'rebar_upgrade\')">⟳ Eski Donatıyı Yeniden Çiz<small>v0.48 donatısı → yeni kurallar (kayıtlı parametrelerle)</small></button>'+
   '<button type="button" class="secondary" onclick="mstRebarTool(\'rebar_settings\')">⚙ Donatı Ayarları<small>Pas payı BK / döşeme / prekast · bindirme ×Ø · şaşırtma</small></button>'+
@@ -273,8 +273,8 @@ window.mstRebarRefresh=function(){if(window.sketchup&&sketchup.rebar_sources_get
 window.mstRebarPage=function(d){var el=$('#mstRebarTable');if(!el)return;var rows=(d&&d.rows)||[];if(!rows.length){el.textContent='Modelde donatılı eleman yok.';return;}var tot=0,bim=0;
  var h='<table class="qto-table"><thead><tr><th>Eleman</th><th>Adet</th><th>Kaynak</th><th>Donatı (t)</th></tr></thead><tbody>';
  rows.forEach(function(r){var t=Number(r.t||0);tot+=t;if(String(r.label).indexOf('BIM')===0&&String(r.label).indexOf('+')<0)bim+=t;h+='<tr><td>'+esc(r.name)+'</td><td>'+(r.count||'-')+'</td><td>'+esc(r.label)+'</td><td>'+t.toFixed(3)+'</td></tr>';});
- h+='<tr class="total"><td>TOPLAM (BOQ ÖBF-004)</td><td></td><td>'+(tot>0?Math.round(bim/tot*100):0)+'% tamamen BIM</td><td>'+tot.toFixed(3)+'</td></tr></tbody></table>';el.innerHTML=h;
- var dd=$('#mstRebarDia');if(dd&&d&&d.dia){var t2='<table class="qto-table"><thead><tr><th>Çap</th><th>Donatı (t)</th></tr></thead><tbody>';(d.dia.rows||[]).forEach(function(r){t2+='<tr><td>'+esc(r.label)+'</td><td>'+(Number(r.kg||0)/1000).toFixed(3)+'</td></tr>';});t2+='<tr class="total"><td>TOPLAM (= BOQ ÖBF-004, tek poz)</td><td>'+(Number(d.dia.total_kg||0)/1000).toFixed(3)+'</td></tr></tbody></table>';dd.innerHTML=t2;}
+ h+='<tr class="total"><td>TOPLAM (Keşif ÖBF-004)</td><td></td><td>'+(tot>0?Math.round(bim/tot*100):0)+'% tamamen BIM</td><td>'+tot.toFixed(3)+'</td></tr></tbody></table>';el.innerHTML=h;
+ var dd=$('#mstRebarDia');if(dd&&d&&d.dia){var t2='<table class="qto-table"><thead><tr><th>Çap</th><th>Donatı (t)</th></tr></thead><tbody>';(d.dia.rows||[]).forEach(function(r){t2+='<tr><td>'+esc(r.label)+'</td><td>'+(Number(r.kg||0)/1000).toFixed(3)+'</td></tr>';});t2+='<tr class="total"><td>TOPLAM (= Keşif ÖBF-004, tek poz)</td><td>'+(Number(d.dia.total_kg||0)/1000).toFixed(3)+'</td></tr></tbody></table>';dd.innerHTML=t2;}
  if(d&&d.settings&&window.mstApplyRebarSettings)mstApplyRebarSettings(d.settings);};
 window.mstRebarTool=function(k){if(window.sketchup&&sketchup.rebar_tool)sketchup.rebar_tool(k);};
 window.mstApplyRebarSettings=function(st){if(!st)return;var set=function(id,v){var e=document.getElementById(id);if(e&&v!=null)e.value=String(Math.round(Number(v)));};set('dr_cover_mm',st.cover_deck_mm);set('dr_lap_d',st.lap_d);set('hb_rebar_cover',st.cover_bk_mm);var g=document.getElementById('dr_stagger');if(g)g.value=String(Number(st.stagger)?1:0);

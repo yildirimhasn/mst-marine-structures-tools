@@ -61,7 +61,7 @@ def rockfill_boq_rows(library,seeds,map)
  elsif rockfill_source_selection['mode']=='geometry'
   rows.each do |row|
    row[:status]='ALT-02 · GEOMETRİ' if row[:status]=='MODEL'
-   row[:quantity_note]='Miktar: seçili proje aksı, taban yüzeyi ve tip kesitlerden AEA. Geometri değişirse BOQ açılışında yeniden hesaplanır.'
+   row[:quantity_note]='Miktar: seçili proje aksı, taban yüzeyi ve tip kesitlerden AEA. Geometri değişirse keşif açılışında yeniden hesaplanır.'
   end
  end
  if rockfill_source_selection['mode']=='geometry'
@@ -105,7 +105,7 @@ def rockfill_source_action(action,dialog)
   q=rf02_quantity_data
   state.merge!({'materials'=>q[:materials],'total_volume_m3'=>q[:total_volume_m3],'total_tonnage_t'=>q[:total_tonnage_t],'ready'=>true})
   if state['mode']=='alt2' && rockfill_source_selection['fingerprint']!=q[:reference_result]['fingerprint']
-   state['message']='Referans sürümü değişmiş. Alternatif-02 kaynağını yeniden etkinleştirin; eski bağlantıyla BOQ üretilemez.'
+   state['message']='Referans sürümü değişmiş. Alternatif-02 kaynağını yeniden etkinleştirin; eski bağlantıyla keşif üretilemez.'
   end
  rescue=>e
   state['message']=e.message

@@ -33,7 +33,7 @@ t('qQTO3 setQTO satır şablonu <td> sayısı', row.split("colspan").first.scan(
 t('qQTO3 boş liste colspan', row[/colspan="(\d+)"/, 1].to_i, 8)
 
 ex = A1.grab(main, 'def export_professional_excel')
-dq = ex.match(/\['Detailed QTO',\[(.*?)\],detail,\[(.*?)\]\]/m) or abort('Detailed QTO tanımı yok')
+dq = ex.match(/\['Ayrıntılı Metraj',\[(.*?)\],detail,\[(.*?)\]\]/m) or abort('Ayrıntılı Metraj tanımı yok')
 hdr = dq[1].scan(/'[^']*'/).size
 wid = dq[2].split(',').size
 t('Detailed QTO başlık sütunu', hdr, 10)

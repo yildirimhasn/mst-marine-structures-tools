@@ -230,7 +230,7 @@ def boq2_save_settings(raw)
   raise "Kaydedilmiş hakediş varken beton sınıf ayrımı değiştirilemez:\nönceki hakedişte ödenen miktarlar poz bazında eşleşmez.\n(Ayrım: #{boq2_split? ? 'açık' : 'kapalı'} kalır.)"
  end
  model=Sketchup.active_model
- model.start_operation('MST BOQ Ayarları',true)
+ model.start_operation('MST Keşif Ayarları',true)
  begin
   boq2_set('currency',cur);boq2_set('fx_json',JSON.generate(fx));boq2_set('price_date',pd)
   boq2_set('split_concrete',split ? '1' : '0')
@@ -662,7 +662,7 @@ end
 def mst_dup_uid_continue?
  a=[];collect_elements(Sketchup.active_model.entities,a)
  n=a.select{|e|e.respond_to?(:get_attribute) && %w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab deck_topping curb crown_wall bored_pile accessory].include?(e.get_attribute(DICT,'element_type','').to_s)}.group_by{|e|e.get_attribute(DICT,'element_uid','').to_s.strip}.count{|k,v|!k.empty? && v.length>1}
- n.zero? || UI.messagebox("Modelde #{n} mükerrer UID var (kopyalanmış eleman). Revizyon/hakediş farkı yanıltıcı olabilir. Önce Model Kontrolü → BIM Identity Repair önerilir. Yine de devam edilsin mi?",MB_YESNO)==IDYES
+ n.zero? || UI.messagebox("Modelde #{n} mükerrer UID var (kopyalanmış eleman). Revizyon/hakediş farkı yanıltıcı olabilir. Önce Model Kontrolü → BIM Kimlik Onarımı önerilir. Yine de devam edilsin mi?",MB_YESNO)==IDYES
 end
 def progress_save(raw=nil,dialog=@d)
  d=(raw.is_a?(String) && !raw.strip.empty? ? (JSON.parse(raw) rescue {}) : (raw.is_a?(Hash) ? raw : {}))
@@ -997,7 +997,7 @@ def boq2_kesif_xlsx_write(path)
         {v:tot*fx,f:"F#{last+1}*E#{last+2}",s:st.id(:sub,boq2_money_fmt('TL'))},{v:'',s:st.id(:sub)}]
  end
  # poz metrajları: her pozun elemanları
- m=[[{v:'Poz Metrajları — eleman bazında',s:st.id(:title)}],[{v:'Her pozun miktarını oluşturan BIM elemanları. Toplu hesaplanan pozlarda (kazık imalat / ek / çarık vb.) eleman toplamı BOQ miktarına ölçeklenmiştir.',s:st.id(:note)}],[]]
+ m=[[{v:'Poz Metrajları — eleman bazında',s:st.id(:title)}],[{v:'Her pozun miktarını oluşturan BIM elemanları. Toplu hesaplanan pozlarda (kazık imalat / ek / çarık vb.) eleman toplamı keşif miktarına ölçeklenmiştir.',s:st.id(:note)}],[]]
  rows.each do |r|
   src=r[:source].to_s
   m << [{v:"#{r[:code]} · #{r[:name]}",s:st.id(:h3)}]
@@ -1013,7 +1013,7 @@ def boq2_kesif_xlsx_write(path)
          {v:(e.get_attribute(DICT,'ano','').to_s.empty? ? e.get_attribute(DICT,'structure','').to_s : e.get_attribute(DICT,'ano','').to_s),s:st.id(:cell)},
          {v:q,s:st.id(:cell,boq2_qty_fmt(r[:unit]))}]
   end
-  m << [{v:"Eleman toplamı#{(sum-r[:quantity].to_f).abs>1e-6 && sum>0 ? " (BOQ: #{format('%.3f',r[:quantity])})" : ''}",s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:es.length,s:st.id(:sub,'#,##0')},{v:sum,s:st.id(:sub,boq2_qty_fmt(r[:unit]))}]
+  m << [{v:"Eleman toplamı#{(sum-r[:quantity].to_f).abs>1e-6 && sum>0 ? " (Keşif: #{format('%.3f',r[:quantity])})" : ''}",s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:es.length,s:st.id(:sub,'#,##0')},{v:sum,s:st.id(:sub,boq2_qty_fmt(r[:unit]))}]
   m << []
  end
  boq2_xl_write(path,{styles:st,list:[['Keşif Cetveli',k],['Poz Metrajları',m],['Bilgi',boq2_info_rows(st,'Keşif Bilgileri')]]})

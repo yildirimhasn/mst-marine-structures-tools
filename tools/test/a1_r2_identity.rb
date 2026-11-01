@@ -7,6 +7,7 @@ main = A1.src('main.rb')
 module EngineeringUI; def self.decorate(h); h; end; end
 class FakeDialog; def set_html(h); $html = h; end; def show; end; end
 class Host
+  VERSION = '0.51.5' unless const_defined?(:VERSION)  # gerçek modülde qto_workspace.rb tanımlar
   attr_accessor :parents_of
   def element_signature(e); e.get_attribute(DICT, 'sig', 'S').to_s; end
   def html_escape(s); s.to_s; end

@@ -171,18 +171,18 @@ def mst_retag_all(show_message=true)
   end
   walk.call(model.entities)
   count=0
-  model.start_operation('MST Automatic Type Tags',true)
+  model.start_operation('MST Otomatik Tip Tag Ataması',true)
   all.each do |e|
     next if mst_tag_code(e).nil?
     mst_assign_tag(e,model); count+=1
   end
   rt=mst_rebar_retag_all!(model)   # v0.38 RB3
   model.commit_operation
-  UI.messagebox("MST Tags hazırlandı.\n#{count} BIM elemanı ANO / aile / tip bazında ilgili Tag'e atandı.#{rt.empty? ? '' : "\n\nDonatı Tag'leri (yapıya göre):\n"+rt.sort.map{|k,v|"  #{k}: #{v} donatı grubu"}.join("\n")}") if show_message
+  UI.messagebox("MST Tag'leri hazırlandı.\n#{count} BIM elemanı ANO / aile / tip bazında ilgili Tag'e atandı.#{rt.empty? ? '' : "\n\nDonatı Tag'leri (yapıya göre):\n"+rt.sort.map{|k,v|"  #{k}: #{v} donatı grubu"}.join("\n")}") if show_message
   count
 rescue => e
   model.abort_operation rescue nil
-  UI.messagebox("MST Tags hatası: #{e.message}") if show_message
+  UI.messagebox("MST Tag atama hatası: #{e.message}") if show_message
   0
 end
 # ===== end Automatic SketchUp Tags =====
@@ -511,7 +511,7 @@ def mst_pile_canonical_weight_kg(p)
  d=p.get_attribute(DICT,'diameter_mm',0).to_f
  t=p.get_attribute(DICT,'thickness_mm',0).to_f
  l=p.get_attribute(DICT,'actual_length_m',p.get_attribute(DICT,'length_m',0)).to_f
- raise "Invalid pile section/length: #{p.get_attribute(DICT,'pile_id','?')}" unless d>2*t && t>0 && l>0
+ raise "Geçersiz kazık kesiti/boyu: #{p.get_attribute(DICT,'pile_id','?')}" unless d>2*t && t>0 && l>0
  pile_weight(d,t,l)
 end
 
@@ -527,7 +527,7 @@ def mst_reconcile_pile_weights!(model=Sketchup.active_model, notify=true)
   changes<<[p,expected,old] if old.nil? || (old.to_f-expected).abs>0.01 || (p.get_attribute(DICT,'theoretical_weight_kg',nil).to_f-expected).abs>0.01
  end
  unless changes.empty?
-  model.start_operation('MST Reconcile Pile Pipe Weights',true)
+  model.start_operation('MST Kazık Boru Ağırlıklarını Düzelt',true)
   begin
    changes.each do |p,expected,_old|
     p.set_attribute(DICT,'weight_kg',expected)
@@ -612,7 +612,7 @@ def apply_selected_pile_orientations(data)
  pd={'orientation_mode'=>mode,'batter_ratio'=>data['batter_ratio'],'azimuth_deg'=>data['azimuth_deg']}
  rot,mode,r,az,down,vz=pile_rotation_transform(pd)
 
- model.start_operation('Apply Orientation to Selected Piles',true)
+ model.start_operation('Seçili Kazıklara Yönlendirme Uygula',true)
  selected.each do |pile|
   # Preserve the pile-head point exactly where it is in its parent coordinate system.
   head=pile.transformation.origin
@@ -1006,10 +1006,10 @@ def mst_pile_convert_targets(data)
  uniq=keys.uniq;existing=uniq.count{|k|mst_def_find(model,'steel_pipe_pile',k)}
  msg="Kazık Gövdesi → Component\n\n#{ok.length} Group kazık Component'e çevrilecek: #{mst_ring_ids(ok)}\n"+
      "Paylaşılan tanım: #{uniq.length} (#{existing} mevcut, #{uniq.length-existing} yeni)\n"+
-     "Pile ID, UID, aks, kot, metraj ve tüm BIM bilgileri aynen korunur; konum değişmez.\n"
+     "Kazık ID, UID, aks, kot, metraj ve tüm BIM bilgileri aynen korunur; konum değişmez.\n"
  msg+="#{already} kazık zaten Component.\n" if already>0
  msg+="\nAtlanan (Group kalır):\n#{real_skip.first(12).join("\n")}#{real_skip.length>12 ? "\n…" : ''}\n" unless real_skip.empty?
- msg+="\nTek Undo ile geri alınabilir. Devam edilsin mi?"
+ msg+="\nTek Geri Al ile geri alınabilir. Devam edilsin mi?"
  return nil unless UI.messagebox(msg,MB_YESNO)==IDYES
  model.start_operation("MST Kazık Gövdesi → Component (#{ok.length} kazık)",true)
  out=[]
@@ -1084,10 +1084,10 @@ def mst_pile_revert_targets(data)
   return nil
  end
  msg="Kazık Gövdesi → Group\n\n#{ok.length} Component kazık Group'a çevrilecek: #{mst_ring_ids(ok)}\n"+
-     "Her kazık kendi geometrisini taşıyan ayrı bir Group olur (dosya büyür). Pile ID, UID, aks, kot ve metraj aynen korunur; konum değişmez.\n"
+     "Her kazık kendi geometrisini taşıyan ayrı bir Group olur (dosya büyür). Kazık ID, UID, aks, kot ve metraj aynen korunur; konum değişmez.\n"
  msg+="#{already} kazık zaten Group.\n" if already>0
  msg+="\nAtlanan:\n#{real_skip.first(12).join("\n")}\n" unless real_skip.empty?
- msg+="\nTek Undo ile geri alınabilir. Devam edilsin mi?"
+ msg+="\nTek Geri Al ile geri alınabilir. Devam edilsin mi?"
  return nil unless UI.messagebox(msg,MB_YESNO)==IDYES
  model.start_operation("MST Kazık Gövdesi → Group (#{ok.length} kazık)",true)
  out=[]
@@ -1136,7 +1136,7 @@ def mst_purge_unused_pile_definitions
  end
  names=defs.map(&:name)
  msg="Kullanılmayan kazık tanımları temizlenecek: #{defs.length}\n#{names.first(12).join("\n")}#{names.length>12 ? "\n…" : ''}\n\n"+
-     "Kullanımdaki #{used} tanım ve hiçbir kazık değişmez. Tek Undo ile geri alınabilir. Devam edilsin mi?"
+     "Kullanımdaki #{used} tanım ve hiçbir kazık değişmez. Tek Geri Al ile geri alınabilir. Devam edilsin mi?"
  return 0 unless UI.messagebox(msg,MB_YESNO)==IDYES
  model.start_operation('MST Kullanılmayan Kazık Tanımlarını Temizle',true)
  begin
@@ -1152,7 +1152,7 @@ def mst_purge_unused_pile_definitions
 end
 
 def generate_layout(data)
- model=Sketchup.active_model;model.start_operation('Generate Pile Layout',true)
+ model=Sketchup.active_model;model.start_operation('Kazık Yerleşimi Oluştur',true)
  begin
   normalize_pile_inputs!(data)
   mst_kz_save_form!(data,model) if respond_to?(:mst_kz_save_form!)   # v0.50: A-çerçeve / DXF kazıkları bu formu kullanır
@@ -1255,7 +1255,7 @@ def generate_layout(data)
     end
     pile_id=pl['pile_id'].to_s.strip
     pile_id="#{pref}#{n.to_s.rjust(3,'0')}" if pile_id.empty?
-    raise "Tekrarlanan Pile ID: #{pile_id}" if used_pile_ids[pile_id]
+    raise "Tekrarlanan Kazık ID: #{pile_id}" if used_pile_ids[pile_id]
     raise "#{pile_id} modelde zaten var. 'Başlangıç No' değerini artırın (grid yüklenince otomatik önerilir)." if existing_ids[pile_id]
     occ=existing_pts[[pile_structure.to_s,ax['name'].to_s.strip,pl['y_axis'].to_s]]
     raise "#{ax['name']} / #{pl['y_axis']} noktasında zaten kazık var (#{occ}). Bu nokta seçilmemeli." if occ && !ax['name'].to_s.strip.empty? && !pl['y_axis'].to_s.empty?
@@ -1335,7 +1335,7 @@ end
 def mst_require_group_pile!(p,action='Bu işlem')
   return true unless mst_component_pile?(p)
   n=p.definition.instances.length
-  raise "#{p.get_attribute(DICT,'pile_id','?')}: #{action} Component kazıkta henüz desteklenmiyor (definition '#{p.definition.name}' #{n} kazık tarafından paylaşılıyor; geometri değişikliği hepsini etkilerdi)."
+  raise "#{p.get_attribute(DICT,'pile_id','?')}: #{action} Component kazıkta henüz desteklenmiyor (tanım (definition) '#{p.definition.name}' #{n} kazık tarafından paylaşılıyor; geometri değişikliği hepsini etkilerdi)."
 end
 
 def collect_piles(entities,parent_tr=Geom::Transformation.new,arr=[])
@@ -1563,7 +1563,7 @@ end
 def auto_head_beam(data)
  model=Sketchup.active_model;piles=selected_piles
  if piles.length<2
-  UI.messagebox("En az 2 kazık veya bir Pile Layout grubu seçmelisin.");return
+  UI.messagebox("En az 2 kazık veya bir kazık yerleşimi (Pile Layout) grubu seçmelisin.");return
  end
 
  # v0.34.10 — A selected Pile Layout is only an organisation container.
@@ -1576,7 +1576,7 @@ def auto_head_beam(data)
   target=(from_axis..to_axis).to_a.map(&:to_s)
   piles=piles.select{|p,tr| target.include?(p.get_attribute(DICT,'axis','').to_s)}
   if piles.length<2
-   UI.messagebox("Seçilen Pile Layout içinde hedef Aks #{from_axis}#{to_axis==from_axis ? '' : "-#{to_axis}"} için yeterli kazık bulunamadı.");return
+   UI.messagebox("Seçilen kazık yerleşimi (Pile Layout) içinde hedef Aks #{from_axis}#{to_axis==from_axis ? '' : "-#{to_axis}"} için yeterli kazık bulunamadı.");return
   end
   if data['hb_creation_mode'].to_s!='multi_axis' && from_axis!=to_axis
    UI.messagebox("Tek Aks / Standart BK için Başlangıç ve Bitiş Aksı aynı olmalıdır.");return
@@ -1590,7 +1590,7 @@ def auto_head_beam(data)
  if data['hb_creation_mode'].to_s=='multi_axis'
   id=data['hb_id'].to_s.strip; id='HB-MULTI-001' if id.empty? || id=='HB-001'
   data['beam_type']='BK-03' if data['beam_type'].to_s.strip.empty?
-  model.start_operation('Multi-Axis Combined Head Beam',true)
+  model.start_operation('Çok Akslı Birleşik Başlık Kirişi (BK)',true)
   begin
    r=create_multi_axis_head_beam_for_piles(model,piles,data,id)
    commit_with_dependencies(model);model.selection.clear;model.selection.add(r[:group]);model.active_view.zoom(r[:group])
@@ -1617,7 +1617,7 @@ def auto_head_beam(data)
 
  id=data['hb_id'].to_s.strip;id='HB-001' if id.empty?
  data['beam_type']='BK-01' if data['beam_type'].to_s.strip.empty?
- model.start_operation('Automatic Head Beam',true)
+ model.start_operation('Otomatik Başlık Kirişi (BK)',true)
  begin
   r=create_head_beam_for_piles(model,piles,data,id)
   commit_with_dependencies(model);model.selection.clear;model.selection.add(r[:group]);model.active_view.zoom(r[:group])
@@ -2004,7 +2004,7 @@ def mst_bk_bulk_preview_text(bp,title=nil)
   bp['warnings'].first(10).each{|w|lines << "⚠ #{w}"}
   lines << "⚠ … #{bp['warnings'].length-10} uyarı daha" if bp['warnings'].length>10
  end
- lines << '' << 'BK geometrisi yeniden oluşturulur (BK UID, kazık bağlantıları ve kalıp yüz seçimleri korunur). Tek Undo.' << 'Uygulansın mı?'
+ lines << '' << 'BK geometrisi yeniden oluşturulur (BK UID, kazık bağlantıları ve kalıp yüz seçimleri korunur). Tek Geri Al.' << 'Uygulansın mı?'
  lines.join("\n")
 end
 
@@ -2051,7 +2051,7 @@ def mst_bk_bulk_edit(data)
  return {'status'=>'İptal edildi; model değişmedi.'} unless UI.messagebox(mst_bk_bulk_preview_text(bp),MB_YESNO)==IDYES
  r=mst_bk_bulk_apply(bp,model)
  mst_kn_after_edit(bp['plans'].map{|pl|pl['beam']})
- {'status'=>format('%d BK güncellendi, %d üst eleman taşındı, %d kazık başı uyarlandı • BK betonu %.3f → %.3f m³ (tek Undo)',r['beams'],r['moved'],r['piles'],r['volume'][0],r['volume'][1])}
+ {'status'=>format('%d BK güncellendi, %d üst eleman taşındı, %d kazık başı uyarlandı • BK betonu %.3f → %.3f m³ (tek Geri Al)',r['beams'],r['moved'],r['piles'],r['volume'][0],r['volume'][1])}
 end
 
 def mst_bk_send_live_axes
@@ -2084,7 +2084,7 @@ def auto_head_beams_bulk(data)
   by_axis[a['index']]=piles.select{|p,tr|p.get_attribute(DICT,'axis_no',0).to_i==a['axis_no'] && p.get_attribute(DICT,'axis','').to_s==a['label']}
  end
  created=[];skipped=[]; used={}
- model.start_operation('Active ANO Head Beams - Placement Plan',true)
+ model.start_operation('Aktif ANO Başlık Kirişleri - Yerleşim Planı',true)
  begin
   mst_scan_batch(model) do
   starts=by_axis.keys.select{|ax|placement[ax.to_s].to_s=='combined_start'}.sort
@@ -2290,11 +2290,11 @@ def set_selected_faces_formwork(flag)
  model=Sketchup.active_model
  hb=active_head_beam(model)
  unless hb
-  UI.messagebox("Önce bir Head Beam'e çift tıklayıp grup düzenleme moduna girin."); return
+  UI.messagebox("Önce bir başlık kirişine (BK) çift tıklayıp grup düzenleme moduna girin."); return
  end
  faces=model.selection.grep(Sketchup::Face)
  if faces.empty?
-  UI.messagebox("Head Beam içindesiniz; şimdi bir veya daha fazla yüzey seçin."); return
+  UI.messagebox("Başlık kirişi (BK) içindesiniz; şimdi bir veya daha fazla yüzey seçin."); return
  end
  model.start_operation(flag ? 'Kalıba Dahil Et' : 'Kalıptan Çıkar',true)
  begin   # v0.51.5 K13: hata yolunda işlem açık kalmaz
@@ -2312,7 +2312,7 @@ def set_selected_faces_formwork(flag)
  rescue => ex
   model.abort_operation;UI.messagebox("Kalıp yüzeyi güncellenemedi: #{ex.message}");return
  end
- UI.messagebox("#{faces.length} yüzey #{flag ? 'kalıba dahil edildi':'kalıptan çıkarıldı'}.\\nYeni Head Beam kalıp alanı: #{format('%.2f',new_area)} m²")
+ UI.messagebox("#{faces.length} yüzey #{flag ? 'kalıba dahil edildi':'kalıptan çıkarıldı'}.\\nYeni BK kalıp alanı: #{format('%.2f',new_area)} m²")
 end
 
 # ===== v0.37.4 BK Interactive Formwork Face Override =====
@@ -2914,7 +2914,7 @@ def mst_hb_rebar_build!(hb,prm)
  mst_rt_history_push!(hb) if respond_to?(:mst_rt_history_push!)   # v0.49 RV1
  prm=mst_hb_rebar_params_upgrade(prm)
  len=hb.get_attribute(DICT,'length_m',0).to_f;wid=hb.get_attribute(DICT,'width_m',0).to_f;hei=hb.get_attribute(DICT,'height_m',0).to_f
- raise "#{element_visible_id(hb)} geometrik metadata eksik." if len<=0 || wid<=0 || hei<=0
+ raise "#{element_visible_id(hb)} geometrik eleman bilgisi eksik." if len<=0 || wid<=0 || hei<=0
  fr=mst_hb_local_frame(hb,len)
  len,wid,hei=fr['len'],fr['wid'],fr['hei'] if fr
  ax_y=fr && fr['ax']==:y
@@ -3342,13 +3342,13 @@ def hb_rebar_selected(data, dialog=@d)
    end
   end
   prm=mst_hb_rebar_params(data)
-  model.start_operation('MST Head Beam Rebar BIM',true)
+  model.start_operation('MST BK Donatı BIM',true)
   begin
     kinds=beams.map{|hb|p2=prm
      p2=prm.merge('cover_mm'=>mst_rs_cover_for(hb)) if data['cover_src'].to_s=='RS' && respond_to?(:mst_rs_cover_for)   # v0.50 RS2: eleman tipine göre pas payı
      mst_hb_rebar_build!(hb,p2);"#{element_visible_id(hb)}: #{hb.get_attribute(DICT,'rebar_kind')=='CAP' ? 'Dolfen başlığı — çift yönlü alt+üst ağ, etriyesiz' : 'Kiriş — boyuna + etriye'} (#{format('%.3f',hb.get_attribute(DICT,'rebar_t',0).to_f)} t)"}
     commit_with_dependencies(model)
-    UI.messagebox("#{beams.length} Başlık Kirişi için Detaylı Donatı BIM oluşturuldu.\n#{kinds.first(10).join("\n")}\n\nBOQ artık bu elemanlarda gerçek modellenmiş donatı tonajını kullanır.\nBK ölçüsü / kotu değişince donatı bu değerlerle otomatik yeniden üretilir.")
+    UI.messagebox("#{beams.length} Başlık Kirişi için Detaylı Donatı BIM oluşturuldu.\n#{kinds.first(10).join("\n")}\n\nKeşif artık bu elemanlarda gerçek modellenmiş donatı tonajını kullanır.\nBK ölçüsü / kotu değişince donatı bu değerlerle otomatik yeniden üretilir.")
     send_boq(dialog) if dialog
   rescue=>ex
     model.abort_operation; UI.messagebox("Donatı BIM oluşturulamadı:\n#{ex.message}")
@@ -3526,7 +3526,7 @@ end
 def boq_set_prices(payload)
   data=payload.is_a?(String) ? JSON.parse(payload) : payload
   model=Sketchup.active_model
-  model.start_operation('BOQ Ayarlarını Güncelle',true)
+  model.start_operation('Keşif Ayarlarını Güncelle',true)
   (data['prices']||{}).each do |code,val|
     next if boq_template.any? { |r| r[0]==code && BOQ_LIBRARY_IDS.key?(r[4]) }
     model.set_attribute(DICT,"boq_price_#{code}",val.to_f)
@@ -3537,7 +3537,7 @@ def boq_set_prices(payload)
   send_boq(@d) if @d && @d.visible?
 rescue=>e
   model.abort_operation rescue nil
-  UI.messagebox("BOQ ayar güncelleme hatası: #{e.message}")
+  UI.messagebox("Keşif ayarı güncelleme hatası: #{e.message}")
 end
 
 def pile_driving_length(p)
@@ -3735,7 +3735,7 @@ end
 def boq_set_pile_modes(payload)
  data=payload.is_a?(String) ? JSON.parse(payload) : payload
  model=Sketchup.active_model
- model.start_operation('Kazık BOQ Poz Gruplaması',true)
+ model.start_operation('Kazık Keşif Poz Gruplaması',true)
  data.each do |key,mode|
   next unless PILE_BOQ_GROUP_KEYS.include?(key.to_s) && %w[combined separate].include?(mode.to_s)
   model.set_attribute(DICT,"pile_boq_mode_#{key}",mode.to_s)
@@ -3746,7 +3746,7 @@ def boq_set_pile_modes(payload)
  @d.execute_script("pileBoqSaved(#{JSON.generate(Hash[PILE_BOQ_GROUP_KEYS.map{|k|[k,pile_boq_mode(k)]}])});") if @d && @d.visible?
 rescue=>e
  model.abort_operation rescue nil
- UI.messagebox("Kazık BOQ gruplama hatası: #{e.message}")
+ UI.messagebox("Kazık keşif gruplama hatası: #{e.message}")
 end
 
 def boq_rows(include_inactive=false)
@@ -3930,7 +3930,7 @@ def boq_select_sources(payload, dialog=nil)
   end
   count
 rescue=>e
-  dialog.execute_script("boqTraceResult(#{JSON.generate(defined?(source) ? source.to_s : '')},0,#{JSON.generate('BOQ kaynak seçimi hatası: '+e.message)});") if dialog
+  dialog.execute_script("boqTraceResult(#{JSON.generate(defined?(source) ? source.to_s : '')},0,#{JSON.generate('Keşif kaynak seçimi hatası: '+e.message)});") if dialog
   0
 end
 # ===== end v0.32.2 =====
@@ -3953,7 +3953,7 @@ def send_boq(dialog=@d)
   data[:rows]=rows+info
   dialog.execute_script("setBOQ(#{JSON.generate(data)});") if dialog
 rescue=>e
-  UI.messagebox("BOQ oluşturma hatası: #{e.message}")
+  UI.messagebox("Keşif oluşturma hatası: #{e.message}")
 end
 # ===== end v0.23.1 =====
 
@@ -4016,7 +4016,7 @@ bv=bs.sum{|x|head_beam_net_concrete(x)};bf=bs.sum{|x|head_beam_net_formwork_area
  "<tr><td>Prekast</td><td>Kanal Prekastı</td><td>#{ch.length}</td><td>-</td><td>#{format('%.3f',cv)} m³</td><td>#{format('%.2f',cf)} m²</td><td>#{mst_rebar_cell(ch)}</td></tr>"+
  "<tr><td>Prekast</td><td>Vinç Prekastı</td><td>#{cr.length}</td><td>-</td><td>#{format('%.3f',crv)} m³</td><td>#{format('%.2f',crf)} m²</td><td>#{mst_rebar_cell(cr)}</td></tr>"+
  "<tr><td>Betonarme</td><td>Döşeme</td><td>#{dk.length}</td><td>-</td><td>#{format('%.3f',dv+cbv)} m³</td><td>#{format('%.2f',df+cbf)} m²</td><td>#{format('%.3f',mst_rebar_sum(dk)['kg']/1000.0)} t <small style='color:#5b6b7b'>(#{html_escape(mst_rebar_sum(dk)['label'])})</small></td></tr>"+
- (topping_vol>0 ? "<tr><td>Betonarme</td><td>Kaplama <small style='color:#5b6b7b'>(Toplam Beton kartına dahil değil; BOQ'da ayrı kalem)</small></td><td>-</td><td>-</td><td>#{format('%.3f',topping_vol)} m³</td><td>-</td><td>#{format('%.3f',topping_vol*rebar_rate('topping')/1000.0)} t <small style='color:#5b6b7b'>(donatı; hacim × #{format('%.0f',rebar_rate('topping'))} kg/m³ pursantaj)</small></td></tr>" : '')+
+ (topping_vol>0 ? "<tr><td>Betonarme</td><td>Kaplama <small style='color:#5b6b7b'>(Toplam Beton kartına dahil değil; keşifte ayrı kalem)</small></td><td>-</td><td>-</td><td>#{format('%.3f',topping_vol)} m³</td><td>-</td><td>#{format('%.3f',topping_vol*rebar_rate('topping')/1000.0)} t <small style='color:#5b6b7b'>(donatı; hacim × #{format('%.0f',rebar_rate('topping'))} kg/m³ pursantaj)</small></td></tr>" : '')+
  "<tr><td>Betonarme</td><td>Kronman</td><td>#{cw.length}</td><td>-</td><td>#{format('%.3f',cwv)} m³</td><td>#{format('%.2f',cwf)} m²</td><td>#{mst_rebar_cell(cw)}</td></tr>"
  elems=snap[:elements].reject{|e|e.get_attribute(DICT,'element_type','')=='pile_infill_concrete'}
  status=qto_workspace_status(elems,ps)
@@ -4108,7 +4108,7 @@ def takeoff(mode='all',want=nil)
  pile_qto_detail_rows << pile_detail_line.call('PROJE GENEL TOPLAMI',ps,:project) unless ps.empty?
  # v0.36.3: full per-pile BIM detail belongs only to the dedicated pile report.
  pile_items=ps.map{|pile|pile_bim_qto_item(pile)}.sort_by{|x|x[:pile_id].to_s}
- detail_cols=[['pile_id','Pile ID'],['system','Sistem'],['structure','Yapı'],['grid_point','Aks Noktası'],['diameter_mm','Ø (mm)'],['thickness_mm','t (mm)'],['length_m','L (m)'],['steel_grade','Çelik'],['concrete_class','Beton Sınıfı'],['steel_t','Boru (t)'],['concrete_m3','Beton (m³)'],['pe_m2','PE (m²)'],['drilling_m','Foraj (m)'],['plug_count','Tapa (adet)'],['plug_kg','Tapa (kg)'],['lower_ring_kg','Alt/İç (kg)'],['upper_ring_kg','Üst/Dış (kg)']]
+ detail_cols=[['pile_id','Kazık ID'],['system','Sistem'],['structure','Yapı'],['grid_point','Aks Noktası'],['diameter_mm','Ø (mm)'],['thickness_mm','t (mm)'],['length_m','L (m)'],['steel_grade','Çelik'],['concrete_class','Beton Sınıfı'],['steel_t','Boru (t)'],['concrete_m3','Beton (m³)'],['pe_m2','PE (m²)'],['drilling_m','Foraj (m)'],['plug_count','Tapa (adet)'],['plug_kg','Tapa (kg)'],['lower_ring_kg','Alt/İç (kg)'],['upper_ring_kg','Üst/Dış (kg)']]
  numeric_cols=%w[length_m steel_t concrete_m3 pe_m2 drilling_m plug_count plug_kg lower_ring_kg upper_ring_kg]
  sum_keys=%w[length_m steel_t concrete_m3 pe_m2 drilling_m plug_count plug_kg lower_ring_kg upper_ring_kg]
  section_row=lambda do |label,items,kind|
@@ -4138,7 +4138,7 @@ def takeoff(mode='all',want=nil)
  options=pile_items.map{|x|x[:structure].to_s}.uniq.sort.map{|x|"<option value='#{html_escape(x)}'>#{html_escape(x)}</option>"}.join
  sections_opts=pile_items.map{|x|"#{x[:diameter_mm].to_f.round(3)}x#{x[:thickness_mm].to_f.round(3)}"}.uniq.sort.map{|x|"<option value='#{html_escape(x)}'>#{html_escape(x.tr('x',' × '))} mm</option>"}.join
  summary_heads=['Kesit','Adet','Boy (m)','Boru (t)','Beton (m³)','PE (m²)','Foraj (m)','Tapa (adet)','Tapa (kg)','Alt/İç (kg)','Üst/Dış (kg)'].map{|h|"<th>#{h}</th>"}.join
- pile_bim_html="<h3>Kesit Bazlı BIM / QTO Özeti</h3><div class='note'>Sistem → yapı → Ø × t ara toplamları ve proje genel toplamı; alt satırlar toplama tekrar eklenmez.</div><div class='table-scroll'><table class='pile-detail'><thead><tr>#{summary_heads}</tr></thead><tbody>#{section_rows}</tbody></table></div><h3>Pile ID Bazlı Detaylı Metraj</h3><div class='pile-filters'><input id='pileSearch' placeholder='Pile ID, aks veya kesit ara...' oninput='filterPileRows()'><select id='pileStructure' onchange='filterPileRows()'><option value=''>Tüm yapılar</option>#{options}</select><select id='pileSection' onchange='filterPileRows()'><option value=''>Tüm kesitler</option>#{sections_opts}</select><span id='pileFilterCount'></span></div><div class='table-scroll'><table class='pile-detail'><thead><tr>#{detail_cols.map{|c|"<th>#{c[1]}</th>"}.join}</tr></thead><tbody>#{detail_rows}</tbody><tfoot><tr class='subtotal' id='pileFilteredTotal'><td>FİLTRELENEN ARA TOPLAM</td>#{'<td></td>' * 5}<td>—</td>#{'<td></td>' * 2}#{'<td>—</td>' * 8}</tr></tfoot></table></div>"
+ pile_bim_html="<h3>Kesit Bazlı BIM / Metraj Özeti</h3><div class='note'>Sistem → yapı → Ø × t ara toplamları ve proje genel toplamı; alt satırlar toplama tekrar eklenmez.</div><div class='table-scroll'><table class='pile-detail'><thead><tr>#{summary_heads}</tr></thead><tbody>#{section_rows}</tbody></table></div><h3>Kazık ID Bazlı Detaylı Metraj</h3><div class='pile-filters'><input id='pileSearch' placeholder='Kazık ID, aks veya kesit ara...' oninput='filterPileRows()'><select id='pileStructure' onchange='filterPileRows()'><option value=''>Tüm yapılar</option>#{options}</select><select id='pileSection' onchange='filterPileRows()'><option value=''>Tüm kesitler</option>#{sections_opts}</select><span id='pileFilterCount'></span></div><div class='table-scroll'><table class='pile-detail'><thead><tr>#{detail_cols.map{|c|"<th>#{c[1]}</th>"}.join}</tr></thead><tbody>#{detail_rows}</tbody><tfoot><tr class='subtotal' id='pileFilteredTotal'><td>FİLTRELENEN ARA TOPLAM</td>#{'<td></td>' * 5}<td>—</td>#{'<td></td>' * 2}#{'<td>—</td>' * 8}</tr></tfoot></table></div>"
  pile_filter_script=%q{<script>function filterPileRows(){var q=document.getElementById('pileSearch').value.toLocaleLowerCase('tr-TR').trim(),st=document.getElementById('pileStructure').value,sec=document.getElementById('pileSection').value,rows=document.querySelectorAll('.bim-pile-row'),sums=Array(9).fill(0),count=0;rows.forEach(function(r){var ok=(!q||r.dataset.search.toLocaleLowerCase('tr-TR').includes(q))&&(!st||r.dataset.structure===st)&&(!sec||r.dataset.section===sec);r.style.display=ok?'':'none';if(ok){count++;r.dataset.values.split(',').forEach(function(v,i){sums[i]+=Number(v)||0})}});document.getElementById('pileFilterCount').textContent=count+' / '+rows.length+' kazık';document.getElementById('pileFilteredTotal').innerHTML=(function(){var cells=Array(17).fill('');cells[0]='FİLTRELENEN ARA TOPLAM ('+count+' kazık)';var cols=[6,9,10,11,12,13,14,15,16];sums.forEach(function(v,i){cells[cols[i]]=i===5?String(Math.round(v)):v.toFixed(3)});return cells.map(function(v){return '<td>'+v+'</td>'}).join('')})();};filterPileRows();</script>}
  pile_html="<h3>Çelik Boru Kazık Detay Metrajı</h3><div class='note'>İmalat + çakım + tapa + ek + üst/alt çarık + manipülasyon + kazık içi beton + PE kaplama + foraj</div><div class='table-scroll'><table class='pile-detail'><thead><tr class='group-head'><th colspan='4'>KAZIK BİLGİLERİ</th><th colspan='4'>İMALAT / MONTAJ</th><th colspan='5'>AĞIRLIKLAR</th><th colspan='4'>DİĞER İMALATLAR</th></tr><tr><th>Sistem / Yapı / Kesit</th><th>Ø (mm)</th><th>t (mm)</th><th>Kazık Ad.</th><th>Tapa Ad.</th><th>Ek Ad.</th><th>İmal Boyu (m)</th><th>Çakım Boyu (m)</th><th>Tapa (t)</th><th>Kazık İmal (t)</th><th>Üst Çarık (kg)</th><th>Alt Çarık (kg)</th><th>Manipülasyon (t)</th><th>Beton (m³)</th><th>Kazık İçi Donatı (t)</th><th>PE Kaplama (m²)</th><th>Foraj (m)</th></tr></thead><tbody>#{pile_qto_detail_rows}</tbody></table></div>"
 
@@ -4282,10 +4282,10 @@ def takeoff(mode='all',want=nil)
  end
  bk_total_rebar=mst_rebar_sum(bs)['kg']/1000.0
  bk_detail_rows << "<tr class='total bk-static-total'><td colspan='6'>PROJE GENEL TOPLAMI</td><td>#{bs.length} BK</td><td colspan='8'>—</td><td>#{format('%.3f',total_vol)}</td><td>#{format('%.2f',total_gross)}</td><td>#{format('%.2f',total_deduct)}</td><td>#{format('%.2f',total_net)}</td><td>#{format('%.3f',bk_total_rebar)}</td></tr>"
- bk_heads=['ANO','BK ID','REV.','Aks','BK Tipi','Beton Sınıfı','Kazık Ad.','Bağlı Pile ID','Boy (m)','Genişlik (m)','Yükseklik (m)','Alt Kot (m)','Üst Kot (m)','Baş. Taşma (m)','Son Taşma (m)','Beton (m³)','Brüt Kalıp (m²)','Kazık Kesintisi (m²)','Net Kalıp (m²)','Donatı (t)']
+ bk_heads=['ANO','BK ID','REV.','Aks','BK Tipi','Beton Sınıfı','Kazık Ad.','Bağlı Kazık ID','Boy (m)','Genişlik (m)','Yükseklik (m)','Alt Kot (m)','Üst Kot (m)','Baş. Taşma (m)','Son Taşma (m)','Beton (m³)','Brüt Kalıp (m²)','Kazık Kesintisi (m²)','Net Kalıp (m²)','Donatı (t)']
  bk_ano_options=bs.map{|b|b.get_attribute(DICT,'ano','-').to_s}.uniq.sort.map{|x|"<option value='#{html_escape(x)}'>#{html_escape(x)}</option>"}.join
  bk_type_options=bs.map{|b|b.get_attribute(DICT,'beam_type','BK-?').to_s}.uniq.sort.map{|x|"<option value='#{html_escape(x)}'>#{html_escape(x)}</option>"}.join
- bk_detail_html="<h3 style='margin-top:25px'>BK ID Bazlı Detaylı BIM / QTO</h3><div class='note'>ANO ve BK tipine göre eleman satırları, ara toplamlar ve genel toplam. Miktarlar kayıtlı BIM metadatasından okunur.</div><div class='pile-filters'><input id='bkSearch' placeholder='BK ID, aks veya Pile ID ara...' oninput='filterBkRows()'><select id='bkAno' onchange='filterBkRows()'><option value=''>Tüm yapılar / ANO</option>#{bk_ano_options}</select><select id='bkType' onchange='filterBkRows()'><option value=''>Tüm BK tipleri</option>#{bk_type_options}</select><span id='bkFilterCount'></span></div><div class='table-scroll'><table class='pile-detail' style='min-width:2350px'><thead><tr>#{bk_heads.map{|h|'<th>'+h+'</th>'}.join}</tr></thead><tbody>#{bk_detail_rows}<tr class='subtotal' id='bkFilteredTotal' style='display:none'><td colspan='15'>FİLTRELENEN ARA TOPLAM</td><td>0.000</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.000</td></tr></tbody></table></div>"
+ bk_detail_html="<h3 style='margin-top:25px'>BK ID Bazlı Detaylı BIM / Metraj</h3><div class='note'>ANO ve BK tipine göre eleman satırları, ara toplamlar ve genel toplam. Miktarlar kayıtlı BIM eleman bilgisinden okunur.</div><div class='pile-filters'><input id='bkSearch' placeholder='BK ID, aks veya Kazık ID ara...' oninput='filterBkRows()'><select id='bkAno' onchange='filterBkRows()'><option value=''>Tüm yapılar / ANO</option>#{bk_ano_options}</select><select id='bkType' onchange='filterBkRows()'><option value=''>Tüm BK tipleri</option>#{bk_type_options}</select><span id='bkFilterCount'></span></div><div class='table-scroll'><table class='pile-detail' style='min-width:2350px'><thead><tr>#{bk_heads.map{|h|'<th>'+h+'</th>'}.join}</tr></thead><tbody>#{bk_detail_rows}<tr class='subtotal' id='bkFilteredTotal' style='display:none'><td colspan='15'>FİLTRELENEN ARA TOPLAM</td><td>0.000</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.000</td></tr></tbody></table></div>"
  bk_filter_script=%q{<script>function filterBkRows(){var q=document.getElementById('bkSearch').value.toLocaleLowerCase('tr-TR').trim(),ano=document.getElementById('bkAno').value,typ=document.getElementById('bkType').value,rows=document.querySelectorAll('.bim-bk-row'),filtered=!!(q||ano||typ),sums=[0,0,0,0,0],n=0;Array.prototype.forEach.call(rows,function(r){var ok=(!q||r.getAttribute('data-search').toLocaleLowerCase('tr-TR').indexOf(q)>=0)&&(!ano||r.getAttribute('data-ano')===ano)&&(!typ||r.getAttribute('data-type')===typ);r.style.display=ok?'':'none';if(ok){n++;r.getAttribute('data-values').split(',').forEach(function(v,i){sums[i]+=Number(v)||0;});}});Array.prototype.forEach.call(document.querySelectorAll('.bk-static-total'),function(r){r.style.display=filtered?'none':'';});var ft=document.getElementById('bkFilteredTotal');ft.style.display=filtered?'':'none';ft.innerHTML='<td colspan="15">FİLTRELENEN ARA TOPLAM ('+n+' BK)</td>'+sums.map(function(v,i){return '<td>'+v.toFixed(i===0||i===4?3:2)+'</td>';}).join('');document.getElementById('bkFilterCount').textContent=n+' / '+rows.length+' BK';};filterBkRows();</script>}
  beam_html="<h3>Başlık Kirişi</h3><table><tr><th>BK Tipi</th><th>Beton Sınıfı</th><th>Adet</th><th>Akslar</th><th>Beton</th><th>Brüt Kalıp</th><th>Kazık Kesintisi</th><th>Net Kalıp</th><th>Donatı</th></tr>#{rows}<tr class='total'><td>TOPLAM</td><td>-</td><td>#{bs.length}</td><td>-</td><td>#{format('%.3f',total_vol)} m³</td><td>#{format('%.2f',total_gross)} m²</td><td>-#{format('%.2f',total_deduct)} m²</td><td>#{format('%.2f',total_net)} m²</td><td>#{mst_rebar_cell(bs)}</td></tr></table>"+mst_bk_embed_report_html(bs)
  sections=case mode.to_s
@@ -4311,8 +4311,8 @@ def takeoff(mode='all',want=nil)
  css="body{font-family:Arial,sans-serif;margin:0;background:#f3f7fa;color:#18364a}.top{background:#fff;border-bottom:1px solid #cbdde8;padding:18px 24px;display:flex;justify-content:space-between;align-items:center}.top h1{margin:0;color:#073f73;font-size:22px}.top p{margin:4px 0 0;color:#78909f;font-size:12px}.badge{background:#e9f5ff;color:#0875bb;border:1px solid #c7e3f7;border-radius:18px;padding:7px 12px;font-size:11px;font-weight:bold}.wrap{padding:18px 24px}.panel{background:#fff;border:1px solid #cadce7;border-radius:9px;padding:18px;box-shadow:0 2px 8px rgba(22,65,92,.06)}h3{color:#073f73;margin:4px 0 14px;font-size:17px}table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;margin-bottom:24px;border:1px solid #d6e2ea;border-radius:7px;overflow:hidden}th,td{padding:10px 9px;text-align:right;border-bottom:1px solid #e7eef3}th{background:#eaf3f8;color:#42677f;font-size:11px;text-transform:uppercase}th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(4),td:nth-child(4){text-align:left}tr:last-child td{border-bottom:0}.subtotal{font-weight:bold;background:#f0f6fa}.total{font-weight:bold;background:#dfeaf1;color:#123e5c}.note{color:#78909f;font-size:11px;margin:-7px 0 14px}.table-scroll{overflow-x:auto}.pile-detail{min-width:1880px;table-layout:fixed}.pile-detail th,.pile-detail td{white-space:nowrap;vertical-align:middle;border-right:1px solid #dfe8ee}.pile-detail th{position:sticky;top:0;z-index:2;text-align:center}.pile-detail td{text-align:right}.pile-detail th:first-child,.pile-detail td:first-child{position:sticky;left:0;z-index:3;background:#fff;text-align:left;min-width:125px}.pile-detail th:first-child{background:#eaf3f8;z-index:5}.pile-detail .group-head th{position:sticky;top:0;background:#dcecf6;color:#0b4c78;font-size:10px;letter-spacing:.4px;border-bottom:1px solid #bdd4e2}.pile-detail thead tr:nth-child(2) th{top:31px}.pile-detail .total td:first-child,.pile-detail .subtotal td:first-child{background:inherit}.pile-detail th:nth-child(1){width:125px}.pile-detail th:nth-child(2),.pile-detail th:nth-child(3){width:75px}.pile-detail th:nth-child(4),.pile-detail th:nth-child(5),.pile-detail th:nth-child(6){width:82px}.pile-detail th:nth-child(7),.pile-detail th:nth-child(8){width:110px}.pile-detail th:nth-child(n+9){width:112px}.foot{color:#78909f;font-size:10px;padding-top:3px;border-top:1px solid #e4edf2}"
  css += %q{.table-scroll>table{border-collapse:collapse;table-layout:fixed;width:max-content;min-width:100%}.table-scroll>table th,.table-scroll>table td{box-sizing:border-box;min-width:95px;text-align:right;vertical-align:middle;border-bottom:1px solid #dce6ed}.table-scroll>table th:first-child,.table-scroll>table td:first-child{text-align:left;min-width:145px}.table-scroll>table .total td,.table-scroll>table .subtotal td{font-weight:700;white-space:nowrap}.table-scroll>table.pile-detail{min-width:max(100%,1880px)}}
   css += %q{.pile-filters{display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap}.pile-filters input,.pile-filters select{padding:9px;border:1px solid #cadce7;border-radius:5px;min-width:170px}.bim-pile-row:hover{background:#edf6ff}.pile-detail tfoot td{background:#e3edf5;font-weight:bold}}
- html="<html><head><meta charset='utf-8'><style>#{css}</style></head><body><div class='top'><div><h1>#{report_title}</h1><p>Marine Structures Tools • Model tabanlı otomatik metraj</p></div><div style='display:flex;gap:10px;align-items:center'><button onclick='sketchup.takeoff_excel()' style='padding:9px 16px;border:0;border-radius:7px;background:#1d6f42;color:#fff;font-weight:700;cursor:pointer'>⇩ Excel'e Aktar</button><div class='badge'>MODEL VERİSİ</div></div></div><div class='wrap'><div class='panel'>#{sections}#{mode.to_s=='pile' ? pile_filter_script : (['beam','all'].include?(mode.to_s) ? bk_filter_script : '')}<div class='foot'>Miktarlar model metadata bilgilerinden otomatik hesaplanmıştır.</div></div></div></body></html>"
- d=mst_html_dialog('takeoff',dialog_title:'Marine Structures - Metraj',width:1500,height:720,resizable:true);d.set_html(EngineeringUI.decorate(html));d.add_action_callback('takeoff_excel'){|_|mst_takeoff_excel};d.show;@q=d
+ html="<html><head><meta charset='utf-8'><style>#{css}</style></head><body><div class='top'><div><h1>#{report_title}</h1><p>Deniz Yapıları Araçları (MST) v#{VERSION} • Model tabanlı otomatik metraj</p></div><div style='display:flex;gap:10px;align-items:center'><button onclick='sketchup.takeoff_excel()' style='padding:9px 16px;border:0;border-radius:7px;background:#1d6f42;color:#fff;font-weight:700;cursor:pointer'>⇩ Excel'e Aktar</button><div class='badge'>MODEL VERİSİ</div></div></div><div class='wrap'><div class='panel'>#{sections}#{mode.to_s=='pile' ? pile_filter_script : (['beam','all'].include?(mode.to_s) ? bk_filter_script : '')}<div class='foot'>Miktarlar model eleman bilgilerinden otomatik hesaplanmıştır.</div></div></div></body></html>"
+ d=mst_html_dialog('takeoff',dialog_title:'Metraj',width:1500,height:720,resizable:true);d.set_html(EngineeringUI.decorate(html));d.add_action_callback('takeoff_excel'){|_|mst_takeoff_excel};d.show;@q=d
 rescue => e
  UI.messagebox("Metraj oluşturma hatası:\n#{e.class}: #{e.message}\n\n#{e.backtrace ? e.backtrace.first(5).join("\n") : ''}")
 
@@ -4321,18 +4321,18 @@ end
 def element_info
  model=Sketchup.active_model; e=model.selection.first
  unless e && e.respond_to?(:get_attribute)
-  UI.messagebox("Element Info için bir kazık, Head Beam veya kazık içi betonu seç."); return
+  UI.messagebox("Eleman bilgisi için bir kazık, başlık kirişi (BK) veya kazık içi betonu seç."); return
  end
  t=e.get_attribute(DICT,'element_type').to_s
  if t=='steel_pipe_pile'
   d=e.get_attribute(DICT,'diameter_mm',0).to_f; th=e.get_attribute(DICT,'thickness_mm',0).to_f
-  msg="KAZIK ELEMENT INFO\n\nPile ID: #{e.get_attribute(DICT,'pile_id','-')}\nAks: #{e.get_attribute(DICT,'axis','-')}\nAks İçindeki Kazık No: #{e.get_attribute(DICT,'pile_no_in_axis','-')}\nBölge: #{e.get_attribute(DICT,'elevation_zone','-')}\nKesit: Ø#{format('%.1f',d)} x #{format('%.1f',th)} mm\nÇelik: #{e.get_attribute(DICT,'steel_grade','-')}\nÜst Kot: #{format('%+.3f',e.get_attribute(DICT,'top_elevation_m',0).to_f)} m\nAlt Kot: #{format('%+.3f',e.get_attribute(DICT,'bottom_elevation_m',0).to_f)} m\nBoy: #{format('%.3f',e.get_attribute(DICT,'length_m',0).to_f)} m\nTeorik Ağırlık: #{format('%.3f',e.get_attribute(DICT,'theoretical_weight_kg',0).to_f/1000.0)} ton"
+  msg="KAZIK ELEMAN BİLGİSİ\n\nKazık ID: #{e.get_attribute(DICT,'pile_id','-')}\nAks: #{e.get_attribute(DICT,'axis','-')}\nAks İçindeki Kazık No: #{e.get_attribute(DICT,'pile_no_in_axis','-')}\nBölge: #{e.get_attribute(DICT,'elevation_zone','-')}\nKesit: Ø#{format('%.1f',d)} x #{format('%.1f',th)} mm\nÇelik: #{e.get_attribute(DICT,'steel_grade','-')}\nÜst Kot: #{format('%+.3f',e.get_attribute(DICT,'top_elevation_m',0).to_f)} m\nAlt Kot: #{format('%+.3f',e.get_attribute(DICT,'bottom_elevation_m',0).to_f)} m\nBoy: #{format('%.3f',e.get_attribute(DICT,'length_m',0).to_f)} m\nTeorik Ağırlık: #{format('%.3f',e.get_attribute(DICT,'theoretical_weight_kg',0).to_f/1000.0)} ton"
  elsif t=='head_beam'
-  msg="HEAD BEAM ELEMENT INFO\n\nID: #{e.get_attribute(DICT,'head_beam_id','-')}\nTip: #{e.get_attribute(DICT,'beam_type','-')}\nAks: #{e.get_attribute(DICT,'axis','-')}\nBeton: #{e.get_attribute(DICT,'concrete_class','-')}\nBoy: #{format('%.3f',e.get_attribute(DICT,'length_m',0).to_f)} m\nGenişlik: #{format('%.3f',e.get_attribute(DICT,'width_m',0).to_f)} m\nYükseklik: #{format('%.3f',e.get_attribute(DICT,'height_m',0).to_f)} m\nAlt/Üst Kot: #{format('%+.3f',e.get_attribute(DICT,'bottom_elevation_m',0).to_f)} / #{format('%+.3f',e.get_attribute(DICT,'top_elevation_m',0).to_f)} m\nBaşlangıç/Son Taşması: #{format('%.3f',e.get_attribute(DICT,'start_overhang_m',0).to_f)} / #{format('%.3f',e.get_attribute(DICT,'end_overhang_m',0).to_f)} m\nBeton: #{format('%.3f',head_beam_net_concrete(e))} m³#{(em=head_beam_pile_embed_volume(e))>1e-9 ? " (brüt #{format('%.3f',head_beam_gross_concrete(e))} − kazık gömülü #{format('%.3f',em)})" : ''}\nNet Kalıp: #{format('%.2f',e.get_attribute(DICT,'formwork_net_area_m2',0).to_f)} m²\nBağlı Kazıklar: #{e.get_attribute(DICT,'connected_pile_ids','-')}"
+  msg="BAŞLIK KİRİŞİ (BK) ELEMAN BİLGİSİ\n\nID: #{e.get_attribute(DICT,'head_beam_id','-')}\nTip: #{e.get_attribute(DICT,'beam_type','-')}\nAks: #{e.get_attribute(DICT,'axis','-')}\nBeton: #{e.get_attribute(DICT,'concrete_class','-')}\nBoy: #{format('%.3f',e.get_attribute(DICT,'length_m',0).to_f)} m\nGenişlik: #{format('%.3f',e.get_attribute(DICT,'width_m',0).to_f)} m\nYükseklik: #{format('%.3f',e.get_attribute(DICT,'height_m',0).to_f)} m\nAlt/Üst Kot: #{format('%+.3f',e.get_attribute(DICT,'bottom_elevation_m',0).to_f)} / #{format('%+.3f',e.get_attribute(DICT,'top_elevation_m',0).to_f)} m\nBaşlangıç/Son Taşması: #{format('%.3f',e.get_attribute(DICT,'start_overhang_m',0).to_f)} / #{format('%.3f',e.get_attribute(DICT,'end_overhang_m',0).to_f)} m\nBeton: #{format('%.3f',head_beam_net_concrete(e))} m³#{(em=head_beam_pile_embed_volume(e))>1e-9 ? " (brüt #{format('%.3f',head_beam_gross_concrete(e))} − kazık gömülü #{format('%.3f',em)})" : ''}\nNet Kalıp: #{format('%.2f',e.get_attribute(DICT,'formwork_net_area_m2',0).to_f)} m²\nBağlı Kazıklar: #{e.get_attribute(DICT,'connected_pile_ids','-')}"
  elsif t=='pile_infill_concrete'
-  msg="KAZIK İÇİ BETONU ELEMENT INFO\n\nKazık: #{e.get_attribute(DICT,'pile_id','-')}\nBeton: #{e.get_attribute(DICT,'concrete_class','-')}\nBölge: #{e.get_attribute(DICT,'elevation_zone','-')}\nÜst/Alt Kot: #{format('%+.3f',e.get_attribute(DICT,'top_elevation_m',0).to_f)} / #{format('%+.3f',e.get_attribute(DICT,'bottom_elevation_m',0).to_f)} m\nHacim: #{format('%.3f',e.get_attribute(DICT,'volume_m3',e.get_attribute(DICT,'concrete_volume_m3',0)).to_f)} m³"
+  msg="KAZIK İÇİ BETONU ELEMAN BİLGİSİ\n\nKazık: #{e.get_attribute(DICT,'pile_id','-')}\nBeton: #{e.get_attribute(DICT,'concrete_class','-')}\nBölge: #{e.get_attribute(DICT,'elevation_zone','-')}\nÜst/Alt Kot: #{format('%+.3f',e.get_attribute(DICT,'top_elevation_m',0).to_f)} / #{format('%+.3f',e.get_attribute(DICT,'bottom_elevation_m',0).to_f)} m\nHacim: #{format('%.3f',e.get_attribute(DICT,'volume_m3',e.get_attribute(DICT,'concrete_volume_m3',0)).to_f)} m³"
  else
-  msg="Seçilen nesnede desteklenen Marine Structures metadata'sı bulunamadı."
+  msg="Seçilen nesnede desteklenen MST eleman bilgisi bulunamadı."
  end
  UI.messagebox(msg)
 end
@@ -4421,7 +4421,7 @@ end
 
 def create_flat_precast(data=nil)
  model=Sketchup.active_model;sel=selected_head_beams
- if sel.length<2;UI.messagebox("Prekast yerleşimi için en az iki komşu Head Beam seçiniz.");return;end
+ if sel.length<2;UI.messagebox("Prekast yerleşimi için en az iki komşu başlık kirişi (BK) seçiniz.");return;end
  data||={}
  if sel.length>2
   ordered=sel.sort_by{|g|g.bounds.center.x};original=sel.dup;completed=0;ok=false
@@ -4557,7 +4557,7 @@ def create_channel_precast(d)
  # Channel bottom/base bottom: U-section sits with its bottom at BK top in this first geometric implementation.
  z=bk_top
  outer=wi+2.0*tw
- model.start_operation('Create U Channel Precast',true)
+ model.start_operation('U Kanal Prekastı Oluştur',true)
  g=model.active_entities.add_group;g.name='Kanal Prekastı (U)'
  cx=hb.bounds.center.x;cy=hb.bounds.center.y
  # Length follows model X, section across Y; three solids = base + left/right walls.
@@ -4603,7 +4603,7 @@ def create_crane_precast(d)
  cc=d['concrete_class'].to_s.strip;cc='C35/45' if cc.empty?
  id=d['type_id'].to_s.strip;id='PV-01' if id.empty?
  x0=lb.bounds.max.x-m(sl);support_y0=[lb.bounds.min.y,rb.bounds.min.y].max;y0=support_y0
- model.start_operation('Create Crane Precast',true)
+ model.start_operation('Vinç Prekastı Oluştur',true)
  begin
   g=model.active_entities.add_group;uid=next_element_uid(model,'PV');g.name="#{id} [#{uid}]"
   build_crane_precast_solid(g.entities,m(len),w,t,ed,lt,rt)
@@ -5681,7 +5681,7 @@ def deck_rebar_selected(data,dialog=@d)
   txt=mst_deck_rebar_text(deck,rp);puts txt
   next unless UI.messagebox("#{txt[0,3400]}\n\nDonatı bu planla çizilsin mi? (tek Geri Al)",MB_YESNO)==IDYES
   mst_deck_rebar_build!(deck,prm,rp)
-  UI.messagebox("#{element_visible_id(deck)}: döşeme donatısı çizildi — #{format('%.3f',rp['kg']/1000.0)} t. BOQ bu tonajı kullanır.")
+  UI.messagebox("#{element_visible_id(deck)}: döşeme donatısı çizildi — #{format('%.3f',rp['kg']/1000.0)} t. Keşif bu tonajı kullanır.")
  end
  send_boq(dialog) if dialog rescue nil
 rescue => e
@@ -5908,7 +5908,7 @@ def create_deck_slab_legacy_v034(data)
  raise 'BK aralıklarında prekast kesintisi oluşturulamadı.' if cuts.empty?
  cuts.sort_by!{|c|c[:u0]}
 
- model.start_operation('Deck Slab - Single Group Geometry',true)
+ model.start_operation('Döşeme - Tek Grup Geometri',true)
  did=data['deck_id'].to_s.strip; did='D-001' if did.empty?
  parent=model.active_entities.add_group; parent.name="Döşeme #{did}"
  width_i=gross_v1-gross_v0
@@ -6074,7 +6074,7 @@ def create_existing_deck_topping(data)
  model=Sketchup.active_model
  deck=model.selection.to_a.find{|e| e.respond_to?(:get_attribute) && e.get_attribute(DICT,'element_type','').to_s=='deck_slab'}
  unless deck
-  UI.messagebox('Önce mevcut Marine Structures Döşeme ana grubunu seçin.')
+  UI.messagebox('Önce mevcut MST döşeme ana grubunu seçin.')
   return
  end
  th=data['topping_thickness_m'].to_f
@@ -6124,7 +6124,7 @@ def create_existing_deck_topping(data)
   UI.messagebox('Döşemenin üst yüzey geometrisi okunamadı. Kaplama oluşturulmadı.')
   return
  end
- model.start_operation('Existing Deck Topping',true)
+ model.start_operation('Mevcut Döşemeye Kaplama',true)
  g=model.entities.add_group; g.name="Kaplama #{did}"
  mat=material_for(model,"MAG Kaplama Betonu #{cc}",'#C9C9C9')
  # Recreate the structural deck top first.  Existing deck-top fragments are allowed,
@@ -6282,7 +6282,7 @@ def register_selected_element
   UI.messagebox('Seçili eleman kapalı bir Solid değil. Güvenilir otomatik beton/çelik hacmi ve kalıp için önce Solid Group/Component haline getirin.'); return
  end
  fw=auto_registered_formwork(e,type)
- model.start_operation('Marine Structures Eleman Tanıt',true)
+ model.start_operation('MST Eleman Tanıt',true)
  e.set_attribute(DICT,'element_type',type);e.set_attribute(DICT,'registered_external',true);e.set_attribute(DICT,'registration_source','existing_model_geometry_auto')
  e.set_attribute(DICT,'axis',axis) unless axis.empty?
  e.set_attribute(DICT,'geometry_dim_1_m',dims[:raw][0]);e.set_attribute(DICT,'geometry_dim_2_m',dims[:raw][1]);e.set_attribute(DICT,'geometry_dim_3_m',dims[:raw][2])
@@ -6317,23 +6317,23 @@ end
 
 def unregister_selected_element
  model=Sketchup.active_model;e=model.selection.to_a.find{|x|x.respond_to?(:get_attribute)&&x.get_attribute(DICT,'element_type')}
- unless e;UI.messagebox('Tanımı kaldırmak için Marine Structures elemanı seçin.');return;end
- return unless UI.messagebox('Seçili elemanın Marine Structures tanımı kaldırılsın mı? Geometri silinmez.',MB_YESNO)==IDYES
- model.start_operation('Marine Structures Tanımını Kaldır',true)
+ unless e;UI.messagebox('Tanımı kaldırmak için bir MST elemanı seçin.');return;end
+ return unless UI.messagebox('Seçili elemanın MST tanımı kaldırılsın mı? Geometri silinmez.',MB_YESNO)==IDYES
+ model.start_operation('MST Tanımını Kaldır',true)
  begin   # v0.51.5 K13: hata yolunda işlem açık kalmaz
   e.attribute_dictionaries.delete(DICT) if e.attribute_dictionaries && e.attribute_dictionaries[DICT]
   commit_with_dependencies(model)
  rescue => ex
   model.abort_operation;UI.messagebox("Tanım kaldırılamadı: #{ex.message}");return
  end
- UI.messagebox('Marine Structures tanımı kaldırıldı. Geometri korunmuştur.')
+ UI.messagebox('MST tanımı kaldırıldı. Geometri korunmuştur.')
  qto_summary(@d) if @d && @d.visible?
 end
 
 def edit_registered_element
  model=Sketchup.active_model
  e=model.selection.to_a.find{|x|x.respond_to?(:get_attribute)&&x.get_attribute(DICT,'element_type')}
- unless e;UI.messagebox('Önce tanımlı bir Marine Structures elemanı seçin.');return;end
+ unless e;UI.messagebox('Önce tanımlı bir MST elemanı seçin.');return;end
  type=e.get_attribute(DICT,'element_type').to_s
  id=e.get_attribute(DICT,'head_beam_id',e.get_attribute(DICT,'precast_id',e.get_attribute(DICT,'deck_id',e.get_attribute(DICT,'pile_id','')))).to_s
  mat=e.get_attribute(DICT,'concrete_class',e.get_attribute(DICT,'steel_grade','')).to_s
@@ -6341,7 +6341,7 @@ def edit_registered_element
  material_list=type=='steel_pipe_pile' ? steel_grade_options : concrete_class_options
  # Mevcut özel sınıf listede yoksa dropdown'a ekle.
  material_list = mat+'|'+material_list unless mat.empty? || material_list.split('|').include?(mat)
- r=UI.inputbox(['ID / Tip','Malzeme Sınıfı','Aks / Bölge'],[id,mat,axis],['',material_list,''],'Marine Structures Metadata Düzenle');return unless r
+ r=UI.inputbox(['ID / Tip','Malzeme Sınıfı','Aks / Bölge'],[id,mat,axis],['',material_list,''],'MST Eleman Bilgisi Düzenle');return unless r
  newmat=r[1].to_s.strip
  if newmat=='ÖZEL'
   x=UI.inputbox(['Özel Malzeme / Beton Sınıfı'],[mat],nil,'Özel Sınıf'); return unless x
@@ -6350,7 +6350,7 @@ def edit_registered_element
  # Geometrik metraj salt-okunurdur; düzenleme anında modelden tekrar hesaplanır.
  dims=registered_geometry_dimensions(e); vol=entity_volume_m3(e)
  fw=vol>0 ? auto_registered_formwork(e,type) : e.get_attribute(DICT,'formwork_area_m2',0).to_f
- model.start_operation('Marine Structures Metadata Düzenle',true)
+ model.start_operation('MST Eleman Bilgisi Düzenle',true)
  e.set_attribute(DICT,'axis',r[2].to_s);e.set_attribute(DICT,'zone',r[2].to_s) if type=='steel_pipe_pile'
  e.set_attribute(DICT,type=='steel_pipe_pile' ? 'steel_grade':'concrete_class',newmat)
  key={'head_beam'=>'head_beam_id','flat_precast'=>'precast_id','channel_precast'=>'precast_id','crane_precast'=>'precast_id','deck_slab'=>'deck_id','steel_pipe_pile'=>'pile_id'}[type]
@@ -6592,7 +6592,7 @@ def standardize_model_metadata(own_op=true)
  ch=mst_standardize_changes(model)
  return 0 if ch.empty?
  if own_op
-  model.start_operation('MST BIM Data Core Standardize',true);op=true
+  model.start_operation('MST BIM Veri Çekirdeği Standartlaştır',true);op=true
  end
  ch.each{|e,k,v|e.set_attribute(DICT,k,v)}
  if own_op
@@ -6613,21 +6613,21 @@ def element_library(changed=nil)
   ids=arr.map{|x|element_visible_id(x)}.join(', ')
   sig=e.get_attribute(DICT,'type_signature',element_signature(e)).to_s
   mat=e.get_attribute(DICT,'steel_grade',e.get_attribute(DICT,'concrete_class','-')).to_s
-  rows<<"<tr><td><b>#{html_escape(tid.empty? ? '(Type ID yok)' : tid)}</b></td><td>#{html_escape(bim_type_label(t))}</td><td>#{html_escape(mat)}</td><td class='num'>#{arr.length}</td><td>#{html_escape(ids)}</td><td class='sig'>#{html_escape(sig)}</td></tr>"
+  rows<<"<tr><td><b>#{html_escape(tid.empty? ? '(Tip ID yok)' : tid)}</b></td><td>#{html_escape(bim_type_label(t))}</td><td>#{html_escape(mat)}</td><td class='num'>#{arr.length}</td><td>#{html_escape(ids)}</td><td class='sig'>#{html_escape(sig)}</td></tr>"
  end
  rfq=rockfill_qto_data
  rfq[:materials].each_with_index do |r,i|
   rows<<"<tr><td><b>RF-T#{(i+1).to_s.rjust(2,'0')}</b></td><td>Dolgu / Taş</td><td>#{html_escape(r[:name])}</td><td class='num'>#{rfq[:sections].length}</td><td>Kesit zinciri</td><td class='sig'>rockfill|#{html_escape(r[:code])}|#{format('%.3f',r[:density])}t/m³ • #{format('%.3f',r[:volume_m3])}m³ • #{format('%.3f',r[:tonnage_t])}t</td></tr>"
  end
  library_type_count=groups.length + rfq[:materials].length
- html="<html><head><meta charset='utf-8'><style>body{font-family:Arial;background:#f3f7fa;color:#18364a;margin:0}.top{padding:18px 22px;background:#fff;border-bottom:1px solid #cadce7;display:flex;justify-content:space-between}.badge{background:#e6f4ff;color:#0874c9;border:1px solid #b9ddf5;border-radius:18px;padding:7px 12px;font-size:11px;font-weight:700}h2{margin:0;color:#073f73}.wrap{padding:18px}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.kpi{background:#fff;border:1px solid #cadce7;border-radius:8px;padding:12px}.kpi small{color:#6b8799}.kpi b{display:block;font-size:20px;color:#074a7c;margin-top:4px}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #cadce7}th,td{padding:9px;border-bottom:1px solid #e7eef3;text-align:left;font-size:12px}th{background:#eaf3f8;color:#42677f;position:sticky;top:0}.num{text-align:right}.sig{font-size:10px;color:#6d8798}.note{margin-top:10px;font-size:11px;color:#607d8b}</style></head><body><div class='top'><div><h2>BIM Element Library</h2><div>Fiziksel eleman ≠ eleman tipi • kalıcı UID + stabil Type ID</div></div><div class='badge'>BIM DATA CORE v2.0</div></div><div class='wrap'><div class='kpis'><div class='kpi'><small>Fiziksel Eleman</small><b>#{elems.length}</b></div><div class='kpi'><small>Eleman Tipi</small><b>#{library_type_count}</b></div><div class='kpi'><small>Standardize Edilen</small><b>#{changed.nil? ? '—' : changed}</b></div></div><table><tr><th>Type ID</th><th>Eleman</th><th>Malzeme</th><th>Adet</th><th>Fiziksel ID'ler</th><th>Tip İmzası</th></tr>#{rows}</table><div class='note'>Type ID artık pencere her açıldığında yeniden numaralanmaz. Aynı tip imzası aynı Type ID'yi korur. Fiziksel element_uid değerleri revizyonlarda korunur.</div></div></body></html>"
- d=mst_html_dialog('element_library',dialog_title:'Marine Structures - BIM Element Library v0.31.6',width:1180,height:680,resizable:true);d.set_html(EngineeringUI.decorate(html));d.show;@library_dialog=d
+ html="<html><head><meta charset='utf-8'><style>body{font-family:Arial;background:#f3f7fa;color:#18364a;margin:0}.top{padding:18px 22px;background:#fff;border-bottom:1px solid #cadce7;display:flex;justify-content:space-between}.badge{background:#e6f4ff;color:#0874c9;border:1px solid #b9ddf5;border-radius:18px;padding:7px 12px;font-size:11px;font-weight:700}h2{margin:0;color:#073f73}.wrap{padding:18px}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.kpi{background:#fff;border:1px solid #cadce7;border-radius:8px;padding:12px}.kpi small{color:#6b8799}.kpi b{display:block;font-size:20px;color:#074a7c;margin-top:4px}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #cadce7}th,td{padding:9px;border-bottom:1px solid #e7eef3;text-align:left;font-size:12px}th{background:#eaf3f8;color:#42677f;position:sticky;top:0}.num{text-align:right}.sig{font-size:10px;color:#6d8798}.note{margin-top:10px;font-size:11px;color:#607d8b}</style></head><body><div class='top'><div><h2>BIM Eleman Kütüphanesi</h2><div>Fiziksel eleman ≠ eleman tipi • kalıcı UID + sabit Tip ID</div></div><div class='badge'>BIM VERİ ÇEKİRDEĞİ v#{VERSION}</div></div><div class='wrap'><div class='kpis'><div class='kpi'><small>Fiziksel Eleman</small><b>#{elems.length}</b></div><div class='kpi'><small>Eleman Tipi</small><b>#{library_type_count}</b></div><div class='kpi'><small>Standardize Edilen</small><b>#{changed.nil? ? '—' : changed}</b></div></div><table><tr><th>Tip ID</th><th>Eleman</th><th>Malzeme</th><th>Adet</th><th>Fiziksel ID'ler</th><th>Tip İmzası</th></tr>#{rows}</table><div class='note'>Tip ID artık pencere her açıldığında yeniden numaralanmaz. Aynı tip imzası aynı Tip ID'yi korur. Fiziksel element_uid değerleri revizyonlarda korunur.</div></div></body></html>"
+ d=mst_html_dialog('element_library',dialog_title:"BIM Eleman Kütüphanesi v#{VERSION}",width:1180,height:680,resizable:true);d.set_html(EngineeringUI.decorate(html));d.show;@library_dialog=d
 end
 
 def bim_data_core_report
  changed=standardize_model_metadata
  # v0.51.5 K48: ileti, artık yalnız eksik alanları dolduran standardize davranışını anlatır (Project/Ano/Axis/Zone yazılmaz)
- UI.messagebox("BIM Data Core v2.0 tamamlandı.\n\n#{changed} Marine Structures elemanında eksik kimlik alanı tamamlandı.\n• Eksikse kalıcı element_uid\n• Eksikse type_id / library_type_id ve tip imzası\n• Eksikse şema sürümü 2.0\n\nDolu alanlar değiştirilmez; proje / yapı / aks / bölge bilgisi bu işlemde yazılmaz.")
+ UI.messagebox("BIM Veri Çekirdeği tamamlandı.\n\n#{changed} MST elemanında eksik kimlik alanı tamamlandı.\n• Eksikse kalıcı element_uid\n• Eksikse type_id / library_type_id ve tip imzası\n• Eksikse şema sürümü 2.0\n\nDolu alanlar değiştirilmez; proje / yapı / aks / bölge bilgisi bu işlemde yazılmaz.")
  element_library(changed)   # K28: kütüphane yazmaz; tek işlem standardize'da
 end
 
@@ -6765,7 +6765,7 @@ def mst_parse_pile_id_expression(expr)
     next if x.empty?
     if x =~ /\A([^0-9]*)(\d+)\s*[-–—]\s*([^0-9]*)(\d+)\z/
       p1=$1; a=$2.to_i; p2=$3; b=$4.to_i; pref=p2.to_s.empty? ? p1 : p2
-      raise "Pile ID aralığı önekleri uyuşmuyor: #{x}" unless p1.to_s==pref.to_s
+      raise "Kazık ID aralığı önekleri uyuşmuyor: #{x}" unless p1.to_s==pref.to_s
       width=[$2.length,$4.length].max
       lo,hi=[a,b].minmax
       (lo..hi).each{|n|out << "#{pref}#{n.to_s.rjust(width,'0')}"}
@@ -6846,7 +6846,7 @@ def mst_ring_apply_plan(piles,mode,title,new_values,extra_note='')
   msg="#{title}\n\n#{changed.length} kazık: #{mst_ring_ids(changed)}\n\n"+
       format("Çember metrajı (bu kazıklar): %.2f kg → %.2f kg (%+.2f kg)\n",before,after,after-before)+
       "Mod: #{mode=='MANUAL' ? 'MANUEL (boru et kalınlığı değişse de korunur)' : 'BORU ET (boru et kalınlığını takip eder)'}"+
-      "#{extra_note}\n\nTek Undo ile geri alınabilir. Devam edilsin mi?"
+      "#{extra_note}\n\nTek Geri Al ile geri alınabilir. Devam edilsin mi?"
   return 0 unless UI.messagebox(msg,MB_YESNO)==IDYES
   model.start_operation("MST Çember Et Kalınlığı (#{changed.length} kazık)",true)
   begin
@@ -6964,7 +6964,7 @@ def mst_find_reference_pile(data,piles)
   ref_id=data['reference_id'].to_s.strip
   hits=piles.select{|e|e.get_attribute(DICT,'pile_id','').to_s==ref_id}
   raise 'Referans kazık modelde bulunamadı. Kazığı yeniden yükleyin.' if hits.empty?
-  raise "Pile ID #{ref_id} modelde #{hits.length} kazıkta kullanılıyor; referans belirsiz. Kazığı modelden yeniden yükleyin." if hits.length>1
+  raise "Kazık ID #{ref_id} modelde #{hits.length} kazıkta kullanılıyor; referans belirsiz. Kazığı modelden yeniden yükleyin." if hits.length>1
   hits.first
 end
 
@@ -6979,13 +6979,13 @@ def mst_resolve_pile_targets(data)
     mst_type_peers(ref,model)
   when 'IDS'
     ids=mst_parse_pile_id_expression(data['id_expression'])
-    raise 'Pile ID hedefi girilmedi.' if ids.empty?
+    raise 'Kazık ID hedefi girilmedi.' if ids.empty?
     by_id=Hash.new{|h,k|h[k]=[]}
     piles.each{|e|by_id[e.get_attribute(DICT,'pile_id','').to_s] << e}
     missing=ids.select{|id|by_id[id].empty?}
-    raise "Bulunamayan Pile ID: #{missing.first(12).join(', ')}#{missing.length>12 ? ' …' : ''}" unless missing.empty?
+    raise "Bulunamayan Kazık ID:#{missing.first(12).join(', ')}#{missing.length>12 ? ' …' : ''}" unless missing.empty?
     dup=ids.select{|id|by_id[id].length>1}
-    raise "Bu Pile ID'ler modelde birden fazla kazıkta kullanılıyor: #{dup.first(12).map{|id|"#{id} (#{by_id[id].length})"}.join(', ')}. ID ile hedefleme belirsiz; 'Modelde seçili kazıklar' seçeneğini kullanın." unless dup.empty?
+    raise "Bu Kazık ID'ler modelde birden fazla kazıkta kullanılıyor: #{dup.first(12).map{|id|"#{id} (#{by_id[id].length})"}.join(', ')}. ID ile hedefleme belirsiz; 'Modelde seçili kazıklar' seçeneğini kullanın." unless dup.empty?
     ids.map{|id|by_id[id].first}
   else
     [ref]
@@ -7454,7 +7454,7 @@ def mst_apply_pile_target_update(data)
   bk_note+="\nKazıkla birlikte taşınan BK / üzerindeki eleman: #{bk_done[1]}" if bk_done[1]>0
   {'count'=>targets.length,'ids'=>specs.map{|s|s['id']},'warnings'=>(specs.map{|s|s['warnings']}.flatten+bp['warnings']).first(20),
    'reference'=>(ref && ref.valid?) ? mst_bim_pile_payload(ref) : nil,
-   'message'=>"#{targets.length} kazık güncellendi. Geometri + kot + detaylar + iç beton + TYPE + QTO senkronize edildi; tek Undo ile geri alınabilir.#{bk_note}"}
+   'message'=>"#{targets.length} kazık güncellendi. Geometri + kot + detaylar + iç beton + TİP + metraj eşitlendi; tek Geri Al ile geri alınabilir.#{bk_note}"}
 end
 
 def mst_update_selected_bim_pile(data)
@@ -7484,7 +7484,7 @@ def mst_update_selected_bim_pile(data)
     next if old.nil? && data[key].to_s.strip.empty?
     raise "#{key}: güvenli kesit güncellemesinde değiştirilemez." if old.to_s!=data[key].to_s
   end
-  mst_apply_pile_sections_atomic([g],{g=>[d,t,grade]},'MST Safe Selected Pile Section Update')
+  mst_apply_pile_sections_atomic([g],{g=>[d,t,grade]},'MST Seçili Kazık Kesiti Güvenli Güncelle')
   "#{g.get_attribute(DICT,'pile_id','Pile')} • Ø#{format('%.1f',d)} / t#{format('%.1f',t)} • #{grade}"
 rescue => e
   model.abort_operation rescue nil
@@ -7494,20 +7494,20 @@ end
 def edit_selected_pile_v2
  model=Sketchup.active_model
  g=model.selection.to_a.find{|e|e.respond_to?(:get_attribute)&&e.get_attribute(DICT,'element_type')=='steel_pipe_pile'}
- unless g;UI.messagebox('Pile Layout 2.0: bir çelik boru kazık seçiniz.');return;end
+ unless g;UI.messagebox('Kazık Yerleşimi: bir çelik boru kazık seçiniz.');return;end
  d=g.get_attribute(DICT,'diameter_mm',0).to_f;t=g.get_attribute(DICT,'thickness_mm',0).to_f;l=g.get_attribute(DICT,'length_m',0).to_f;top=g.get_attribute(DICT,'top_elevation_m',0).to_f;steel=g.get_attribute(DICT,'steel_grade','S355J2H').to_s
  rx=g.get_attribute(DICT,'rake_x_hv',0).to_f;ry=g.get_attribute(DICT,'rake_y_hv',0).to_f
- prompts=['Dış Çap (mm)','Et Kalınlığı (mm)','Düşey Boy / Kot Farkı (m)','Üst Kot (m)','Çelik Sınıfı','Rake X (H/V; 1:6 için 0.1667)','Rake Y (H/V)']
- vals=UI.inputbox(prompts,[d,t,l,top,steel,rx,ry],'Pile Layout 2.0 — Seçili Kazığı Düzenle');return unless vals
+ prompts=['Dış Çap (mm)','Et Kalınlığı (mm)','Düşey Boy / Kot Farkı (m)','Üst Kot (m)','Çelik Sınıfı','Eğim X (yatay/düşey; 1:6 için 0.1667)','Eğim Y (yatay/düşey)']
+ vals=UI.inputbox(prompts,[d,t,l,top,steel,rx,ry],'Kazık Yerleşimi — Seçili Kazığı Düzenle');return unless vals
  d,t,l,top,steel,rx,ry=vals;d=d.to_f;t=t.to_f;l=l.to_f;top=top.to_f;rx=rx.to_f;ry=ry.to_f
  raise 'Geçersiz kazık ölçüsü.' if d<=0||t<=0||2*t>=d||l<=0
- model.start_operation('Edit Pile 2.0',true);rebuild_pile_geometry(g,d,t,l,rx,ry)
+ model.start_operation('Kazık Düzenle',true);rebuild_pile_geometry(g,d,t,l,rx,ry)
  bot=top-l;actual=l*Math.sqrt(1.0+rx*rx+ry*ry)
  {'diameter_mm'=>d,'thickness_mm'=>t,'length_m'=>l,'vertical_length_m'=>l,'actual_length_m'=>actual,'top_elevation_m'=>top,'bottom_elevation_m'=>bot,'steel_grade'=>steel.to_s,'rake_x_hv'=>rx,'rake_y_hv'=>ry,'weight_kg'=>pile_weight(d,t,actual),'type_signature'=>"steel_pipe_pile|#{d.round(1)}|#{t.round(1)}|#{steel}"}.each{|k,v|g.set_attribute(DICT,k,v)}
  ensure_uid(g);commit_with_dependencies(model);model.active_view.invalidate
  UI.messagebox("Kazık güncellendi.\nRake X=#{format('%.4f',rx)} H/V, Rake Y=#{format('%.4f',ry)} H/V\nGerçek eksen boyu=#{format('%.3f',actual)} m\nÜst ve alt kesimler yatay proje kotunda tutuldu.")
 rescue=>ex
- model.abort_operation rescue nil;UI.messagebox("Pile Layout 2.0 hatası: #{ex.message}")
+ model.abort_operation rescue nil;UI.messagebox("Kazık Yerleşimi hatası: #{ex.message}")
 end
 
 
@@ -7529,7 +7529,7 @@ def mst_selected_type_summary
   return UI.messagebox('Önce bir MST BIM elemanı seçin.') unless e
   peers=mst_type_peers(e,model)
   tid=e.get_attribute(DICT,'type_id',e.get_attribute(DICT,'library_type_id','')).to_s
-  UI.messagebox("MST Type / Instance Engine\n\nType ID: #{tid}\nEleman: #{bim_type_label(e.get_attribute(DICT,'element_type','').to_s)}\nBu tipi kullanan fiziksel eleman: #{peers.length}\n\nTYPE = ortak teknik tanım\nINSTANCE = UID / konum / aks / kot / yüzey override\n\nFiziksel elemanlar bağımsız tutulur; tip değişiklikleri kontrollü olarak tüm eş tip elemanlara yayılır.")
+  UI.messagebox("MST Tip / Örnek Motoru\n\nTip ID: #{tid}\nEleman: #{bim_type_label(e.get_attribute(DICT,'element_type','').to_s)}\nBu tipi kullanan fiziksel eleman: #{peers.length}\n\nTİP = ortak teknik tanım\nÖRNEK (instance) = UID / konum / aks / kot / yüzeye özel değer\n\nFiziksel elemanlar bağımsız tutulur; tip değişiklikleri kontrollü olarak tüm eş tip elemanlara yayılır.")
 end
 
 # Read-only physical pipe section check. Uses raw vertices only (never accessory groups).
@@ -7553,7 +7553,7 @@ def mst_audit_raw_pile_section(p)
   axis_len=p.get_attribute(DICT,'actual_length_m',len).to_f
   expected=pile_weight(d,t,axis_len>0 ? axis_len : len)
   stored=p.get_attribute(DICT,'weight_kg',nil)
-  errors << 'Boru BIM ağırlığı / teorik QTO uyuşmazlığı.' if stored && (stored.to_f-expected).abs>[0.5,expected*0.0001].max
+  errors << 'Boru BIM ağırlığı / teorik metraj uyuşmazlığı.' if stored && (stored.to_f-expected).abs>[0.5,expected*0.0001].max
   errors
 rescue => ex
   ["Fiziksel boru kesiti okunamadı: #{ex.message}"]
@@ -7631,14 +7631,14 @@ def mst_edit_selected_pile_type
   return unless vals
   nd,nt,ng=vals[0].to_f,vals[1].to_f,vals[2].to_s.strip
   raise 'Geçersiz kazık ölçüsü.' if nd<=0 || nt<=0 || 2*nt>=nd
-  msg="#{tid} tipini kullanan #{peers.length} fiziksel kazık var.\n\nØ#{format('%.1f',d)} / t#{format('%.1f',t)} / #{grade}\n→ Ø#{format('%.1f',nd)} / t#{format('%.1f',nt)} / #{ng}\n\nTüm bu kazıklara uygulansın mı?\n\nPile ID, UID, boy, kot, aks, konum ve instance detayları korunacaktır."
+  msg="#{tid} tipini kullanan #{peers.length} fiziksel kazık var.\n\nØ#{format('%.1f',d)} / t#{format('%.1f',t)} / #{grade}\n→ Ø#{format('%.1f',nd)} / t#{format('%.1f',nt)} / #{ng}\n\nTüm bu kazıklara uygulansın mı?\n\nKazık ID, UID, boy, kot, aks, konum ve örneğe (instance) özel detaylar korunacaktır."
   return unless UI.messagebox(msg,MB_YESNO)==IDYES
   specs=peers.each_with_object({}){|p,h|h[p]=[nd,nt,ng]}
   mst_apply_pile_sections_atomic(peers,specs,"MST #{tid} Type Update",true)
-  UI.messagebox("#{tid}: #{peers.length} kazık TYPE parametreleri güncellendi.\n\nInstance kimlikleri/konumları korunmuştur. QTO ve Type Library senkronize edildi.")
+  UI.messagebox("#{tid}: #{peers.length} kazık TİP parametreleri güncellendi.\n\nÖrnek (instance) kimlikleri/konumları korunmuştur. Metraj ve Tip Kütüphanesi eşitlendi.")
 rescue=>ex
   model.abort_operation rescue nil
-  UI.messagebox("MST Type Update hatası: #{ex.message}")
+  UI.messagebox("MST Tip Güncelleme hatası: #{ex.message}")
 end
 
 def mst_identity_id_key(t)
@@ -7657,7 +7657,7 @@ end
 def repair_bim_identity
  model=Sketchup.active_model; all=[];collect_elements(model.entities,all)
  elems=all.select{|e|%w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab deck_topping curb crown_wall bored_pile accessory].include?(e.get_attribute(DICT,'element_type','').to_s)}
- return UI.messagebox('Onarılacak Marine Structures elemanı bulunamadı.') if elems.empty?
+ return UI.messagebox('Onarılacak MST elemanı bulunamadı.') if elems.empty?
  # Preview counts before touching the model.
  missing_uids=elems.select{|e|e.get_attribute(DICT,'element_uid','').to_s.strip.empty?}
  uid_groups=elems.group_by{|e|e.get_attribute(DICT,'element_uid','').to_s.strip}.reject{|k,a|k.empty?||a.length<2}
@@ -7678,7 +7678,7 @@ def repair_bim_identity
    hit.length==1 ? curb_moves << [c,hit.first] : curb_check << c
   end
  end
- msg="BIM Identity Repair\n\n#{missing_uids.length} eksik UID, #{id_groups.length} mükerrer fiziksel ID grubu, #{uid_groups.length} mükerrer UID grubu bulundu.\n\nType ID'lere ve geometriye dokunulmaz. Fiziksel ID/UID benzersizleştirilir ve dependency metadata aynı işlem içinde yenilenir."
+ msg="BIM Kimlik Onarımı\n\n#{missing_uids.length} eksik UID, #{id_groups.length} mükerrer fiziksel ID grubu, #{uid_groups.length} mükerrer UID grubu bulundu.\n\nTip ID'lere ve geometriye dokunulmaz. Fiziksel ID/UID benzersizleştirilir ve bağımlılık bilgisi aynı işlem içinde yenilenir."
  unless pairs.empty?
   msg+="\n\nAsıl → kopya (karar yolu):\n"+pairs.first(10).join("\n")+(pairs.length>10 ? "\n… #{pairs.length-10} kopya daha" : '')
   msg+="\nKopyaya yeni UID verilir; asıl UID copied_from_uid olarak saklanır. Kopyanın ilerleme kaydı devralınmış (onaysız) olarak saklanır, durumu 'Planlandı' olur."
@@ -7687,7 +7687,7 @@ def repair_bim_identity
  end
  msg+="\n\nDevam edilsin mi?"
  return unless UI.messagebox(msg,MB_YESNO)==IDYES
- model.start_operation('MST BIM Identity Repair',true)
+ model.start_operation('MST BIM Kimlik Onarımı',true)
  renamed=0;uid_fixed=0
  missing_uids.each do |e|
   ensure_uid(e)
@@ -7732,10 +7732,10 @@ def repair_bim_identity
   end
  end
  model.set_attribute(DICT,'identity_repair_revision','v0.21.1');commit_with_dependencies(model)
- UI.messagebox("BIM Identity Repair tamamlandı.\n\n#{renamed} fiziksel Element ID yeniden numaralandırıldı.\n#{uid_fixed} eksik/mükerrer UID onarıldı.#{curb_moves.empty? ? '' : "\n#{curb_moves.length} kopya tretuvar kopya döşemeye bağlandı."}\nType ID ve geometri korunmuştur.\n\nİşlemin tamamı tek Ctrl+Z ile geri alınabilir.")
+ UI.messagebox("BIM Kimlik Onarımı tamamlandı.\n\n#{renamed} fiziksel Eleman ID yeniden numaralandırıldı.\n#{uid_fixed} eksik/mükerrer UID onarıldı.#{curb_moves.empty? ? '' : "\n#{curb_moves.length} kopya tretuvar kopya döşemeye bağlandı."}\nTip ID ve geometri korunmuştur.\n\nİşlemin tamamı tek Ctrl+Z ile geri alınabilir.")
  model_audit
 rescue=>ex
- model.abort_operation rescue nil;UI.messagebox("BIM Identity Repair hatası: #{ex.message}")
+ model.abort_operation rescue nil;UI.messagebox("BIM Kimlik Onarımı hatası: #{ex.message}")
 end
 
 def repair_deck_bim_relationships(show_message=true)
@@ -7747,7 +7747,7 @@ def repair_deck_bim_relationships(show_message=true)
   ano=model.get_attribute(DICT,'active_ano','').to_s
   tol=5.mm
   repaired=0; unresolved=[]
-  model.start_operation('MST Deck BIM Relationship Repair',true)
+  model.start_operation('MST Döşeme BIM İlişki Onarımı',true)
   decks.each do |d|
     db=d.bounds
     bottom=d.get_attribute(DICT,'bottom_elevation_m',db.min.z/1.m).to_f.m
@@ -7823,7 +7823,7 @@ def repair_deck_bim_relationships(show_message=true)
   model.set_attribute(DICT,'deck_relationship_revision','v0.32.7')
   commit_with_dependencies(model)
   if show_message
-    msg="Deck BIM Relationship Repair tamamlandı.\n\n#{repaired} döşeme ilişkilendirildi.\n#{curb_repaired} tretuvar/bordür ana döşemeye bağlandı."
+    msg="Döşeme BIM İlişki Onarımı tamamlandı.\n\n#{repaired} döşeme ilişkilendirildi.\n#{curb_repaired} tretuvar/bordür ana döşemeye bağlandı."
     msg+="\n#{unresolved.length} döşeme çözülemedi: #{unresolved.join(', ')}" unless unresolved.empty?
     msg+="\n#{curb_unresolved.length} tretuvar/bordür güvenilir tek parent ile eşleşmedi: #{curb_unresolved.join(', ')}" unless curb_unresolved.empty?
     msg+="\n\nGeometri değiştirilmedi. İşlem tek Ctrl+Z ile geri alınabilir."
@@ -7832,7 +7832,7 @@ def repair_deck_bim_relationships(show_message=true)
   {repaired:repaired,unresolved:unresolved}
 rescue=>ex
   model.abort_operation rescue nil
-  UI.messagebox("Deck BIM Relationship Repair hatası: #{ex.message}") if show_message
+  UI.messagebox("Döşeme BIM İlişki Onarımı hatası: #{ex.message}") if show_message
   {repaired:0,unresolved:decks ? decks.map{|d|element_visible_id(d)} : []}
 end
 
@@ -7871,12 +7871,12 @@ def mst_sync_bk_type_library(model=Sketchup.active_model)
 end
 
 def mst_repair_bk_type_library
- model=Sketchup.active_model;model.start_operation('MST BK Type Library Auto-Sync',true)
+ model=Sketchup.active_model;model.start_operation('MST BK Tip Kütüphanesi Otomatik Eşitleme',true)
  begin
   count=mst_sync_bk_type_library(model);model.commit_operation
-  UI.messagebox("BK Type Auto-Sync: #{count} kayıt güncellendi. Geometri, metraj ve fiziksel kimlikler korunmuştur.")
+  UI.messagebox("BK Tip Otomatik Eşitleme: #{count} kayıt güncellendi. Geometri, metraj ve fiziksel kimlikler korunmuştur.")
  rescue=>e
-  model.abort_operation;UI.messagebox("BK Type Auto-Sync hatası: #{e.message}")
+  model.abort_operation;UI.messagebox("BK Tip Otomatik Eşitleme hatası: #{e.message}")
  end
 end
 
@@ -7969,7 +7969,7 @@ def mst_safe_repair
   if c.values.sum==0
     return UI.messagebox("Güvenli Onarım: düzeltilecek kayıt yok.\nKazık, BK ve prekast tip kayıtları ile boru ağırlıkları güncel.")
   end
-  msg="Güvenli Onarım — önizleme\n\n"+mst_safe_repair_lines(c).join("\n")+"\n\nYalnız tip kaydı (Type ID / imza) ve boru ağırlığı düzeltilir.\nGeometri, metraj ölçüleri, fiziksel ID'ler ve tip adları değişmez. Tek Undo.\n\nUygulansın mı?"
+  msg="Güvenli Onarım — önizleme\n\n"+mst_safe_repair_lines(c).join("\n")+"\n\nYalnız tip kaydı (Tip ID / imza) ve boru ağırlığı düzeltilir.\nGeometri, metraj ölçüleri, fiziksel ID'ler ve tip adları değişmez. Tek Geri Al.\n\nUygulansın mı?"
   return unless UI.messagebox(msg,MB_YESNO)==IDYES
   model.start_operation('MST Güvenli Onarım',true)
   begin
@@ -7983,12 +7983,12 @@ rescue=>e
 end
 
 def mst_repair_precast_type_library
- model=Sketchup.active_model;model.start_operation('MST Prekast Type Auto-Sync',true)
+ model=Sketchup.active_model;model.start_operation('MST Prekast Tip Otomatik Eşitleme',true)
  begin
   count=mst_sync_precast_type_library(model);model.commit_operation
-  UI.messagebox("Prekast Type Auto-Sync: #{count} prekast güncellendi. Geometri, metraj, fiziksel ID ve tip adları korunmuştur.")
+  UI.messagebox("Prekast Tip Otomatik Eşitleme: #{count} prekast güncellendi. Geometri, metraj, fiziksel ID ve tip adları korunmuştur.")
  rescue=>e
-  model.abort_operation;UI.messagebox("Prekast Type Auto-Sync hatası: #{e.message}")
+  model.abort_operation;UI.messagebox("Prekast Tip Otomatik Eşitleme hatası: #{e.message}")
  end
 end
 
@@ -8000,14 +8000,14 @@ end
 
 def mst_repair_pile_type_library
  model=Sketchup.active_model
- model.start_operation('MST Pile Type Library Auto-Sync',true)
+ model.start_operation('MST Kazık Tip Kütüphanesi Otomatik Eşitleme',true)
  begin
   count=mst_sync_pile_type_library(model)
   model.commit_operation
-  UI.messagebox("Pile Type Library: #{count} kayıt güncellendi. Geometri ve Pile ID değiştirilmedi.")
+  UI.messagebox("Kazık Tip Kütüphanesi: #{count} kayıt güncellendi. Geometri ve Kazık ID değiştirilmedi.")
  rescue=>e
   model.abort_operation
-  UI.messagebox("Pile Type Library senkronizasyon hatası: #{e.message}")
+  UI.messagebox("Kazık Tip Kütüphanesi eşitleme hatası: #{e.message}")
  end
  model_audit
 end
@@ -8019,7 +8019,7 @@ def mst_repair_pile_organization
  piles=all.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'}
  by_id=piles.each_with_object({}){|e,h|h[e.get_attribute(DICT,'pile_id','').to_s]=e}
  changed=0
- model.start_operation('MST Pile Organization Sync',true)
+ model.start_operation('MST Kazık Düzeni Eşitleme',true)
  begin
   piles.each do |e|
    if !project.empty? && e.get_attribute(DICT,'project','').to_s.strip.empty?
@@ -8078,15 +8078,15 @@ def mst_audit_bk_links(elems)
   beams.each do |b|
     bid=element_visible_id(b);top=b.get_attribute(DICT,'top_elevation_m',nil);bot=b.get_attribute(DICT,'bottom_elevation_m',nil)
     b.get_attribute(DICT,'connected_pile_ids','').to_s.split(',').map(&:strip).reject(&:empty?).uniq.each do |pid|
-      p=piles[pid];next unless p   # missing pile: reported by the existing 'Pile → BK' check
+      p=piles[pid];next unless p   # missing pile: reported by the existing 'Kazık → BK' check
       owners[pid] << bid
       pt=p.get_attribute(DICT,'top_elevation_m',nil)
       if pt && top && bot
         checks+=1
         if pt.to_f<bot.to_f-MST_AUDIT_Z_TOL
-          add.('WARNING',p,'Pile → BK',"#{pid} başı (#{f3[pt]} m) #{bid} altında kalıyor (BK alt #{f3[bot]} m); kazık BK'ya girmiyor.",'Kazık üst kotunu veya BK kotunu düzeltin (Kazık sayfası › hedef güncelleme BK\'yı birlikte taşır).',[p.persistent_id,b.persistent_id])
+          add.('WARNING',p,'Kazık → BK',"#{pid} başı (#{f3[pt]} m) #{bid} altında kalıyor (BK alt #{f3[bot]} m); kazık BK'ya girmiyor.",'Kazık üst kotunu veya BK kotunu düzeltin (Kazık sayfası › hedef güncelleme BK\'yı birlikte taşır).',[p.persistent_id,b.persistent_id])
         elsif pt.to_f>top.to_f+MST_AUDIT_Z_TOL
-          add.('WARNING',p,'Pile → BK',"#{pid} başı (#{f3[pt]} m) #{bid} üstünden çıkıyor (BK üst #{f3[top]} m).",'Kazık üst kotunu veya BK kotunu düzeltin.',[p.persistent_id,b.persistent_id])
+          add.('WARNING',p,'Kazık → BK',"#{pid} başı (#{f3[pt]} m) #{bid} üstünden çıkıyor (BK üst #{f3[top]} m).",'Kazık üst kotunu veya BK kotunu düzeltin.',[p.persistent_id,b.persistent_id])
         end
       end
       gx=p.get_attribute(DICT,'global_x_m',nil);gy=p.get_attribute(DICT,'global_y_m',nil)
@@ -8095,14 +8095,14 @@ def mst_audit_bk_links(elems)
       bx,by=wr[b]
       tol=p.get_attribute(DICT,'orientation_mode','').to_s=='BATTERED' ? [MST_AUDIT_XY_TOL,p.get_attribute(DICT,'diameter_mm',0).to_f/2000.0].max : MST_AUDIT_XY_TOL
       unless gx.to_f.between?(bx[0]-tol,bx[1]+tol) && gy.to_f.between?(by[0]-tol,by[1]+tol)
-        add.('WARNING',p,'Pile → BK',"#{pid} plan konumu (X #{f3[gx]}, Y #{f3[gy]}) #{bid} izdüşümünün dışında (BK X #{f3[bx[0]]}–#{f3[bx[1]]}, Y #{f3[by[0]]}–#{f3[by[1]]}).",'Kazık veya BK konumunu kontrol edin; kazık taşındıysa BK yeniden oluşturulmalı ya da aks taşıması ile birlikte kaydırılmalı.',[p.persistent_id,b.persistent_id])
+        add.('WARNING',p,'Kazık → BK',"#{pid} plan konumu (X #{f3[gx]}, Y #{f3[gy]}) #{bid} izdüşümünün dışında (BK X #{f3[bx[0]]}–#{f3[bx[1]]}, Y #{f3[by[0]]}–#{f3[by[1]]}).",'Kazık veya BK konumunu kontrol edin; kazık taşındıysa BK yeniden oluşturulmalı ya da aks taşıması ile birlikte kaydırılmalı.',[p.persistent_id,b.persistent_id])
       end
     end
   end
   checks+=owners.length
   owners.each do |pid,bs|
     next if bs.uniq.length<=1
-    add.('WARNING',piles[pid],'Pile → BK',"#{pid} birden fazla BK'ya bağlı: #{bs.uniq.join(', ')}.",'BK bağlı kazık listelerini kontrol edin; mükerrer bağ metrajı etkileyebilir.',[piles[pid].persistent_id])
+    add.('WARNING',piles[pid],'Kazık → BK',"#{pid} birden fazla BK'ya bağlı: #{bs.uniq.join(', ')}.",'BK bağlı kazık listelerini kontrol edin; mükerrer bağ metrajı etkileyebilir.',[piles[pid].persistent_id])
   end
   bpid={};beams.each{|b|bpid[b.persistent_id]=b}
   pre=elems.select{|e|MST_PRECAST_TYPES.include?(typ[e])}
@@ -8139,7 +8139,7 @@ def mst_audit_bk_links(elems)
     dims=grp.group_by{|e|mst_precast_dims_key(e)}
     next if dims.length<=1
     lens=dims.keys.map{|k|format('%.3f',k[0]/1000.0)}.uniq
-    add.('WARNING',grp.first,'Type Library',"#{tid}: aynı prekast tip adı #{dims.length} farklı ölçüde kullanılıyor (boy #{lens.join(' / ')} m; #{grp.length} parça).","Prekast sayfasında 'Seçili Prekast Tip Adını Değiştir' ile farklı ölçüleri ayrı adlandırın.",grp.map(&:persistent_id))
+    add.('WARNING',grp.first,'Tip Kütüphanesi',"#{tid}: aynı prekast tip adı #{dims.length} farklı ölçüde kullanılıyor (boy #{lens.join(' / ')} m; #{grp.length} parça).","Prekast sayfasında 'Seçili Prekast Tip Adını Değiştir' ile farklı ölçüleri ayrı adlandırın.",grp.map(&:persistent_id))
   end
   [out,checks]
 end
@@ -8167,7 +8167,7 @@ def mst_boq_info_rows(all=nil)
  pr=pile_fabrication_qto_row(by.('steel_pipe_pile'),'TOPLAM',true)
  if pr && pr[8].to_f>1e-9
   info.("Kazık tapası (pozsuz): #{pr[4].to_i} adet, #{format('%.1f',pr[8].to_f*1000.0)} kg",'kg',pr[8].to_f*1000.0,'INFO:PILE_PLUG',
-   'Tapa ağırlığı hiçbir BOQ pozuna girmiyor (kazık çeliği ve manipülasyon dahil değil). Tarif/poz belgesi gerekli.')
+   'Tapa ağırlığı hiçbir keşif pozuna girmiyor (kazık çeliği ve manipülasyon dahil değil). Tarif/poz belgesi gerekli.')
  end
  # K40: paftadan / çizimden 3B donatıda yerleştirilemeyen pozlar — tonajı pafta tablosundan REBAR'a girer
  n_el=0;n_poz=0;kg=0.0
@@ -8250,14 +8250,14 @@ def mst_audit_v0515(elems,all=elems)
   st.each do |pid,rev,top,ox,oy|
    b=by_pid[pid.to_i]
    unless b && b.valid?
-    out << ['WARNING',v,'Dependency Graph',"#{element_visible_id(v)}: dayandığı BK (PID #{pid}) modelde bulunamadı; vinç / boylama kirişi güncel olmayabilir.",'VK / BBK\'yı yeniden oluşturun.',[v.persistent_id]];next
+    out << ['WARNING',v,'Bağımlılık Ağı',"#{element_visible_id(v)}: dayandığı BK (PID #{pid}) modelde bulunamadı; vinç / boylama kirişi güncel olmayabilir.",'VK / BBK\'yı yeniden oluşturun.',[v.persistent_id]];next
    end
    cur=mst_vk_support_state(b);why=[]
    why << format('revizyon RV-%02d → RV-%02d',rev.to_i,cur[1]) if cur[1]>rev.to_i
    why << format('üst kot %.3f → %.3f m',top.to_f,cur[2]) if (cur[2]-top.to_f).abs>0.001
    why << format('konum %.3f m kaydı',Math.hypot(cur[3]-ox.to_f,cur[4]-oy.to_f)) if Math.hypot(cur[3]-ox.to_f,cur[4]-oy.to_f)>0.001
    next if why.empty?
-   out << ['WARNING',v,'Dependency Graph',"#{element_visible_id(v)}: dayandığı #{element_visible_id(b)} oluşturulduktan sonra değişti (#{why.join(', ')}); VK / BBK BK'yı izlemez, geometri ve metrajı eski olabilir.",'VK / BBK\'yı silip yeniden oluşturun veya ölçülerini elle doğrulayın.',[v.persistent_id,b.persistent_id]]
+   out << ['WARNING',v,'Bağımlılık Ağı',"#{element_visible_id(v)}: dayandığı #{element_visible_id(b)} oluşturulduktan sonra değişti (#{why.join(', ')}); VK / BBK BK'yı izlemez, geometri ve metrajı eski olabilir.",'VK / BBK\'yı silip yeniden oluşturun veya ölçülerini elle doğrulayın.',[v.persistent_id,b.persistent_id]]
   end
  end
  # K53: kaplama, döşeme revizyonundan eski (fiziksel kaplama yeniden kurulmaz); K52: kaplama durumu kayıtlı olmayan eski döşeme
@@ -8269,7 +8269,7 @@ def mst_audit_v0515(elems,all=elems)
   out << ['WARNING',t,'Döşeme Metrajı',format('%s kaplaması döşeme RV-%02d için oluşturuldu; döşeme şimdi RV-%02d. Fiziksel kaplama yeniden kurulmaz; geometrisi eski olabilir (metraj döşemenin kaplama alanından).',element_visible_id(d),r0.to_i,r1),'Kaplamayı silip Kaplama Ekle ile yeniden oluşturun.',[t.persistent_id,d.persistent_id]]
  end
  decks.select{|d|d.get_attribute(DICT,'topping_enabled',nil).nil?}.each do |d|
-  out << ['WARNING',d,'Döşeme Metrajı',"#{element_visible_id(d)}: kaplama durumu kayıtlı değil (eski döşeme). BOQ kaplamayı bu döşemede 0,10 m ile sayıyor; metraj raporu kaplama satırı göstermiyor.",'Kaplama varsa Kaplama Ekle / Kaplama Eğimi ile kaydedin; yoksa döşemeyi yeniden oluşturun. (Belge: kaplama niyeti)',[d.persistent_id]]
+  out << ['WARNING',d,'Döşeme Metrajı',"#{element_visible_id(d)}: kaplama durumu kayıtlı değil (eski döşeme). Keşif kaplamayı bu döşemede 0,10 m ile sayıyor; metraj raporu kaplama satırı göstermiyor.",'Kaplama varsa Kaplama Ekle / Kaplama Eğimi ile kaydedin; yoksa döşemeyi yeniden oluşturun. (Belge: kaplama niyeti)',[d.persistent_id]]
  end
  # K54: PV diş < oturma (yalnız uyarı)
  elems.select{|e|typ[e]=='crane_precast'}.each{|e|mst_pv_tooth_seat_warnings(e).each{|w|out << ['WARNING',e,'Prekast Metrajı',w,'Diş boyunu oturma boyuna eşit / büyük seçin ya da kesişimi elle düşün.',[e.persistent_id]]}}
@@ -8288,7 +8288,7 @@ def mst_audit_v0515(elems,all=elems)
  end
  # K33 / K39 / K40: pozsuz bilgi satırları
  mst_boq_info_rows(all).each do |r|
-  out << ['WARNING',nil,'QTO → BOQ',"#{r[:name]} — #{r[:mapping_reason]}",'Bilgi: BOQ toplamına girmez; poz eşlemesi için proje poz listesi gerekli.',[]]
+  out << ['WARNING',nil,'Metraj → Keşif',"#{r[:name]} — #{r[:mapping_reason]}",'Bilgi: keşif toplamına girmez; poz eşlemesi için proje poz listesi gerekli.',[]]
  end
  out
 end
@@ -8305,22 +8305,22 @@ def model_audit
   if e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'
    checks+=4
    mst_audit_raw_pile_section(e).each do |message|
-    add_issue.call('ERROR',e,'Fiziksel Boru / BIM / QTO',message,'Boru kesitini ve QTO verisini kontrollü güncelleyin; önce model yedeği alın.')
+    add_issue.call('ERROR',e,'Fiziksel Boru / BIM / Metraj',message,'Boru kesitini ve metraj verisini kontrollü güncelleyin; önce model yedeği alın.')
    end
   end
   if e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile' && e.get_attribute(DICT,'mst_visual_initialized','0').to_s=='1'
    mst_visual_audit_pile(e).each do |message|
     checks+=1
-    add_issue.call('WARNING',e,'Fiziksel Detay / QTO',message,'Kazık fiziksel detaylarını yeniden senkronize edin.')
+    add_issue.call('WARNING',e,'Fiziksel Detay / Metraj',message,'Kazık fiziksel detaylarını yeniden eşitleyin.')
    end
   end
   checks+=1;uid=e.get_attribute(DICT,'element_uid','').to_s.strip
-  add_issue.call('ERROR',e,'BIM Kimliği','Element UID eksik.','BIM Data Core ile metadata standardize edin.') if uid.empty?
-  if !uid.empty? && by_uid[uid]; own,_why=mst_uid_owner(elems.select{|x|x.get_attribute(DICT,'element_uid','').to_s.strip==uid}); add_issue.call('ERROR',e,'BIM Kimliği',"Mükerrer UID: #{uid} (kopya olası: #{element_visible_id(own==e ? by_uid[uid] : e)})",'BIM Identity Repair çalıştırın.'); else by_uid[uid]=e unless uid.empty?;end
+  add_issue.call('ERROR',e,'BIM Kimliği','Eleman UID eksik.','BIM Veri Çekirdeği ile kimlik bilgilerini standartlaştırın.') if uid.empty?
+  if !uid.empty? && by_uid[uid]; own,_why=mst_uid_owner(elems.select{|x|x.get_attribute(DICT,'element_uid','').to_s.strip==uid}); add_issue.call('ERROR',e,'BIM Kimliği',"Mükerrer UID: #{uid} (kopya olası: #{element_visible_id(own==e ? by_uid[uid] : e)})",'BIM Kimlik Onarımı çalıştırın.'); else by_uid[uid]=e unless uid.empty?;end
   by_pid[e.persistent_id]=e
   id=element_visible_id(e);key=[e.get_attribute(DICT,'element_type','').to_s,id];by_visible[key]<<e
   tid=e.get_attribute(DICT,'type_id',e.get_attribute(DICT,'library_type_id','')).to_s.strip;by_type_id[tid]<<e unless tid.empty?
-  checks+=1;add_issue.call('WARNING',e,'Type Library','Type ID eksik.','Element Library ile Type ID atayın.') if tid.empty?
+  checks+=1;add_issue.call('WARNING',e,'Tip Kütüphanesi','Tip ID eksik.','Eleman Kütüphanesi ile Tip ID atayın.') if tid.empty?
   # Child organization rule (Audit 4.1d): pile infill concrete inherits Project/Ano from its parent steel pile.
   # It is not an independently organized BIM object. A missing parent is a Dependency issue, not two false Organization warnings.
   et_org=e.get_attribute(DICT,'element_type','').to_s
@@ -8332,16 +8332,16 @@ def model_audit
    end
    checks+=1
    if parent_pile.nil?
-    add_issue.call('WARNING',e,'Dependency Graph','Kazık içi betonun parent çelik boru kazığı bulunamadı.','Kazık içi betonu ilgili çelik boru kazığa yeniden bağlayın.')
+    add_issue.call('WARNING',e,'Bağımlılık Ağı','Kazık içi betonun bağlı olduğu (üst) çelik boru kazığı bulunamadı.','Kazık içi betonu ilgili çelik boru kazığa yeniden bağlayın.')
    else
     checks+=1
-    add_issue.call('WARNING',e,'Proje Organizasyonu','Parent kazık Project bilgisi eksik.','Project / Ano / Axis Manager ile parent kazığı organize edin.') if !model_project.empty? && parent_pile.get_attribute(DICT,'project','').to_s.strip.empty? && parent_pile.get_attribute(DICT,'project_name','').to_s.strip.empty?
+    add_issue.call('WARNING',e,'Proje Organizasyonu','Üst kazığın Proje bilgisi eksik.','Proje / Ano / Aks Yöneticisi ile üst kazığı düzenleyin.') if !model_project.empty? && parent_pile.get_attribute(DICT,'project','').to_s.strip.empty? && parent_pile.get_attribute(DICT,'project_name','').to_s.strip.empty?
     checks+=1
-    add_issue.call('WARNING',e,'Proje Organizasyonu','Parent kazık Yapı/Ano bilgisi eksik.','Parent kazığın structure veya ano bilgisini kontrol edin.') if parent_pile.get_attribute(DICT,'ano','').to_s.strip.empty? && parent_pile.get_attribute(DICT,'structure','').to_s.strip.empty?
+    add_issue.call('WARNING',e,'Proje Organizasyonu','Üst kazığın Yapı/Ano bilgisi eksik.','Üst kazığın yapı (structure) veya ano bilgisini kontrol edin.') if parent_pile.get_attribute(DICT,'ano','').to_s.strip.empty? && parent_pile.get_attribute(DICT,'structure','').to_s.strip.empty?
    end
   else
-   checks+=1;add_issue.call('WARNING',e,'Proje Organizasyonu','Project bilgisi eksik.','Project / Ano / Axis Manager ile organize edin.') if !model_project.empty? && e.get_attribute(DICT,'project','').to_s.strip.empty? && e.get_attribute(DICT,'project_name','').to_s.strip.empty?
-   checks+=1;add_issue.call('WARNING',e,'Proje Organizasyonu','Ano bilgisi eksik.','Project / Ano / Axis Manager ile organize edin.') if e.get_attribute(DICT,'ano','').to_s.strip.empty? && e.get_attribute(DICT,'structure','').to_s.strip.empty?
+   checks+=1;add_issue.call('WARNING',e,'Proje Organizasyonu','Proje bilgisi eksik.','Proje / Ano / Aks Yöneticisi ile düzenleyin.') if !model_project.empty? && e.get_attribute(DICT,'project','').to_s.strip.empty? && e.get_attribute(DICT,'project_name','').to_s.strip.empty?
+   checks+=1;add_issue.call('WARNING',e,'Proje Organizasyonu','Ano bilgisi eksik.','Proje / Ano / Aks Yöneticisi ile düzenleyin.') if e.get_attribute(DICT,'ano','').to_s.strip.empty? && e.get_attribute(DICT,'structure','').to_s.strip.empty?
   end
   # Axis/Span is mandatory only for elements whose engineering identity depends on an axis/span.
   # Independent crown walls may live outside the pile/head-beam grid; Project + Ano is sufficient.
@@ -8349,19 +8349,19 @@ def model_audit
   axis_required=%w[steel_pipe_pile head_beam flat_precast channel_precast crane_precast deck_slab bored_pile].include?(et)
   checks+=1
   if axis_required && e.get_attribute(DICT,'axis','').to_s.strip.empty?
-    add_issue.call('WARNING',e,'Proje Organizasyonu','Aks/Span bilgisi eksik.','Project / Ano / Axis Manager ile otomatik veya manuel aks atayın.')
+    add_issue.call('WARNING',e,'Proje Organizasyonu','Aks/Açıklık bilgisi eksik.','Proje / Ano / Aks Yöneticisi ile otomatik veya elle aks atayın.')
   end
   sig=e.get_attribute(DICT,'type_signature','').to_s
-  checks+=1;add_issue.call('WARNING',e,'Type Library','Type signature mevcut geometri/malzeme ile uyuşmuyor.','Güvenli Onarım ile tip kaydını güncelleyin.') if !sig.empty? && sig!=element_signature(e)
+  checks+=1;add_issue.call('WARNING',e,'Tip Kütüphanesi','Tip imzası mevcut geometri/malzeme ile uyuşmuyor.','Güvenli Onarım ile tip kaydını güncelleyin.') if !sig.empty? && sig!=element_signature(e)
  end
  # One root-cause row per duplicate physical ID group; clicking selects all affected elements.
  by_visible.each do |k,a|
   next if a.length<=1 || k[1].start_with?('PID-')
-  add_issue.call('ERROR',a.first,'Fiziksel Kimlik',"Mükerrer Element ID: #{k[1]} (#{a.length} eleman)",'BIM Identity Repair ile fiziksel ID değerlerini benzersiz yapın.',a.map(&:persistent_id))
+  add_issue.call('ERROR',a.first,'Fiziksel Kimlik',"Mükerrer Eleman ID: #{k[1]} (#{a.length} eleman)",'BIM Kimlik Onarımı ile fiziksel ID değerlerini benzersiz yapın.',a.map(&:persistent_id))
  end
  by_type_id.each do |tid,a|
   sigs=a.map{|e|element_signature(e)}.uniq;next if sigs.length<=1
-  a.each{|e|add_issue.call('WARNING',e,'Type Library',"#{tid} altında #{sigs.length} farklı geometri/malzeme imzası var.",'Güvenli Onarım farklı geometrileri ayrı Type ID\'lere ayırır.')}
+  a.each{|e|add_issue.call('WARNING',e,'Tip Kütüphanesi',"#{tid} altında #{sigs.length} farklı geometri/malzeme imzası var.",'Güvenli Onarım farklı geometrileri ayrı Tip ID\'lere ayırır.')}
  end
  beams=elems.select{|e|e.get_attribute(DICT,'element_type')=='head_beam'};beam_pids=beams.map(&:persistent_id)
  piles=elems.select{|e|e.get_attribute(DICT,'element_type')=='steel_pipe_pile'};pile_ids=piles.each_with_object({}){|p,h|h[element_visible_id(p)]=p}
@@ -8370,32 +8370,32 @@ def model_audit
   case t
   when 'steel_pipe_pile'
    d=e.get_attribute(DICT,'diameter_mm',0).to_f;th=e.get_attribute(DICT,'thickness_mm',0).to_f;l=e.get_attribute(DICT,'length_m',0).to_f
-   checks+=1;add_issue.call('ERROR',e,'Kazık Geometrisi','D/t/L geçersiz.','Kazık ölçülerini Universal Editor ile düzeltin.') if d<=0||th<=0||2*th>=d||l<=0
-   checks+=1;add_issue.call('WARNING',e,'Malzeme','Çelik sınıfı eksik.','Steel Grade atayın.') if e.get_attribute(DICT,'steel_grade','').to_s.strip.empty?
+   checks+=1;add_issue.call('ERROR',e,'Kazık Geometrisi','D/t/L geçersiz.','Kazık ölçülerini Eleman Düzenleyici ile düzeltin.') if d<=0||th<=0||2*th>=d||l<=0
+   checks+=1;add_issue.call('WARNING',e,'Malzeme','Çelik sınıfı eksik.','Çelik sınıfı atayın.') if e.get_attribute(DICT,'steel_grade','').to_s.strip.empty?
    # A pile may legitimately exist before its head beam is modeled.
    # Audit references declared by existing BK elements, not construction completeness.
    # Missing pile references on a BK are checked in the head_beam branch below.
   when 'head_beam'
    checks+=1;add_issue.call('ERROR',e,'BK Metrajı','Beton hacmi sıfır veya negatif.','BK geometrisi/metraj metadata bilgisini kontrol edin.') if e.get_attribute(DICT,'concrete_volume_m3',0).to_f<=0
-   checks+=1;add_issue.call('WARNING',e,'Malzeme','Beton sınıfı eksik.','Concrete Class atayın.') if e.get_attribute(DICT,'concrete_class','').to_s.strip.empty?
-   e.get_attribute(DICT,'connected_pile_ids','').to_s.split(',').map(&:strip).reject(&:empty?).each{|pid|checks+=1;add_issue.call('ERROR',e,'Pile → BK',"Bağlı kazık #{pid} modelde bulunamadı.",'BK bağlı kazık listesini düzeltin.') unless pile_ids[pid]}
+   checks+=1;add_issue.call('WARNING',e,'Malzeme','Beton sınıfı eksik.','Beton sınıfı atayın.') if e.get_attribute(DICT,'concrete_class','').to_s.strip.empty?
+   e.get_attribute(DICT,'connected_pile_ids','').to_s.split(',').map(&:strip).reject(&:empty?).each{|pid|checks+=1;add_issue.call('ERROR',e,'Kazık → BK',"Bağlı kazık #{pid} modelde bulunamadı.",'BK bağlı kazık listesini düzeltin.') unless pile_ids[pid]}
   when 'flat_precast','channel_precast','crane_precast'
    lp=e.get_attribute(DICT,'support_left_pid',0).to_i;rp=e.get_attribute(DICT,'support_right_pid',0).to_i;checks+=2
-   add_issue.call('ERROR',e,'PD/Kanal → BK','Sol destek BK bulunamadı.','Sol support bağlantısını yeniden eşleyin.') unless beam_pids.include?(lp)
-   add_issue.call('ERROR',e,'PD/Kanal → BK','Sağ destek BK bulunamadı.','Sağ support bağlantısını yeniden eşleyin.') unless beam_pids.include?(rp)
+   add_issue.call('ERROR',e,'PD/Kanal → BK','Sol destek BK bulunamadı.','Sol mesnet bağlantısını yeniden eşleyin.') unless beam_pids.include?(lp)
+   add_issue.call('ERROR',e,'PD/Kanal → BK','Sağ destek BK bulunamadı.','Sağ mesnet bağlantısını yeniden eşleyin.') unless beam_pids.include?(rp)
    checks+=1;add_issue.call('ERROR',e,'Prekast Metrajı','Beton hacmi sıfır veya negatif.','Prekast geometrisi/metrajını kontrol edin.') if e.get_attribute(DICT,'concrete_volume_m3',0).to_f<=0
    if t=='channel_precast';iw=e.get_attribute(DICT,'inner_width_m',0).to_f;idep=e.get_attribute(DICT,'inner_depth_m',0).to_f;checks+=1;add_issue.call('ERROR',e,'Kanal Geometrisi','Kanal iç genişlik/derinliği geçersiz.','Kanal kesit ölçülerini düzeltin.') if iw<=0||idep<=0;end
   when 'deck_slab'
    checks+=1;add_issue.call('ERROR',e,'Döşeme Metrajı','Beton hacmi sıfır veya negatif.','Döşeme geometrisi/metrajını kontrol edin.') if e.get_attribute(DICT,'concrete_volume_m3',0).to_f<=0
    sp=e.get_attribute(DICT,'support_pids','').to_s.split(',').map(&:to_i).reject{|x|x==0};checks+=1
-   add_issue.call('WARNING',e,'Deck → BK/PD','Döşeme support_pids listesi eksik.','Döşemeyi bağlı BK aralığı ile yeniden ilişkilendirin.') if sp.empty?
-   missing=sp.reject{|pid|beam_pids.include?(pid)};add_issue.call('ERROR',e,'Deck → BK/PD',"Döşemede modelde olmayan support PID: #{missing.join(', ')}",'Döşeme support listesini düzeltin.') unless missing.empty?
+   add_issue.call('WARNING',e,'Döşeme → BK/PD','Döşeme mesnet listesi (support_pids) eksik.','Döşemeyi bağlı BK aralığı ile yeniden ilişkilendirin.') if sp.empty?
+   missing=sp.reject{|pid|beam_pids.include?(pid)};add_issue.call('ERROR',e,'Döşeme → BK/PD',"Döşemede modelde olmayan mesnet PID: #{missing.join(', ')}",'Döşeme mesnet listesini düzeltin.') unless missing.empty?
   when 'curb'
    checks+=1;add_issue.call('ERROR',e,'Tretuvar Metrajı','Boy/hacim sıfır veya negatif.','Tretuvar geometrisini kontrol edin.') if e.get_attribute(DICT,'length_m',0).to_f<=0||e.get_attribute(DICT,'concrete_volume_m3',0).to_f<=0
-   pu=e.get_attribute(DICT,'parent_uid','').to_s;checks+=1;add_issue.call('WARNING',e,'Tretuvar → Döşeme','Parent Deck UID eksik.','Tretuvarı ilgili döşemeye bağlayın.') if pu.empty?
+   pu=e.get_attribute(DICT,'parent_uid','').to_s;checks+=1;add_issue.call('WARNING',e,'Tretuvar → Döşeme','Bağlı döşeme UID eksik.','Tretuvarı ilgili döşemeye bağlayın.') if pu.empty?
   end
   %w[dependency_parent_uids dependency_child_uids].each do |key|
-   e.get_attribute(DICT,key,'').to_s.split(',').map(&:strip).reject(&:empty?).each do |u|;checks+=1;add_issue.call('ERROR',e,'Dependency Graph',"#{key}: modelde bulunmayan UID #{u}",'Dependency metadata bilgisini yenileyin.') unless by_uid[u];end
+   e.get_attribute(DICT,key,'').to_s.split(',').map(&:strip).reject(&:empty?).each do |u|;checks+=1;add_issue.call('ERROR',e,'Bağımlılık Ağı',"#{key}: modelde bulunmayan UID #{u}",'Bağımlılık bilgisini yenileyin (Bağımlılık Motoru).') unless by_uid[u];end
   end
  end
  # v0.38 BK4: geometric BK ↔ pile ↔ precast checks.
@@ -8405,7 +8405,7 @@ def model_audit
   kn_out,kn_checks=mst_kn_audit(elems);checks+=kn_checks   # v0.38 KN1
   kn_out.each{|a|add_issue.call(*a)}
  rescue => bk_ex
-  add_issue.call('WARNING',nil,'Dependency Graph',"BK / prekast geometri denetimi tamamlanamadı: #{bk_ex.message}",'Modeli kaydedip denetimi yeniden çalıştırın; sorun sürerse bildirin.',[])
+  add_issue.call('WARNING',nil,'Bağımlılık Ağı',"BK / prekast geometri denetimi tamamlanamadı: #{bk_ex.message}",'Modeli kaydedip denetimi yeniden çalıştırın; sorun sürerse bildirin.',[])
  end
  # Audit 4.1 — Engineering QA: Model -> QTO -> BOQ -> Hakediş consistency.
  concrete_types=%w[head_beam flat_precast channel_precast crane_precast deck_slab deck_topping curb crown_wall bored_pile pile_infill_concrete]
@@ -8415,16 +8415,16 @@ def model_audit
    vol=qto3_quantity(e,:concrete_m3).to_f rescue e.get_attribute(DICT,'concrete_volume_m3',0).to_f
    checks+=1
    if vol>0 && qto_material_class(e).to_s.strip.empty?
-    add_issue.call('WARNING',e,'QTO Malzeme','Beton hacmi mevcut ancak beton sınıfı tanımlı değil.','Beton sınıfını Element Editor üzerinden tanımlayın.')
+    add_issue.call('WARNING',e,'Metraj Malzeme','Beton hacmi mevcut ancak beton sınıfı tanımlı değil.','Beton sınıfını Eleman Düzenleyici üzerinden tanımlayın.')
    end
    rate_key={'pile_infill_concrete'=>'pile','head_beam'=>'head_beam','deck_slab'=>'deck','flat_precast'=>'flat_precast','channel_precast'=>'channel_precast','crane_precast'=>'crane_precast','deck_topping'=>'topping','crown_wall'=>'crown_wall'}[et]
    if vol>0 && rate_key
     expected=vol*rebar_rate(rate_key).to_f/1000.0
     checks+=1
-    add_issue.call('WARNING',e,'QTO Donatı',"Beton hacmi #{format('%.3f',vol)} m³ ancak hesaplanan donatı tonajı sıfır.",'Donatı pursantajını / metraj metadata bilgisini kontrol edin.') if expected<=0
+    add_issue.call('WARNING',e,'Metraj Donatı',"Beton hacmi #{format('%.3f',vol)} m³ ancak hesaplanan donatı tonajı sıfır.",'Donatı pursantajını / metraj metadata bilgisini kontrol edin.') if expected<=0
    elsif et=='bored_pile' && vol>0
     checks+=1
-    add_issue.call('WARNING',e,'QTO Donatı','Fore kazık beton hacmi mevcut ancak donatı tonajı sıfır.','Fore Kazık donatı yöntemi/pursantajını kontrol edin.') if e.get_attribute(DICT,'rebar_t',0).to_f<=0
+    add_issue.call('WARNING',e,'Metraj Donatı','Fore kazık beton hacmi mevcut ancak donatı tonajı sıfır.','Fore Kazık donatı yöntemi/pursantajını kontrol edin.') if e.get_attribute(DICT,'rebar_t',0).to_f<=0
    end
   end
  end
@@ -8459,7 +8459,7 @@ def model_audit
    traced=(respond_to?(:prog2_row_entities) ? prog2_row_entities(r) : boq_trace_entities(src))
    checks+=1
    if r[:quantity].to_f>0 && traced.empty?
-    add_issue.call('ERROR',nil,'QTO → BOQ',"#{r[:code]} / #{src}: BOQ miktarı #{format('%.3f',r[:quantity].to_f)} #{r[:unit]} fakat kaynak BIM elemanı bulunamadı.",'BOQ kaynak eşleştirmesini ve QTO metadata bilgisini kontrol edin.',[])
+    add_issue.call('ERROR',nil,'Metraj → Keşif',"#{r[:code]} / #{src}: keşif miktarı #{format('%.3f',r[:quantity].to_f)} #{r[:unit]} fakat kaynak BIM elemanı bulunamadı.",'Keşif kaynak eşleştirmesini ve metraj bilgisini kontrol edin.',[])
     next
    end
    approved=traced.select{|e|e.get_attribute(DICT,'progress_status','Planlandı').to_s=='Onaylandı'}
@@ -8467,13 +8467,13 @@ def model_audit
    aq=progress_approved_quantity(r).to_f
    checks+=1
    if aq<=0 && r[:quantity].to_f>0
-    add_issue.call('ERROR',approved.first,'BOQ → Hakediş',"#{r[:code]} / #{src}: Onaylandı durumunda #{approved.length} BIM elemanı var ancak hakediş miktarı üretilmiyor.",'QTO kaynağı, BOQ source eşleştirmesi ve hakediş bağlantısını kontrol edin.',approved.map(&:persistent_id))
+    add_issue.call('ERROR',approved.first,'Keşif → Hakediş',"#{r[:code]} / #{src}: Onaylandı durumunda #{approved.length} BIM elemanı var ancak hakediş miktarı üretilmiyor.",'Metraj kaynağı, keşif kaynak eşleştirmesi ve hakediş bağlantısını kontrol edin.',approved.map(&:persistent_id))
    elsif aq-r[:quantity].to_f>0.0001
-    add_issue.call('ERROR',approved.first,'BOQ → Hakediş',"#{r[:code]}: onaylı miktar sözleşme/BOQ miktarını aşıyor.",'BOQ miktarı ile onaylı BIM kapsamını kontrol edin.',approved.map(&:persistent_id))
+    add_issue.call('ERROR',approved.first,'Keşif → Hakediş',"#{r[:code]}: onaylı miktar sözleşme/keşif miktarını aşıyor.",'Keşif miktarı ile onaylı BIM kapsamını kontrol edin.',approved.map(&:persistent_id))
    end
   end
  rescue => audit_ex
-  add_issue.call('WARNING',nil,'Engineering QA',"QTO/BOQ/Hakediş zinciri kontrolü tamamlanamadı: #{audit_ex.message}",'BOQ ve Hakediş verisini kontrol edip yeniden tarayın.',[])
+  add_issue.call('WARNING',nil,'Mühendislik Kalite Kontrolü',"Metraj/Keşif/Hakediş zinciri kontrolü tamamlanamadı: #{audit_ex.message}",'Keşif ve hakediş verisini kontrol edip yeniden tarayın.',[])
  end
  seen={};issues=issues.select{|x|k=[x[:pids] ? x[:pids].sort.join(',') : (x[:e] ? x[:e].persistent_id : 0),x[:sev],x[:check],x[:msg]];!seen[k]&&(seen[k]=true)}
  errors=issues.count{|x|x[:sev]=='ERROR'};warnings=issues.count{|x|x[:sev]=='WARNING'};passed=[checks-errors-warnings,0].max
@@ -8482,11 +8482,11 @@ def model_audit
  health_groups={
   'BIM Kimliği'=>['BIM Kimliği','Fiziksel Kimlik'],
   'Organizasyon'=>['Proje Organizasyonu'],
-  'Type Library'=>['Type Library'],
-  'Dependency'=>['Dependency Graph','Pile → BK','PD/Kanal → BK','Deck → BK/PD','Tretuvar → Döşeme'],
-  'QTO'=>['Kazık Geometrisi','BK Metrajı','Prekast Metrajı','Kanal Geometrisi','Döşeme Metrajı','Tretuvar Metrajı','Malzeme','QTO Malzeme','QTO Donatı','Hesap Hatası'],
-  'QTO → BOQ'=>['QTO → BOQ'],
-  'Hakediş'=>['BOQ → Hakediş','Engineering QA']
+  'Tip Kütüphanesi'=>['Tip Kütüphanesi'],
+  'Bağımlılık'=>['Bağımlılık Ağı','Kazık → BK','PD/Kanal → BK','Döşeme → BK/PD','Tretuvar → Döşeme'],
+  'Metraj'=>['Kazık Geometrisi','BK Metrajı','Prekast Metrajı','Kanal Geometrisi','Döşeme Metrajı','Tretuvar Metrajı','Malzeme','Metraj Malzeme','Metraj Donatı','Hesap Hatası'],
+  'Metraj → Keşif'=>['Metraj → Keşif'],
+  'Hakediş'=>['Keşif → Hakediş','Mühendislik Kalite Kontrolü']
  }
  health=health_groups.map do |label,names|
   rel=issues.select{|x|names.include?(x[:check])}
@@ -8500,10 +8500,10 @@ def model_audit
  rescue
   boq_state='warn'
  end
- health << ['BOQ',boq_state,boq_count]
+ health << ['Keşif',boq_state,boq_count]
  health_html=health.map do |label,state,count|
   icon=state=='ok' ? '✓' : (state=='bad' ? '✕' : '⚠')
-  note=(label=='BOQ' ? "#{count} satır" : (count==0 ? 'Temiz' : "#{count} bulgu"))
+  note=(label=='Keşif' ? "#{count} satır" : (count==0 ? 'Temiz' : "#{count} bulgu"))
   "<div class='health #{state}'><b>#{icon} #{html_escape(label)}</b><span>#{html_escape(note)}</span></div>"
  end.join
  # Audit 4.1a: collapse repetitive organization warnings into selectable groups.
@@ -8535,9 +8535,9 @@ def model_audit
   rows << "<tr class='#{cls}' onclick=\"sketchup.audit_select('#{pids}')\"><td><span class='sev #{cls}'>#{lab}</span></td><td><b>#{html_escape(id)}</b></td><td>#{html_escape(x[:check])}</td><td>#{html_escape(types)}</td><td>#{html_escape(msg)}</td><td>#{html_escape(x[:fix])}</td><td><button onclick=\"event.stopPropagation();sketchup.audit_group_detail('#{pids}')\">Detay</button></td></tr>"
  end
  rows="<tr><td colspan='7' class='empty'>Aktif hata veya uyarı bulunmadı.</td></tr>" if rows.empty?
- show_identity=issues.any?{|x|['BIM Kimliği','Fiziksel Kimlik'].include?(x[:check])};show_deck=issues.any?{|x|x[:check].to_s.start_with?('Deck')}   # v0.38 BK4.3
- html=%Q{<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial;margin:0;background:#f3f7fa;color:#18364a}.top{background:#fff;border-bottom:1px solid #cadce7;padding:18px 22px}.top h2{margin:0;color:#073f73}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.k{border:1px solid #d4e2eb;border-radius:8px;padding:12px;background:#fff}.k small{display:block;color:#718999}.k b{font-size:26px}.red{color:#b42318}.orange{color:#b66a00}.green{color:#16834f}.health-title{font-size:11px;font-weight:700;color:#607d8b;margin:14px 0 7px}.health-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px}.health{border:1px solid #d4e2eb;border-radius:7px;padding:9px 10px;background:#fff}.health b{display:block;font-size:11px}.health span{display:block;font-size:9px;color:#718999;margin-top:3px}.health.ok b{color:#16834f}.health.warn b{color:#a66400}.health.bad b{color:#b42318}.wrap{padding:16px 22px}.card{background:#fff;border:1px solid #cadce7;border-radius:9px;overflow:hidden}.bar{padding:12px 14px;border-bottom:1px solid #dce8ef;display:flex;gap:10px;align-items:center}.bar b{margin-right:auto}.bar span{font-size:11px;color:#607d8b}button{border:0;border-radius:6px;background:#087fd1;color:#fff;padding:9px 13px;font-weight:700;cursor:pointer}.repair{background:#16834f}table{width:100%;border-collapse:collapse}th{background:#eaf3f8;color:#42677f;text-align:left;font-size:11px;padding:9px;position:sticky;top:0}td{font-size:11px;padding:9px;border-bottom:1px solid #e7eef3}tbody tr{cursor:pointer}tbody tr:hover{background:#eef8fe}.sev{display:inline-block;padding:4px 7px;border-radius:12px;font-size:9px;font-weight:700}.sev.err{background:#fde8e7;color:#b42318}.sev.warn{background:#fff1d6;color:#9a5a00}.empty{text-align:center;color:#607d8b;padding:28px}.note{font-size:10px;color:#607d8b;margin-top:9px}</style></head><body><div class='top'><h2>Model Audit 4.1d — Engineering QA</h2><div>Marine Structures BIM — model kalite ve izlenebilirlik kontrolü</div><div class='kpis'><div class='k'><small>HATA</small><b class='red'>#{errors}</b></div><div class='k'><small>UYARI</small><b class='orange'>#{warnings}</b></div><div class='k'><small>KONTROL EDİLEN</small><b class='green'>#{checks}</b></div></div><div class='health-title'>MODEL SAĞLIĞI</div><div class='health-grid'>#{health_html}</div></div><div class='wrap'><div class='card'><div class='bar'><b>Aktif Bulgular</b><span>Satıra tıklayın → ilgili eleman(lar) seçilir ve zoom yapılır</span><button class='repair' title='Kazık / BK / prekast tip kayıtları + boru ağırlıkları. Geometri, fiziksel ID ve tip adlarına dokunmaz. Önce önizleme gösterir.' onclick='sketchup.audit_safe_repair()'>Güvenli Onarım</button>#{show_identity ? "<button class='repair' title='Mükerrer fiziksel ID / UID numaralarını yeniden numaralandırır.' onclick='sketchup.audit_repair_identity()'>BIM Identity Repair</button>" : ''}#{show_deck ? "<button class='repair' onclick='sketchup.audit_repair_deck()'>Deck Relationship Repair</button>" : ''}<button onclick='sketchup.audit_refresh()'>Yeniden Tara</button></div><table><thead><tr><th>Seviye</th><th>Eleman / Grup</th><th>Kontrol</th><th>Eleman Tipleri</th><th>Açıklama</th><th>Önerilen İşlem</th><th>Detay</th></tr></thead><tbody>#{rows}</tbody></table></div><div class='note'>Audit 4.1 MODEL → BIM → QTO → BOQ → HAKEDİŞ zincirini kontrol eder ve mevcut model verisini değiştirmez. Identity Repair yalnız fiziksel ID/UID çakışmalarını düzeltir; Type ID ve geometriyi değiştirmez. Geçen kontrol: #{passed}.</div></div></body></html>}
- d=mst_html_dialog('model_audit',dialog_title:'Marine Structures - Model Audit 4.1d / Engineering QA',width:1250,height:720,resizable:true);d.set_html(EngineeringUI.decorate(html))
+ show_identity=issues.any?{|x|['BIM Kimliği','Fiziksel Kimlik'].include?(x[:check])};show_deck=issues.any?{|x|x[:check].to_s.start_with?('Döşeme →')}   # v0.38 BK4.3
+ html=%Q{<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial;margin:0;background:#f3f7fa;color:#18364a}.top{background:#fff;border-bottom:1px solid #cadce7;padding:18px 22px}.top h2{margin:0;color:#073f73}.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.k{border:1px solid #d4e2eb;border-radius:8px;padding:12px;background:#fff}.k small{display:block;color:#718999}.k b{font-size:26px}.red{color:#b42318}.orange{color:#b66a00}.green{color:#16834f}.health-title{font-size:11px;font-weight:700;color:#607d8b;margin:14px 0 7px}.health-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px}.health{border:1px solid #d4e2eb;border-radius:7px;padding:9px 10px;background:#fff}.health b{display:block;font-size:11px}.health span{display:block;font-size:9px;color:#718999;margin-top:3px}.health.ok b{color:#16834f}.health.warn b{color:#a66400}.health.bad b{color:#b42318}.wrap{padding:16px 22px}.card{background:#fff;border:1px solid #cadce7;border-radius:9px;overflow:hidden}.bar{padding:12px 14px;border-bottom:1px solid #dce8ef;display:flex;gap:10px;align-items:center}.bar b{margin-right:auto}.bar span{font-size:11px;color:#607d8b}button{border:0;border-radius:6px;background:#087fd1;color:#fff;padding:9px 13px;font-weight:700;cursor:pointer}.repair{background:#16834f}table{width:100%;border-collapse:collapse}th{background:#eaf3f8;color:#42677f;text-align:left;font-size:11px;padding:9px;position:sticky;top:0}td{font-size:11px;padding:9px;border-bottom:1px solid #e7eef3}tbody tr{cursor:pointer}tbody tr:hover{background:#eef8fe}.sev{display:inline-block;padding:4px 7px;border-radius:12px;font-size:9px;font-weight:700}.sev.err{background:#fde8e7;color:#b42318}.sev.warn{background:#fff1d6;color:#9a5a00}.empty{text-align:center;color:#607d8b;padding:28px}.note{font-size:10px;color:#607d8b;margin-top:9px}</style></head><body><div class='top'><h2>Model Kontrolü — Mühendislik Kalite Kontrolü <small style='font-weight:normal;color:#607d8b'>v#{VERSION}</small></h2><div>Deniz Yapıları BIM — model kalite ve izlenebilirlik kontrolü</div><div class='kpis'><div class='k'><small>HATA</small><b class='red'>#{errors}</b></div><div class='k'><small>UYARI</small><b class='orange'>#{warnings}</b></div><div class='k'><small>KONTROL EDİLEN</small><b class='green'>#{checks}</b></div></div><div class='health-title'>MODEL SAĞLIĞI</div><div class='health-grid'>#{health_html}</div></div><div class='wrap'><div class='card'><div class='bar'><b>Aktif Bulgular</b><span>Satıra tıklayın → ilgili eleman(lar) seçilir ve zoom yapılır</span><button class='repair' title='Kazık / BK / prekast tip kayıtları + boru ağırlıkları. Geometri, fiziksel ID ve tip adlarına dokunmaz. Önce önizleme gösterir.' onclick='sketchup.audit_safe_repair()'>Güvenli Onarım</button>#{show_identity ? "<button class='repair' title='Mükerrer fiziksel ID / UID numaralarını yeniden numaralandırır.' onclick='sketchup.audit_repair_identity()'>BIM Kimlik Onarımı</button>" : ''}#{show_deck ? "<button class='repair' onclick='sketchup.audit_repair_deck()'>Döşeme İlişki Onarımı</button>" : ''}<button onclick='sketchup.audit_refresh()'>Yeniden Tara</button></div><table><thead><tr><th>Seviye</th><th>Eleman / Grup</th><th>Kontrol</th><th>Eleman Tipleri</th><th>Açıklama</th><th>Önerilen İşlem</th><th>Detay</th></tr></thead><tbody>#{rows}</tbody></table></div><div class='note'>Model Kontrolü MODEL → BIM → METRAJ → KEŞİF → HAKEDİŞ zincirini kontrol eder ve mevcut model verisini değiştirmez. Kimlik Onarımı yalnız fiziksel ID/UID çakışmalarını düzeltir; Tip ID ve geometriyi değiştirmez. Geçen kontrol: #{passed}.</div></div></body></html>}
+ d=mst_html_dialog('model_audit',dialog_title:'Model Kontrolü / Mühendislik Kalite Kontrolü',width:1250,height:720,resizable:true);d.set_html(EngineeringUI.decorate(html))
  d.add_action_callback('audit_select') do |_,raw|
   ids=raw.to_s.split(',').map(&:to_i);collect=[];collect_elements(model.entities,collect);found=collect.select{|x|x.respond_to?(:persistent_id)&&ids.include?(x.persistent_id)}
   unless found.empty?;model.selection.clear;found.each{|x|model.selection.add(x)};model.active_view.zoom(model.selection);end
@@ -8566,9 +8566,9 @@ end
 
 def export_boq_csv
  all=[];collect_elements(Sketchup.active_model.entities,all)
- path=UI.savepanel('BOQ / QTO CSV Kaydet','','Marine_Structures_BOQ.csv');return unless path
+ path=UI.savepanel('Keşif / Metraj CSV Kaydet','','MST_Kesif_Metraj.csv');return unless path
  path+='.csv' unless path.downcase.end_with?('.csv')
- require 'csv';rows=[['Category','Type','Material/Class','Count','Length_m','Concrete_m3','Formwork_m2','Steel_t']]
+ require 'csv';rows=[['Kategori','Tip','Malzeme/Sinif','Adet','Boy_m','Beton_m3','Kalip_m2','Celik_t']]
  groups=all.select{|e|%w[steel_pipe_pile head_beam flat_precast channel_precast crane_precast deck_slab curb pile_infill_concrete crown_wall].include?(e.get_attribute(DICT,'element_type').to_s)}.group_by{|e|[e.get_attribute(DICT,'element_type').to_s,e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s,e.get_attribute(DICT,'concrete_class',e.get_attribute(DICT,'steel_grade','-')).to_s]}
  groups.each do |k,arr|
   rows<<[k[0],k[1],k[2],arr.length,arr.sum{|e|e.get_attribute(DICT,'actual_length_m',e.get_attribute(DICT,'length_m',0)).to_f},arr.sum{|e|e.get_attribute(DICT,'concrete_volume_m3',0).to_f},arr.sum{|e|e.get_attribute(DICT,'formwork_area_m2',0).to_f},arr.sum{|e|e.get_attribute(DICT,'weight_kg',0).to_f}/1000.0]
@@ -8583,8 +8583,8 @@ def export_boq_csv
   csv<<output
  end
 end
- UI.messagebox("BOQ/QTO CSV oluşturuldu:\n#{path}")
-rescue=>ex;UI.messagebox("BOQ export hatası: #{ex.message}");end
+ UI.messagebox("Keşif / Metraj CSV oluşturuldu:\n#{path}")
+rescue=>ex;UI.messagebox("Keşif / Metraj CSV dışa aktarma hatası: #{ex.message}");end
 # ===== end v0.13.0 =====
 
 
@@ -8615,13 +8615,13 @@ def mst_dependency_impacts(root)
   impacts << 'Kalıp alanı' if types.any?{|t|%w[head_beam flat_precast channel_precast crane_precast deck_slab curb].include?(t)}
   impacts << 'Prekast yerleşimi' if types.any?{|t|%w[flat_precast channel_precast crane_precast].include?(t)}
   impacts << 'Döşeme boşluğu / kesimleri' if types.include?('deck_slab')
-  impacts << 'BOQ / QTO miktarları'
+  impacts << 'Keşif / Metraj miktarları'
   impacts.uniq
 end
 
 def mst_dependency_payload(e)
   # R-2: görüntüleme salt okur (UID üretmez)
-  return {'ok'=>false,'message'=>'Önce bir Marine Structures elemanı seçin.'} unless e
+  return {'ok'=>false,'message'=>'Önce bir MST elemanı seçin.'} unless e
   rows=mst_dependency_tree(e); parents=mst_direct_parents(e)
   counts=Hash.new(0); items=rows.map do |x,depth|
     t=x.get_attribute(DICT,'element_type','').to_s; counts[t]+=1
@@ -8656,16 +8656,16 @@ def stamp_dependency_metadata
   end
   if ch.empty? && dependency_changes(model).empty?
     send_dependency_analysis
-    UI.messagebox("Dependency Engine 2.0: değişiklik gerekmedi.\n\n#{all.length} eleman tarandı; kayıtlı UID, ilişki ve revizyon bilgileri zaten güncel.")
+    UI.messagebox("Bağımlılık Motoru: değişiklik gerekmedi.\n\n#{all.length} eleman tarandı; kayıtlı UID, ilişki ve revizyon bilgileri zaten güncel.")
     return
   end
-  model.start_operation('MST Dependency Engine 2.0',true);op=true
+  model.start_operation('MST Bağımlılık Motoru',true);op=true
   ch.each{|e,k,v|e.set_attribute(DICT,k,v)}
   commit_with_dependencies(model);op=false; send_dependency_analysis
   linked=all.count{|e|!e.get_attribute(DICT,'dependency_child_uids','').to_s.empty? || !e.get_attribute(DICT,'dependency_parent_uids','').to_s.empty?}
-  UI.messagebox("Dependency Engine 2.0 tamamlandı.\n\n#{all.length} eleman tarandı.\n#{linked} elemanda ilişki bulundu.\n\nZincir: Kazık → BK → PD/Kanal → Döşeme → Tretuvar\nUID tabanlı parent/child ve support ilişkileri yazıldı.\n\nBu sürüm etki analizi yapar; bağlı geometriyi otomatik değiştirmez.")
+  UI.messagebox("Bağımlılık Motoru tamamlandı.\n\n#{all.length} eleman tarandı.\n#{linked} elemanda ilişki bulundu.\n\nZincir: Kazık → BK → PD/Kanal → Döşeme → Tretuvar\nUID tabanlı üst/alt eleman ve mesnet ilişkileri yazıldı.\n\nBu sürüm etki analizi yapar; bağlı geometriyi otomatik değiştirmez.")
 rescue=>ex
-  (model.abort_operation if op) rescue nil; UI.messagebox("Dependency Engine 2.0 hatası: #{ex.message}")
+  (model.abort_operation if op) rescue nil; UI.messagebox("Bağımlılık Motoru hatası: #{ex.message}")
 end
 # ===== end v0.18.0 =====
 
@@ -8936,7 +8936,7 @@ def export_professional_excel
   all=[];collect_elements(Sketchup.active_model.entities,all)
   allowed=%w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab curb crown_wall bored_pile]
   elems=all.select{|e|allowed.include?(e.get_attribute(DICT,'element_type','').to_s)}
-  path=UI.savepanel('Professional QTO / BOQ Excel Raporu','','Marine_Structures_QTO.xlsx');return unless path
+  path=UI.savepanel('Ayrıntılı Metraj (Excel) Raporu','','MST_Ayrintili_Metraj.xlsx');return unless path
   path+='.xlsx' unless path.downcase.end_with?('.xlsx')
   type_names={'steel_pipe_pile'=>'Çelik Boru Kazık','pile_infill_concrete'=>'Kazık İçi Betonu','head_beam'=>'Başlık Kirişi','flat_precast'=>'Normal Prekast','channel_precast'=>'Kanal Prekastı','crane_precast'=>'Vinç Prekastı','deck_slab'=>'Döşeme','curb'=>'Bordür / Tretuvar','crown_wall'=>'Kronman','bored_pile'=>'Fore Kazık'}
   snapshot=qto3_snapshot
@@ -8962,7 +8962,7 @@ def export_professional_excel
   fallback=snapshot[:rows].find{|row|row[:type]=='pile_infill_concrete'}
   if fallback
     detail.reject!{|row|row[0]=='Kazık İçi Beton'}
-    detail<<['Kazık İçi Beton','Tüm kaynaklar','Sınıf bazında Summary',fallback[:count],fallback[:length_m],fallback[:concrete_m3],fallback[:formwork_m2],fallback[:steel_t],0.0,fallback[:steel_t]]
+    detail<<['Kazık İçi Beton','Tüm kaynaklar','Sınıf bazında Özet',fallback[:count],fallback[:length_m],fallback[:concrete_m3],fallback[:formwork_m2],fallback[:steel_t],0.0,fallback[:steel_t]]
   end
   library=elems.group_by{|e|e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s}.sort.map do |typ,arr|
     [typ,type_names[arr.first.get_attribute(DICT,'element_type').to_s]||arr.first.get_attribute(DICT,'element_type').to_s,qto_material_class(arr.first),arr.length,arr.map{|e|element_visible_id(e)}.join(', '),arr.first.get_attribute(DICT,'type_signature',element_signature(arr.first)).to_s]
@@ -8982,10 +8982,10 @@ def export_professional_excel
   summary<<['Ek hesabı','AUTO: 12 m boydan hesaplanır; MANUAL: kayıtlı adet','']
   summary<<['Sürüm',VERSION,'']
   sheets=[
-    ['Summary',['Kalem','Miktar','Birim'],summary,[34,16,12]],
-    ['Detailed QTO',['Eleman','Tip','Malzeme / Sınıf','Adet','Boy (m)','Beton (m³)','Kalıp (m²)','Çelik (t)','Boru Çeliği (t)','Donatı (t)'],detail,[24,20,20,10,14,16,16,14,16,14]],
-    ['Element Library',['Tip ID','Eleman','Malzeme / Sınıf','Adet','Fiziksel ID','Tip İmzası'],library,[20,24,20,10,45,65]],
-    ['Pile QTO',pile_headers,pile_rows,[22,16,16,13,12,14,18,16,13,15,20,20,18,18,24,14]]]
+    ['Özet',['Kalem','Miktar','Birim'],summary,[34,16,12]],
+    ['Ayrıntılı Metraj',['Eleman','Tip','Malzeme / Sınıf','Adet','Boy (m)','Beton (m³)','Kalıp (m²)','Çelik (t)','Boru Çeliği (t)','Donatı (t)'],detail,[24,20,20,10,14,16,16,14,16,14]],
+    ['Eleman Kütüphanesi',['Tip ID','Eleman','Malzeme / Sınıf','Adet','Fiziksel ID','Tip İmzası'],library,[20,24,20,10,45,65]],
+    ['Kazık Metrajı',pile_headers,pile_rows,[22,16,16,13,12,14,18,16,13,15,20,20,18,18,24,14]]]
   sheets.concat(system_export_sheets)
   content_types='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.each_index.map{|i|"<Override PartName=\"/xl/worksheets/sheet#{i+1}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"}.join+'</Types>'
   root_rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'
@@ -8997,8 +8997,8 @@ def export_professional_excel
   write_simple_zip(path,entries)
   # Sanity check: an XLSX must start with the ZIP signature and contain three worksheets.
   raise 'XLSX dosyası oluşturulamadı.' unless File.exist?(path) && File.size(path)>1000
-  UI.messagebox("Professional QTO oluşturuldu.\nGerçek Excel XLSX • #{sheets.length} çalışma sayfası\nSummary / Detailed QTO / Element Library / Pile QTO\n#{path}")
-rescue=>ex;UI.messagebox("Excel QTO export hatası: #{ex.message}");end
+  UI.messagebox("Ayrıntılı Metraj (Excel) oluşturuldu.\nGerçek Excel XLSX • #{sheets.length} çalışma sayfası\nÖzet / Ayrıntılı Metraj / Eleman Kütüphanesi / Kazık Metrajı\n#{path}")
+rescue=>ex;UI.messagebox("Ayrıntılı Metraj (Excel) dışa aktarma hatası: #{ex.message}");end
 # ===== end v0.14.0 =====
 
 
@@ -9026,7 +9026,7 @@ def mst_editor_changes(e,o)
 end
 
 def preview_editor_change(json,dialog=@d)
-  e=selected_mst_element; return dialog.execute_script("showEditorChangePreview(#{JSON.generate({'ok'=>false,'message'=>'Önce bir Marine Structures elemanı seçin.'})},#{JSON.generate(json)})") unless e
+  e=selected_mst_element; return dialog.execute_script("showEditorChangePreview(#{JSON.generate({'ok'=>false,'message'=>'Önce bir MST elemanı seçin.'})},#{JSON.generate(json)})") unless e
   o=JSON.parse(json); scope=o['scope'].to_s; type_id=e.get_attribute(DICT,'library_type_id',e.get_attribute(DICT,'type_id','')).to_s
   targets=[e]
   if scope=='type'
@@ -9042,7 +9042,7 @@ end
 
 def stamp_dependency_metadata_silent
   all=mst_all_elements; model=Sketchup.active_model
-  model.start_operation('MST Dependency Metadata Refresh',true)
+  model.start_operation('MST Bağımlılık Bilgisi Yenile',true)
   all.each do |e|
     deps=mst_direct_dependencies(e,all);parents=mst_direct_parents(e,all)
     e.set_attribute(DICT,'dependency_child_uids',deps.map{|x|ensure_uid(x)}.uniq.join(','));e.set_attribute(DICT,'dependency_child_ids',deps.map{|x|element_visible_id(x)}.uniq.join(','));e.set_attribute(DICT,'dependency_parent_uids',parents.map{|x|ensure_uid(x)}.uniq.join(','));e.set_attribute(DICT,'dependency_parent_ids',parents.map{|x|element_visible_id(x)}.uniq.join(','));e.set_attribute(DICT,'dependency_schema','2.1')
@@ -9084,7 +9084,7 @@ def auto_organize_project(data)
   project=data['project'].to_s.strip; ano=data['ano'].to_s.strip
   raise 'Proje adı boş olamaz.' if project.empty?
   raise 'Ano adı boş olamaz.' if ano.empty?
-  model.start_operation('MST Project Ano Axis Organize',true)
+  model.start_operation('MST Proje / Ano / Aks Düzenle',true)
   # First standardize identity/type metadata without opening another operation.
   elems.each{|e| ensure_uid(e)}
   beams=elems.select{|e|e.get_attribute(DICT,'element_type','').to_s=='head_beam'}
@@ -9167,8 +9167,8 @@ def assign_manual_axis_to_selection(data)
   raise 'Ano adı boş olamaz.' if ano.empty?
   raise 'Manuel aks adı boş olamaz.' if axis.empty?
   selected=model.selection.to_a.select{|e| e.respond_to?(:get_attribute) && mst_project_elements.include?(e)}
-  raise 'Önce Marine Structures elemanı/elemanları seçin.' if selected.empty?
-  model.start_operation('MST Manual Axis Assignment',true)
+  raise 'Önce MST elemanı/elemanları seçin.' if selected.empty?
+  model.start_operation('MST Elle Aks Ataması',true)
   selected.each do |e|
     ensure_uid(e)
     e.set_attribute(DICT,'project',project)
@@ -9197,13 +9197,13 @@ def project_ano_axis_manager
     c=r[:counts]
     body << "<tr><td><b>#{html_escape(r[:project])}</b></td><td><b>#{html_escape(r[:ano])}</b></td><td>#{html_escape(r[:axes].join(', '))}</td><td class='n'>#{r[:count]}</td><td class='n'>#{c['steel_pipe_pile'].to_i}</td><td class='n'>#{c['bored_pile'].to_i}</td><td class='n'>#{c['head_beam'].to_i}</td><td class='n'>#{c['flat_precast'].to_i+c['channel_precast'].to_i}</td><td class='n'>#{c['deck_slab'].to_i}</td><td class='n'>#{c['crown_wall'].to_i}</td><td class='n'>#{c['curb'].to_i}</td></tr>"
   end
-  html=%Q{<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial;margin:0;background:#f3f7fa;color:#18364a}.top{background:#fff;border-bottom:1px solid #cadce7;padding:18px 22px;display:flex;justify-content:space-between}.top h2{margin:0;color:#073f73}.badge{background:#e7f4ff;color:#0874c9;border:1px solid #b9ddf5;border-radius:18px;padding:7px 12px;font-weight:700;font-size:11px}.wrap{padding:18px}.card{background:#fff;border:1px solid #cadce7;border-radius:9px;padding:15px;margin-bottom:14px}.grid{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}label{font-size:11px;font-weight:700;color:#42677f}input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #bfd2df;border-radius:6px}button{padding:10px 16px;border:0;border-radius:6px;background:#087fd1;color:#fff;font-weight:700;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{font-size:11px;padding:8px;border-bottom:1px solid #e3edf3;text-align:left}th{background:#eaf3f8;color:#42677f}.n{text-align:right}.note{font-size:11px;color:#607d8b;line-height:1.5}.status{margin-top:10px;font-size:11px;color:#16834f;font-weight:700}</style></head><body><div class='top'><div><h2>Project / Ano / Axis Manager</h2><div>Marine Structures BIM model organizasyonu</div></div><span class='badge'>v0.31.9</span></div><div class='wrap'><div class='card'><div class='grid'><label>Proje Adı<input id='project' value='#{html_escape(project)}' placeholder='Örn. EGE GÜBRE İSKELE TEVSİİ'></label><label>Aktif Ano<input id='ano' value='#{html_escape(ano)}' placeholder='ANO-01'></label><button onclick='organize()'>Projeyi / Ano'yu Organize Et</button></div><div class='note' style='margin-top:10px'>Otomatik organizasyon: BK aksları korunur; çelik boru kazıklar bağlı BK'dan, PD/Kanal destek BK'lardan, Döşeme support listesinden aks/span devralır. Fore Kazık ve Kronman bağımsız eleman olabilir; bunlara ilgisiz BK aksı uydurulmaz.</div><div style='margin-top:14px;padding-top:14px;border-top:1px solid #e3edf3' class='grid'><label>Bağımsız / Manuel Aks<input id='manual_axis' placeholder='Örn. AKS-KR-01 veya AKS-FK-01'></label><div class='note'>Modelde bir veya birden fazla MST elemanı seçin. Bu aks doğrudan seçili elemanlara atanır.</div><button onclick='manualAxis()'>Seçili Elemana Aks Ata</button></div><div id='status' class='status'></div></div><div class='card'><h3>Model Hiyerarşisi</h3><table><thead><tr><th>Proje</th><th>Ano</th><th>Aks / Span</th><th>Toplam</th><th>Çelik Kazık</th><th>Fore Kazık</th><th>BK</th><th>PD/Kanal</th><th>Döşeme</th><th>Kronman</th><th>Tretuvar</th></tr></thead><tbody>#{body}</tbody></table></div></div><script>function base(){return {project:document.getElementById('project').value,ano:document.getElementById('ano').value}}function organize(){document.getElementById('status').textContent='Model organize ediliyor...';sketchup.project_organize(JSON.stringify(base()));}function manualAxis(){var d=base();d.axis=document.getElementById('manual_axis').value;document.getElementById('status').textContent='Seçili elemanlara manuel aks atanıyor...';sketchup.project_manual_axis(JSON.stringify(d));}</script></body></html>}
-  d=mst_html_dialog('project_manager',dialog_title:'Marine Structures - Project / Ano / Axis Manager',width:1120,height:650,resizable:true)
+  html=%Q{<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial;margin:0;background:#f3f7fa;color:#18364a}.top{background:#fff;border-bottom:1px solid #cadce7;padding:18px 22px;display:flex;justify-content:space-between}.top h2{margin:0;color:#073f73}.badge{background:#e7f4ff;color:#0874c9;border:1px solid #b9ddf5;border-radius:18px;padding:7px 12px;font-weight:700;font-size:11px}.wrap{padding:18px}.card{background:#fff;border:1px solid #cadce7;border-radius:9px;padding:15px;margin-bottom:14px}.grid{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}label{font-size:11px;font-weight:700;color:#42677f}input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #bfd2df;border-radius:6px}button{padding:10px 16px;border:0;border-radius:6px;background:#087fd1;color:#fff;font-weight:700;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{font-size:11px;padding:8px;border-bottom:1px solid #e3edf3;text-align:left}th{background:#eaf3f8;color:#42677f}.n{text-align:right}.note{font-size:11px;color:#607d8b;line-height:1.5}.status{margin-top:10px;font-size:11px;color:#16834f;font-weight:700}</style></head><body><div class='top'><div><h2>Proje / Ano / Aks Yöneticisi</h2><div>MST BIM model organizasyonu</div></div><span class='badge'>v#{VERSION}</span></div><div class='wrap'><div class='card'><div class='grid'><label>Proje Adı<input id='project' value='#{html_escape(project)}' placeholder='Örn. EGE GÜBRE İSKELE TEVSİİ'></label><label>Aktif Ano<input id='ano' value='#{html_escape(ano)}' placeholder='ANO-01'></label><button onclick='organize()'>Projeyi / Ano'yu Organize Et</button></div><div class='note' style='margin-top:10px'>Otomatik organizasyon: BK aksları korunur; çelik boru kazıklar bağlı BK'dan, PD/Kanal destek BK'lardan, döşeme mesnet listesinden aks/açıklık devralır. Fore Kazık ve Kronman bağımsız eleman olabilir; bunlara ilgisiz BK aksı uydurulmaz.</div><div style='margin-top:14px;padding-top:14px;border-top:1px solid #e3edf3' class='grid'><label>Bağımsız / Elle Aks<input id='manual_axis' placeholder='Örn. AKS-KR-01 veya AKS-FK-01'></label><div class='note'>Modelde bir veya birden fazla MST elemanı seçin. Bu aks doğrudan seçili elemanlara atanır.</div><button onclick='manualAxis()'>Seçili Elemana Aks Ata</button></div><div id='status' class='status'></div></div><div class='card'><h3>Model Hiyerarşisi</h3><table><thead><tr><th>Proje</th><th>Ano</th><th>Aks / Açıklık</th><th>Toplam</th><th>Çelik Kazık</th><th>Fore Kazık</th><th>BK</th><th>PD/Kanal</th><th>Döşeme</th><th>Kronman</th><th>Tretuvar</th></tr></thead><tbody>#{body}</tbody></table></div></div><script>function base(){return {project:document.getElementById('project').value,ano:document.getElementById('ano').value}}function organize(){document.getElementById('status').textContent='Model organize ediliyor...';sketchup.project_organize(JSON.stringify(base()));}function manualAxis(){var d=base();d.axis=document.getElementById('manual_axis').value;document.getElementById('status').textContent='Seçili elemanlara elle aks atanıyor...';sketchup.project_manual_axis(JSON.stringify(d));}</script></body></html>}
+  d=mst_html_dialog('project_manager',dialog_title:'Proje / Ano / Aks Yöneticisi',width:1120,height:650,resizable:true)
   d.set_html(EngineeringUI.decorate(html))
   d.add_action_callback('project_organize') do |dlg,json|
     begin
-      r=auto_organize_project(JSON.parse(json)); UI.messagebox("Project / Ano / Axis organizasyonu tamamlandı.\n\n#{r[:elements]} eleman işlendi.\n#{r[:beams]} BK • #{r[:piles]} çelik kazık • #{r[:bored]} fore kazık • #{r[:precast]} PD/Kanal • #{r[:decks]} döşeme • #{r[:crowns]} kronman • #{r[:curbs]} tretuvar\n\nBağımsız elemanların mevcut manuel aksları korunur.")
-    rescue=>ex; UI.messagebox("Project Manager hatası: #{ex.message}"); end
+      r=auto_organize_project(JSON.parse(json)); UI.messagebox("Proje / Ano / Aks organizasyonu tamamlandı.\n\n#{r[:elements]} eleman işlendi.\n#{r[:beams]} BK • #{r[:piles]} çelik kazık • #{r[:bored]} fore kazık • #{r[:precast]} PD/Kanal • #{r[:decks]} döşeme • #{r[:crowns]} kronman • #{r[:curbs]} tretuvar\n\nBağımsız elemanların mevcut elle verilmiş aksları korunur.")
+    rescue=>ex; UI.messagebox("Proje Yöneticisi hatası: #{ex.message}"); end
   end
   d.add_action_callback('project_manual_axis') do |dlg,json|
     begin
@@ -9460,7 +9460,7 @@ def crown_update_action(json)
   model=Sketchup.active_model; g=model.find_entity_by_persistent_id(@crown_edit_pid.to_i) rescue nil; raise 'Revize edilecek Kronman bulunamadı. Tekrar Modelden Oku yapın.' unless g&&g.valid?
   d=JSON.parse(json); axis_len=(Geom::Point3d.new(g.get_attribute(DICT,'axis_start_x'),g.get_attribute(DICT,'axis_start_y'),g.get_attribute(DICT,'axis_start_z')).distance(Geom::Point3d.new(g.get_attribute(DICT,'axis_end_x'),g.get_attribute(DICT,'axis_end_y'),g.get_attribute(DICT,'axis_end_z')))).to_m
   nv,nf=crown_preview_quantities(d,axis_len); ov=g.get_attribute(DICT,'concrete_volume_m3',0).to_f; of=g.get_attribute(DICT,'formwork_area_m2',0).to_f
-  ok=UI.messagebox("KRONMAN DEĞİŞİKLİK ÖNİZLEMESİ\n\n#{g.name}\nBeton: #{format('%.3f',ov)} → #{format('%.3f',nv)} m³\nKalıp: #{format('%.3f',of)} → #{format('%.3f',nf)} m²\n\nGeometri, metraj ve BOQ birlikte güncellenecek. Devam?",MB_YESNO)
+  ok=UI.messagebox("KRONMAN DEĞİŞİKLİK ÖNİZLEMESİ\n\n#{g.name}\nBeton: #{format('%.3f',ov)} → #{format('%.3f',nv)} m³\nKalıp: #{format('%.3f',of)} → #{format('%.3f',nf)} m²\n\nGeometri, metraj ve keşif birlikte güncellenecek. Devam?",MB_YESNO)
   return unless ok==IDYES; crown_build_v2(d,g)
 rescue=>e; UI.messagebox("Kronman revizyon hatası: #{e.message}"); end
 # ===== end Crown Wall =====
@@ -9632,7 +9632,7 @@ def rockfill_alt1_takeoff_html
     rr=iv[:rows].map{|r|"<tr><td>#{html_escape(r[:code])}</td><td>#{html_escape(r[:name])}</td><td>#{format('%.2f',r[:a1])}</td><td>#{format('%.2f',r[:a2])}</td><td>#{format('%.3f',iv[:length_m])}</td><td>#{format('%.3f',r[:volume_m3])}</td><td>#{format('%.3f',r[:tonnage_t])}</td></tr>"}.join
     "<h4 style='color:#315f7c;margin:18px 0 8px'>#{html_escape(iv[:from_id])} → #{html_escape(iv[:to_id])} &nbsp; (#{format('%.3f',iv[:from_station])}–#{format('%.3f',iv[:to_station])} m)</h4><table><tr><th>Kod</th><th>Malzeme / Taş Cinsi</th><th>A₁ (m²)</th><th>A₂ (m²)</th><th>L (m)</th><th>Hacim (m³)</th><th>Tonaj (t)</th></tr>#{rr}<tr class='subtotal'><td>ARA TOPLAM</td><td>-</td><td>-</td><td>-</td><td>#{format('%.3f',iv[:length_m])}</td><td>#{format('%.3f',iv[:volume_m3])}</td><td>#{format('%.3f',iv[:tonnage_t])}</td></tr></table>"
   end.join
-  "<h3>Dolgu / Taş Metrajı</h3><div class='note'>Average End Area: V = (A₁ + A₂) / 2 × L • Tonaj = Hacim × Kütüphane Yoğunluğu</div><h4 style='color:#315f7c'>Malzeme Bazında Toplam</h4><table><tr><th>Kod</th><th>Malzeme / Taş Cinsi</th><th>Yoğunluk (t/m³)</th><th>Hacim</th><th>Tonaj</th></tr>#{mat_rows}<tr class='total'><td>GENEL TOPLAM</td><td>-</td><td>-</td><td>#{format('%.3f',q[:total_volume_m3])} m³</td><td>#{format('%.3f',q[:total_tonnage_t])} t</td></tr></table><h4 style='color:#315f7c'>Kesit Aralıkları Özeti</h4><table><tr><th>Kesit Aralığı</th><th>İstasyon</th><th>Uzunluk</th><th>Hacim</th><th>Tonaj</th></tr>#{int_rows}</table>#{detail}"
+  "<h3>Dolgu / Taş Metrajı</h3><div class='note'>Ortalama uç alan (AEA): V = (A₁ + A₂) / 2 × L • Tonaj = Hacim × Kütüphane Yoğunluğu</div><h4 style='color:#315f7c'>Malzeme Bazında Toplam</h4><table><tr><th>Kod</th><th>Malzeme / Taş Cinsi</th><th>Yoğunluk (t/m³)</th><th>Hacim</th><th>Tonaj</th></tr>#{mat_rows}<tr class='total'><td>GENEL TOPLAM</td><td>-</td><td>-</td><td>#{format('%.3f',q[:total_volume_m3])} m³</td><td>#{format('%.3f',q[:total_tonnage_t])} t</td></tr></table><h4 style='color:#315f7c'>Kesit Aralıkları Özeti</h4><table><tr><th>Kesit Aralığı</th><th>İstasyon</th><th>Uzunluk</th><th>Hacim</th><th>Tonaj</th></tr>#{int_rows}</table>#{detail}"
 end
 
 # ===== end Rockfill / Earthworks =====
@@ -9889,11 +9889,11 @@ def progress_live_rows
     mode=r[:split_mode]=='separate' ? 'separate' : 'combined'
     saved_mode=model.get_attribute(PROGRESS_DICT,"saved_group_mode_#{r[:source]}",nil)
     if saved_mode && saved_mode!=mode
-      raise 'Hakediş geçmişi farklı poz gruplamasıyla kaydedilmiş. Bu dönem için BOQ gruplamasını eski düzenine döndürün; geçmiş miktarlar otomatik paylaştırılmaz.'
+      raise 'Hakediş geçmişi farklı poz gruplamasıyla kaydedilmiş. Bu dönem için keşif gruplamasını eski düzenine döndürün; geçmiş miktarlar otomatik paylaştırılmaz.'
     end
     stored=model.get_attribute(PROGRESS_DICT,"previous_#{src}",nil)
     if r[:split_mode]=='separate' && stored.nil? && model.get_attribute(PROGRESS_DICT,"previous_#{r[:source]}",0).to_f>0
-      raise 'Bu imalatın eski hakedişi birleşik pozla kaydedilmiş. Mevcut hakediş için BOQ gruplamasını Birleşik seçin; geçmiş miktarlar otomatik paylaştırılmaz.'
+      raise 'Bu imalatın eski hakedişi birleşik pozla kaydedilmiş. Mevcut hakediş için keşif gruplamasını Birleşik seçin; geçmiş miktarlar otomatik paylaştırılmaz.'
     end
     previous=stored.nil? ? 0.0 : QuantityService.number(stored,'previous_quantity')
     approved=progress_approved_quantity(r)
@@ -9988,7 +9988,7 @@ def progress_set_status(status,dialog=@d)
   allowed=%w[Planlandı İmalatta Tamamlandı Onaylandı]
   return unless allowed.include?(status.to_s)
   model=Sketchup.active_model; targets=model.selection.to_a.select{|e|e.respond_to?(:get_attribute)&&!e.get_attribute(DICT,'element_type','').to_s.empty?}
-  if targets.empty?;UI.messagebox('Önce Marine Structures elemanlarını seçin.');return;end
+  if targets.empty?;UI.messagebox('Önce MST elemanlarını seçin.');return;end
   model.start_operation('MST İmalat Durumu',true)
   targets.each{|e|e.set_attribute(DICT,'progress_status',status.to_s)}
   commit_with_dependencies(model);progress_send(dialog)
@@ -10064,13 +10064,13 @@ end
 
 # ---- UI5: Model Bakımı (eski Eklentiler menüsünün tamamı tek sayfada) ----
 MST_MAINT_ACTIONS=[
- ['Kontrol','model_audit','Model Kontrolü (Audit)','Hata / uyarı listesi, seçerek modele git.'],
- ['Kontrol','dependency','Bağımlılık / Etki Analizi','Elemanlar arası ilişki metadatasını yeniler.'],
- ['Kontrol','bim_core','BIM Veri Çekirdeği Raporu','Metadata standardizasyonu ve tip kütüphanesi.'],
- ['Onarım','safe_repair','Güvenli Onarım','Audit\'in otomatik düzeltebildiği sorunlar.'],
+ ['Kontrol','model_audit','Model Kontrolü','Hata / uyarı listesi, seçerek modele git.'],
+ ['Kontrol','dependency','Bağımlılık Motoru / Etki Analizi','Elemanlar arası ilişki bilgisini yeniler.'],
+ ['Kontrol','bim_core','BIM Veri Çekirdeği Raporu','Eleman bilgisi standartlaştırma ve tip kütüphanesi.'],
+ ['Onarım','safe_repair','Güvenli Onarım','Model Kontrolü\'nün otomatik düzeltebildiği sorunlar.'],
  ['Onarım','deck_repair','Döşeme BIM İlişkilerini Onar','Döşeme ↔ BK / kaplama bağları.'],
  ['Onarım','identity_repair','BIM Kimlik Onarımı','Eksik / çift element_uid.'],
- ['Onarım','pile_types','Kazık Tip Kütüphanesini Eşitle','Kazık tiplerini modelle senkronlar.'],
+ ['Onarım','pile_types','Kazık Tip Kütüphanesini Eşitle','Kazık tiplerini modelle eşitler.'],
  ['Onarım','ring_rule','Çember Et Kalınlığı — Kurala Çek','Model geneli çember t kuralı.'],
  ['Onarım','pipe_weights','Kazık Boru Ağırlıklarını Doğrula','Teorik ağırlıkları düzeltir.'],
  ['Onarım','pile_org','Kazık Organizasyonunu Eşitle','Sistem / yapı / aks atamaları.'],
@@ -10087,20 +10087,20 @@ MST_MAINT_ACTIONS=[
  ['Donatı','revision','Donatı Revizyon Karşılaştırması','Seçili elemanın önceki ↔ şimdiki donatısı poz poz, Ø özeti.'],
  ['Donatı','clash','Elemanlar Arası Donatı Çakışması','BK / döşeme / prekast donatıları birbirine giriyor mu; çakışanları kırmızı boyar.'],
  ['Donatı','clash_clear','Çakışma Renklerini Temizle','Kırmızı boyanan çubuklar çap rengine döner.'],
- ['Proje (v0.50)','af_piles','A-Çerçeve Eğik Kazık Çiftleri','Aks, çift aralığı, kafa aralığı, eğim (1/6), enine / boyuna, A / V; çakışma kontrolü; kazık formu değerleriyle.'],
- ['Proje (v0.50)','kd_dxf','Kazık Dispozisyonu — DXF Paftasından','Kazık daireleri, çap (katman adından), kazık no, eğik kazık açısı; aks çizgileri + aks adları → Aks Yöneticisi, kazıklar aks kesişimlerine (ör. 75/A); birim ve dönme kendiliğinden.'],
- ['Proje (v0.50)','kf_fit','Kazık Filizini BK\'ya Göre Ayarla','Seçili kazıkların donatı filizi: BK üstü − pas payı − üst ağ payı.'],
- ['Proje (v0.50)','vk','Vinç / Boylama Kirişi (iki BK arası)','VK / BBK BK\'lara dik, BK yüzünde biter; alın kalıbı yok, BK kalıbından temas düşülür; ray tipi + klips metrajı.'],
- ['Proje (v0.50)','culvert','Menfez Sac Kutusu (seçili BK)','BK içinden geçen menfez: beton + yüz kalıbı düşülür, sac kg metraja; donatı kesilir, takviye konur.'],
- ['Proje (v0.50)','bottom_zone','BK Taban Bölgesi (alçak taban)','BK boyunca aralıkta derin taban (uç dişlerine ek); beton, kalıp, donatı.'],
- ['Proje (v0.50)','stage','Kademeli Döküm (BK / dolfen)','1. kademe yüksekliği; beton ve kalıp iki kademeye bölünür, iş programında iki adım.'],
- ['Proje (v0.50)','stage_report','Kademeli Döküm Metrajı','Kademeli elemanların 1. / 2. kademe beton ve kalıbı (HTML).'],
- ['Proje (v0.50)','pc_rebar','Prekast Donatısı (PD / PK)','Alt / üst boyuna (BK\'ya giriş boyu), enine U, taşan etriye şeritleri, kaldırma kancaları; kanal prekastında sarma U, duvar şapkası.'],
- ['Proje (v0.50)','dr_auto','Paftadan 3B Donatı (otomatik, DXF)','Seçili BK(lar)a donatı paftasından 3B donatı: tablo + krokiler + kesitler + boy görünüşü okunur; yerleştirilemeyen poz yalnız metrajda kalır. Paket modele kaydedilir.'],
- ['Proje (v0.50)','dxf_rebar','Paftadan Donatı Metrajı (DXF)','Donatı paftasındaki krokilerden poz tablosu (adet × Ø × L); seçili elemanın metrajı paftadan ya da karşılaştırma.'],
- ['Proje (v0.50)','dxf_rebar_off','Paftadan Donatı Metrajını Kaldır','Seçili elemanlar önceki (3B / pursantaj) donatısına döner.'],
- ['Proje (v0.50)','topping_slope','Kaplama (Topping) Eğimi','En ince kalınlık + eğim % → ortalama kalınlık; tek yöne / sırttan iki yana.'],
- ['Proje (v0.50)','materials','Malzeme Sınıfları (beton / donatı çeliği)','Proje donatı çeliği (B420C / B500C …), seçili elemanlara beton sınıfı ve çelik.'],
+ ['Proje','af_piles','A-Çerçeve Eğik Kazık Çiftleri','Aks, çift aralığı, kafa aralığı, eğim (1/6), enine / boyuna, A / V; çakışma kontrolü; kazık formu değerleriyle.'],
+ ['Proje','kd_dxf','Kazık Dispozisyonu — DXF Paftasından','Kazık daireleri, çap (katman adından), kazık no, eğik kazık açısı; aks çizgileri + aks adları → Aks Yöneticisi, kazıklar aks kesişimlerine (ör. 75/A); birim ve dönme kendiliğinden.'],
+ ['Proje','kf_fit','Kazık Filizini BK\'ya Göre Ayarla','Seçili kazıkların donatı filizi: BK üstü − pas payı − üst ağ payı.'],
+ ['Proje','vk','Vinç / Boylama Kirişi (iki BK arası)','VK / BBK BK\'lara dik, BK yüzünde biter; alın kalıbı yok, BK kalıbından temas düşülür; ray tipi + klips metrajı.'],
+ ['Proje','culvert','Menfez Sac Kutusu (seçili BK)','BK içinden geçen menfez: beton + yüz kalıbı düşülür, sac kg metraja; donatı kesilir, takviye konur.'],
+ ['Proje','bottom_zone','BK Taban Bölgesi (alçak taban)','BK boyunca aralıkta derin taban (uç dişlerine ek); beton, kalıp, donatı.'],
+ ['Proje','stage','Kademeli Döküm (BK / dolfen)','1. kademe yüksekliği; beton ve kalıp iki kademeye bölünür, iş programında iki adım.'],
+ ['Proje','stage_report','Kademeli Döküm Metrajı','Kademeli elemanların 1. / 2. kademe beton ve kalıbı (HTML).'],
+ ['Proje','pc_rebar','Prekast Donatısı (PD / PK)','Alt / üst boyuna (BK\'ya giriş boyu), enine U, taşan etriye şeritleri, kaldırma kancaları; kanal prekastında sarma U, duvar şapkası.'],
+ ['Proje','dr_auto','Paftadan 3B Donatı (otomatik, DXF)','Seçili BK(lar)a donatı paftasından 3B donatı: tablo + krokiler + kesitler + boy görünüşü okunur; yerleştirilemeyen poz yalnız metrajda kalır. Paket modele kaydedilir.'],
+ ['Proje','dxf_rebar','Paftadan Donatı Metrajı (DXF)','Donatı paftasındaki krokilerden poz tablosu (adet × Ø × L); seçili elemanın metrajı paftadan ya da karşılaştırma.'],
+ ['Proje','dxf_rebar_off','Paftadan Donatı Metrajını Kaldır','Seçili elemanlar önceki (3B / pursantaj) donatısına döner.'],
+ ['Proje','topping_slope','Kaplama Eğimi','En ince kalınlık + eğim % → ortalama kalınlık; tek yöne / sırttan iki yana.'],
+ ['Proje','materials','Malzeme Sınıfları (beton / donatı çeliği)','Proje donatı çeliği (B420C / B500C …), seçili elemanlara beton sınıfı ve çelik.'],
  ['İş Programı','schedule','İş Programı Oluştur','Modelden faaliyetler, Gantt, haftalık malzeme / ekip, aylık hakediş tahmini (Excel + HTML).'],
  ['İş Programı','schedule_settings','İş Programı Ayarları','Verimler (varsayılan, kaynaklı), ekip sayıları, takvim, başlangıç tarihi.'],
  ['İş Programı','schedule_4d','4D Görünüm','Elemanları bittiği aya göre renklendir ya da bir haftadaki durumu göster.'],
@@ -10112,14 +10112,14 @@ MST_MAINT_ACTIONS=[
  ['Görünüm','pe_off','PE Kaplama Görünümünü Kaldır','PE renk kılıflarını siler.'],
  ['Görünüm','pe_top','PE Üst Kotunu Ayarla','PE kaplamanın başladığı kot (seçili / bütün kazıklar); metraj değişmez.'],
  ['Kütüphane','element_library','Eleman Kütüphanesi','Modeldeki tip imzaları.'],
- ['Kütüphane','boq_library','Marine BOQ Library','Birim fiyat arşivi.'],
- ['Kütüphane','boq_mapping','ÖBF – Model Miktarı Eşleştirme','BOQ satırı ↔ model miktarı.'],
- ['Kazık','pile_edit_v2','Seçili Kazığı Düzenle (Pile Layout 2.0)','Eski tekli kazık düzenleyici.'],
+ ['Kütüphane','boq_library','Keşif Kütüphanesi','Birim fiyat arşivi.'],
+ ['Kütüphane','boq_mapping','ÖBF – Model Miktarı Eşleştirme','Keşif satırı ↔ model miktarı.'],
+ ['Kazık','pile_edit_v2','Seçili Kazığı Düzenle (Kazık Yerleşimi)','Eski tekli kazık düzenleyici.'],
  ['Kazık','pile_batch','Toplu Kazık Detay Güncelle','Seçili kazıklara toplu detay.'],
  ['Dışa Aktarım','takeoff','Detaylı Metraj Raporu','Tüm metraj tabloları.'],
- ['Dışa Aktarım','excel','Professional QTO / Excel','Excel dosyası.'],
- ['Dışa Aktarım','csv','BOQ / QTO CSV','CSV dosyası.'],
- ['Eski','boq_engine','Keşif / BOQ Engine (eski)','Eski BOQ ekranı.'],
+ ['Dışa Aktarım','excel','Ayrıntılı Metraj (Excel)','Excel dosyası.'],
+ ['Dışa Aktarım','csv','Keşif / Metraj CSV Dışa Aktar','CSV dosyası.'],
+ ['Eski','boq_engine','Keşif Motoru (eski)','Eski keşif ekranı.'],
  ['Eski','flat_precast','Düz Prekast (PD) Yerleşimi (eski)','Eski PD aracı; yeni araç Prekast sayfasındadır.']
 ].freeze
 
@@ -10214,7 +10214,7 @@ end
 
 def show_dialog
  if @d&&@d.visible?;@d.bring_to_front;return;end
- @d=UI::HtmlDialog.new(dialog_title:"Marine Structures Tools v#{VERSION}",preferences_key:'MAG_MST_Main',width:1440,height:920,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
+ @d=UI::HtmlDialog.new(dialog_title:"Deniz Yapıları Araçları (MST) v#{VERSION}",preferences_key:'MAG_MST_Main',width:1440,height:920,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
  @d.set_file(File.join(__dir__,'ui.html'))
  mst_host_reset!;mst_register_embed_callbacks(@d)   # v0.38 UI2: tek pencere
  mst_register_flow_callbacks(@d)   # v0.38 UI4/UI5
@@ -10253,10 +10253,10 @@ def show_dialog
    <!doctype html><html><head><meta charset="utf-8"><style>
    *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#29495d;background:#f7fafc;font-size:12px}.head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:#eaf4fa;border-bottom:1px solid #cbdde8}.head b{font-size:15px;color:#12608f}.body{padding:15px}.note{background:#eef7fc;border-left:3px solid #2c8abd;padding:8px 10px;margin-bottom:12px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}label{font-size:11px;color:#587184}input,select{display:block;width:100%;min-width:0;height:34px;margin-top:4px;border:1px solid #b9cbd7;border-radius:4px;padding:5px 7px;background:white}.readonly{background:#eef3f6!important;color:#496879;font-weight:600}.section{grid-column:1/-1;border-top:1px solid #dce7ed;margin-top:5px;padding-top:10px;font-weight:bold;color:#1b668f}.actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 15px;border-top:1px solid #dce7ed;background:white}button{padding:8px 18px;border:1px solid #8eb4cb;border-radius:4px;background:#1674a8;color:white;cursor:pointer}.ghost{background:white;color:#42677d}.span2{grid-column:span 2}@media(max-width:620px){.grid{grid-template-columns:1fr 1fr}}
    </style></head><body><div class="head"><b>⚙ Kazık Özel Ayarları</b><span>#{html_escape(payload['axis_name'])}</span></div><div class="body"><div class="note">Boş bırakılan alanlar genel kazık ayarını kullanır.</div><div class="grid">
-   <label>Kazık Noktası<select id="pt"></select></label><label>Pile ID<input id="pile_id" class="readonly" readonly title="Otomatik Pile ID"></label><label>Kazık Grubu<input id="pile_group" class="readonly" readonly title="Sistem / Yapıdan otomatik"></label>
-   <div class="section">Konum Override</div><label>ΔX (m)<input id="dx" type="number" step="0.01"></label><label>ΔY (m)<input id="dy" type="number" step="0.01"></label><div></div>
+   <label>Kazık Noktası<select id="pt"></select></label><label>Kazık ID<input id="pile_id" class="readonly" readonly title="Otomatik Kazık ID"></label><label>Kazık Grubu<input id="pile_group" class="readonly" readonly title="Sistem / Yapıdan otomatik"></label>
+   <div class="section">Konuma Özel Değer</div><label>ΔX (m)<input id="dx" type="number" step="0.01"></label><label>ΔY (m)<input id="dy" type="number" step="0.01"></label><div></div>
    <div class="section">Geometri / Doğrultu</div><label>Doğrultu<select id="orientation_mode"><option value="">Genel</option><option value="VERTICAL">Düşey</option><option value="BATTERED">Batarlı</option></select></label><label>H/V<input id="batter_ratio"></label><label>Azimut (°)<input id="azimuth_deg" type="number" step="0.1"></label><label>Ø (mm)<input id="diameter_mm" type="number" step="0.1"></label><label>t (mm)<input id="thickness_mm" type="number" step="0.1"></label><label>L (m)<input id="length_m" type="number" step="0.01"></label><label>Çelik Sınıfı<input id="steel_grade"></label><div></div><div></div>
-   <div class="section">Özel Kazık Üst Kotu / BIM Bağlantısı</div><label>Kot Tipi<select id="elevation_mode"><option value="GENERAL">Genel</option><option value="SPECIAL">Özel</option></select></label><label>Özel Üst Kot (m)<input id="top_elevation_m" type="number" step="0.01"></label><label>Kot Sebebi<select id="elevation_reason"><option value="">—</option><option value="UTILITY_CHANNEL">Tesisat Kanalı</option><option value="CRANE_BEAM">Vinç Kirişi</option><option value="HEAD_BEAM">Başlık Kirişi</option><option value="OTHER">Diğer</option></select></label><label>Bağlı Eleman ID<input id="linked_element_id" placeholder="örn. BK-03 / VK-01"></label><div class="note span2">BK / Vinç Kirişi modülleri geldiğinde Bağlı Eleman alanı BIM ID dropdown olacaktır.</div>
+   <div class="section">Özel Kazık Üst Kotu / BIM Bağlantısı</div><label>Kot Tipi<select id="elevation_mode"><option value="GENERAL">Genel</option><option value="SPECIAL">Özel</option></select></label><label>Özel Üst Kot (m)<input id="top_elevation_m" type="number" step="0.01"></label><label>Kot Sebebi<select id="elevation_reason"><option value="">—</option><option value="UTILITY_CHANNEL">Tesisat Kanalı</option><option value="CRANE_BEAM">Vinç Kirişi</option><option value="HEAD_BEAM">Başlık Kirişi</option><option value="OTHER">Diğer</option></select></label><label>Bağlı Eleman ID<input id="linked_element_id" placeholder="örn. BK-03 / VK-01"></label><div class="note span2">BK / Vinç Kirişi modülleri geldiğinde Bağlı Eleman alanı BIM ID açılır listesi olacaktır.</div>
    </div></div><div class="actions"><button class="ghost" onclick="resetVals()">Genel Değerlere Dön</button><button onclick="save()">Kaydet</button></div>
    <script>const payload=#{JSON.generate(payload).gsub('</','<\/')};let cur=0;const ids=['pile_id','pile_group','dx','dy','orientation_mode','batter_ratio','azimuth_deg','diameter_mm','thickness_mm','length_m','steel_grade','elevation_mode','top_elevation_m','elevation_reason','linked_element_id'];const pt=document.getElementById('pt');payload.points.forEach((p,i)=>{let o=document.createElement('option');o.value=i;o.textContent=payload.axis_name+'/'+p.point_name;pt.appendChild(o)});function load(){cur=+pt.value||0;let d=payload.points[cur].data||{};ids.forEach(id=>{document.getElementById(id).value=(d[id]===undefined||d[id]===null)?'':d[id]});document.getElementById('dx').value=d.dx||0;document.getElementById('dy').value=d.dy||0;toggle()}function toggle(){let sp=document.getElementById('elevation_mode').value==='SPECIAL';['top_elevation_m','elevation_reason','linked_element_id'].forEach(id=>document.getElementById(id).disabled=!sp)}document.getElementById('elevation_mode').onchange=toggle;pt.onchange=load;function data(){let d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.dx=parseFloat(d.dx)||0;d.dy=parseFloat(d.dy)||0;if(d.elevation_mode!=='SPECIAL'){d.top_elevation_m='';d.elevation_reason='';d.linked_element_id=''}return d}function save(){sketchup.pile_override_save(JSON.stringify({axis_index:payload.axis_index,point_index:payload.points[cur].point_index,data:data()}))}function resetVals(){ids.filter(id=>!['pile_id','pile_group'].includes(id)).forEach(id=>document.getElementById(id).value='');let d=payload.points[cur].data||{};document.getElementById('pile_id').value=d.pile_id||'';document.getElementById('pile_group').value=d.pile_group||'';document.getElementById('dx').value=0;document.getElementById('dy').value=0;document.getElementById('elevation_mode').value='GENERAL';toggle()}pt.value='0';load();</script></body></html>
    HTML
@@ -10384,7 +10384,7 @@ def show_dialog
    mst_sync_pile_type_library(model) if changes.key?('diameter_mm') || changes.key?('thickness_mm') || changes.key?('infill_concrete_class') || changes.key?('infill_enabled')
    commit_with_dependencies(model)
   rescue=>e;model.abort_operation;raise e;end
-  @d.execute_script("mstBatchApplied(#{JSON.generate(piles.length.to_s+' kazık güncellendi. QTO yenilendi; tek Undo ile geri alınabilir.')})") if @d
+  @d.execute_script("mstBatchApplied(#{JSON.generate(piles.length.to_s+' kazık güncellendi. Metraj yenilendi; tek Geri Al ile geri alınabilir.')})") if @d
  rescue=>e;UI.messagebox("Toplu BIM güncelleme başarısız: #{e.message}");end}
  @d.add_action_callback('pile_inline_same_type_apply'){|_,json|begin
   data=JSON.parse(json); id=data['id'].to_s; changes=data['changes']||{}
@@ -10396,11 +10396,11 @@ def show_dialog
   nd=changes.key?('diameter_mm') ? changes['diameter_mm'].to_f : seed.get_attribute(DICT,'diameter_mm',0).to_f
   nt=changes.key?('thickness_mm') ? changes['thickness_mm'].to_f : seed.get_attribute(DICT,'thickness_mm',0).to_f
   raise 'Ø/t kesiti geçersiz.' unless nd>0 && nt>0 && 2*nt<nd
-  msg="#{tid} tipindeki #{peers.length} kazık güncellenecek.\n\nYeni kesit: Ø#{format('%.1f',nd)} / t#{format('%.1f',nt)}\n\nPile ID, UID, boy, kot, aks, konum ve tekil detaylar korunur. Devam edilsin mi?"
+  msg="#{tid} tipindeki #{peers.length} kazık güncellenecek.\n\nYeni kesit: Ø#{format('%.1f',nd)} / t#{format('%.1f',nt)}\n\nKazık ID, UID, boy, kot, aks, konum ve tekil detaylar korunur. Devam edilsin mi?"
   next unless UI.messagebox(msg,MB_YESNO)==IDYES
   specs=peers.each_with_object({}){|pile,h|h[pile]=[nd,nt,pile.get_attribute(DICT,'steel_grade','S355J2H').to_s]}
   mst_apply_pile_sections_atomic(peers,specs,"MST #{tid} Inline Type Update",true)
-  @d.execute_script("mstBatchApplied(#{JSON.generate(tid+' • '+peers.length.to_s+' benzer kazık güncellendi. TYPE + fiziksel geometri + QTO yenilendi.')})") if @d
+  @d.execute_script("mstBatchApplied(#{JSON.generate(tid+' • '+peers.length.to_s+' benzer kazık güncellendi. TİP + fiziksel geometri + metraj yenilendi.')})") if @d
  rescue=>e;Sketchup.active_model.abort_operation rescue nil;UI.messagebox("Aynı tip kazık güncellemesi başarısız: #{e.message}");end}
  @d.add_action_callback('pile_batch_details_from_page'){|_|batch_update_selected_pile_details}
  @d.add_action_callback('pile_load_selected_bim'){|_|begin;p=mst_selected_bim_pile_payload;@d.execute_script("loadSelectedBimPile(#{JSON.generate(p)})") if @d;rescue=>e;UI.messagebox("BIM kazığı yüklenemedi: #{e.message}");end}
@@ -10489,7 +10489,7 @@ def show_dialog
   raise 'Sistemdeki son yapı silinemez' if rows.length<=1
   used=mst_all_elements.any?{|e|e.respond_to?(:valid?) && e.valid? && e.respond_to?(:get_attribute) && e.get_attribute(DICT,'ano','').to_s==name}
   raise 'Bu yapıda BIM elemanları mevcut; önce ilgili elemanları taşıyın veya silin.' if used
-  model.start_operation('MST Delete Empty Structure',true)
+  model.start_operation('MST Boş Yapıyı Sil',true)
   begin
     mst_save_structures_for_system(sys,rows.reject{|x|x==name},model)
     mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı')
@@ -10663,7 +10663,7 @@ def batch_update_selected_pile_details
    mst_apply_pile_detail_changes(pile,changes)
   end
   model.commit_operation
-  UI.messagebox("#{piles.length} kazık güncellendi. Tek Undo ile geri alınabilir.\nSeçili kazıkların yeni toplam forajı: #{format('%.2f',after)} m")
+  UI.messagebox("#{piles.length} kazık güncellendi. Tek Geri Al ile geri alınabilir.\nSeçili kazıkların yeni toplam forajı: #{format('%.2f',after)} m")
  rescue => e
   model.abort_operation
   UI.messagebox("Toplu işlem geri alındı: #{e.message}")
@@ -10672,20 +10672,20 @@ end
 
 unless file_loaded?(__FILE__)
  install_dependency_observers
- menu=UI.menu('Extensions').add_submenu('Marine Structures Tools')
+ menu=UI.menu('Extensions').add_submenu('Deniz Yapıları Araçları (MST)')
  # v0.38 UI5: sade menü — her şey ana pencerede; eski öğelerin tamamı alt menüde korunur
- menu.add_item('MST Aç'){show_dialog};menu.add_item('Model Kontrolü (Audit)'){model_audit};menu.add_item('Model Bakımı'){show_dialog;mst_host_exec("mstShowPage('maint')")}
- menu.add_separator;menu.add_item('Kazık Numaralarını Göster / Güncelle'){mst_labels_ui(true)};menu.add_item('Kazık Numaralarını Kaldır'){mst_labels_ui(false)};menu.add_item('Numarayla Bul…'){mst_find_ui};menu.add_item('PE Kaplama Görünümünü Göster / Güncelle'){mst_pe_ui(true)};menu.add_item('PE Kaplama Görünümünü Kaldır'){mst_pe_ui(false)};menu.add_item('PE Üst Kotunu Ayarla…'){mst_pe_top_ui};menu.add_separator;menu.add_item('Otomatik Donatı (seçili BK)…'){mst_ar_selected_ui};menu.add_item('Çizimden Donatı (seçili BK)…'){mst_dr_selected_ui};menu.add_item('Çizimden / Otomatik Donatıyı Sil'){mst_dr_remove_ui};menu.add_item('Eski Donatıyı Yeni Kurallarla Yeniden Çiz'){mst_rt_upgrade_ui};menu.add_item('Donatı Ayarları…'){mst_rs_ui};menu.add_item('Donatıyı Göster / Gizle'){mst_rt_toggle_ui};menu.add_item('Bükme Listesi + Kesim Planı'){mst_rt_bending_ui};menu.add_item('Donatı Kesiti (seçili BK)…'){mst_rt_section_ui};menu.add_item('Donatı Revizyon Karşılaştırması…'){mst_rt_revision_ui};menu.add_item('Elemanlar Arası Donatı Çakışması'){mst_rt_clash_ui};menu.add_separator;pj=menu.add_submenu('Proje Paftaları (v0.50)');pj.add_item('A-Çerçeve Eğik Kazık Çiftleri…'){mst_af_ui};pj.add_item('Kazık Dispozisyonu — DXF…'){mst_kd_ui};pj.add_item('Kazık Filizini BK\'ya Göre Ayarla'){mst_kf_fit_ui};pj.add_separator;pj.add_item('Vinç / Boylama Kirişi (iki BK arası)…'){mst_vk_ui};pj.add_item('Menfez Sac Kutusu (seçili BK)…'){mst_cv_ui};pj.add_item('BK Taban Bölgesi…'){mst_bz_ui};pj.add_item('Kademeli Döküm…'){mst_hb_stage_ui};pj.add_item('Kademeli Döküm Metrajı'){mst_hb_stage_report_ui};pj.add_separator;pj.add_item('Prekast Donatısı (PD / PK)…'){mst_pc_ui};pj.add_item('Paftadan 3B Donatı (otomatik)…'){mst_dra_ui};pj.add_item('Paftadan Donatı Metrajı (DXF)…'){mst_dxr_ui};pj.add_item('Paftadan Donatı Metrajını Kaldır'){mst_dxr_remove_ui};pj.add_separator;pj.add_item('Kaplama Eğimi…'){mst_tp_ui};pj.add_item('Malzeme Sınıfları…'){mst_ms_ui};menu.add_separator;menu.add_item('İş Programı Oluştur'){mst_sp_ui};menu.add_item('İş Programı Ayarları…'){mst_sp_settings_ui};menu.add_item('İş Programı — 4D Görünüm…'){mst_sp_4d_ui};menu.add_item('İş Programı — 4D Temizle'){mst_sp_4d_clear_ui}
+ menu.add_item('MST Aç'){show_dialog};menu.add_item('Model Kontrolü'){model_audit};menu.add_item('Model Bakımı'){show_dialog;mst_host_exec("mstShowPage('maint')")}
+ menu.add_separator;menu.add_item('Kazık Numaralarını Göster / Güncelle'){mst_labels_ui(true)};menu.add_item('Kazık Numaralarını Kaldır'){mst_labels_ui(false)};menu.add_item('Numarayla Bul…'){mst_find_ui};menu.add_item('PE Kaplama Görünümünü Göster / Güncelle'){mst_pe_ui(true)};menu.add_item('PE Kaplama Görünümünü Kaldır'){mst_pe_ui(false)};menu.add_item('PE Üst Kotunu Ayarla…'){mst_pe_top_ui};menu.add_separator;menu.add_item('Otomatik Donatı (seçili BK)…'){mst_ar_selected_ui};menu.add_item('Çizimden Donatı (seçili BK)…'){mst_dr_selected_ui};menu.add_item('Çizimden / Otomatik Donatıyı Sil'){mst_dr_remove_ui};menu.add_item('Eski Donatıyı Yeni Kurallarla Yeniden Çiz'){mst_rt_upgrade_ui};menu.add_item('Donatı Ayarları…'){mst_rs_ui};menu.add_item('Donatıyı Göster / Gizle'){mst_rt_toggle_ui};menu.add_item('Bükme Listesi + Kesim Planı'){mst_rt_bending_ui};menu.add_item('Donatı Kesiti (seçili BK)…'){mst_rt_section_ui};menu.add_item('Donatı Revizyon Karşılaştırması…'){mst_rt_revision_ui};menu.add_item('Elemanlar Arası Donatı Çakışması'){mst_rt_clash_ui};menu.add_separator;pj=menu.add_submenu('Proje Paftaları');pj.add_item('A-Çerçeve Eğik Kazık Çiftleri…'){mst_af_ui};pj.add_item('Kazık Dispozisyonu — DXF…'){mst_kd_ui};pj.add_item('Kazık Filizini BK\'ya Göre Ayarla'){mst_kf_fit_ui};pj.add_separator;pj.add_item('Vinç / Boylama Kirişi (iki BK arası)…'){mst_vk_ui};pj.add_item('Menfez Sac Kutusu (seçili BK)…'){mst_cv_ui};pj.add_item('BK Taban Bölgesi…'){mst_bz_ui};pj.add_item('Kademeli Döküm…'){mst_hb_stage_ui};pj.add_item('Kademeli Döküm Metrajı'){mst_hb_stage_report_ui};pj.add_separator;pj.add_item('Prekast Donatısı (PD / PK)…'){mst_pc_ui};pj.add_item('Paftadan 3B Donatı (otomatik)…'){mst_dra_ui};pj.add_item('Paftadan Donatı Metrajı (DXF)…'){mst_dxr_ui};pj.add_item('Paftadan Donatı Metrajını Kaldır'){mst_dxr_remove_ui};pj.add_separator;pj.add_item('Kaplama Eğimi…'){mst_tp_ui};pj.add_item('Malzeme Sınıfları…'){mst_ms_ui};menu.add_separator;menu.add_item('İş Programı Oluştur'){mst_sp_ui};menu.add_item('İş Programı Ayarları…'){mst_sp_settings_ui};menu.add_item('İş Programı — 4D Görünüm…'){mst_sp_4d_ui};menu.add_item('İş Programı — 4D Temizle'){mst_sp_4d_clear_ui}
  menu.add_separator
  old_menu=menu.add_submenu('Tüm araçlar (eski menü)')
- old_menu.add_item('Marine Structures Tools'){show_dialog};old_menu.add_item('MST Tags Oluştur / Güncelle'){mst_retag_all(true)};old_menu.add_item('Marine BOQ Library'){show_boq_library};old_menu.add_item('ÖBF – Model Miktarı Eşleştirme'){show_boq_mapping};old_menu.add_item('Project / Ano / Axis Manager'){project_ano_axis_manager};old_menu.add_item('BIM Data Core / Element Library'){bim_data_core_report};old_menu.add_item('Dependency Engine / Etki Analizi'){stamp_dependency_metadata};old_menu.add_item('Metraj / QTO Engine 3.0'){takeoff};old_menu.add_item('Keşif / BOQ Engine'){show_boq_engine};old_menu.add_item('Model Audit 4.1d / Engineering QA'){model_audit};old_menu.add_item('Deck BIM Relationship Repair'){repair_deck_bim_relationships};old_menu.add_item('BIM Identity Repair'){repair_bim_identity};old_menu.add_item('Pile Type Library Auto-Sync'){mst_repair_pile_type_library};old_menu.add_item('Çember Et Kalınlığı — Kurala Çek (Model Geneli)'){mst_ring_rule_normalize_all};old_menu.add_item('Kazık Boru Ağırlıklarını Doğrula / Düzelt'){mst_reconcile_pile_weights!};old_menu.add_item('Pile Organization Sync'){mst_repair_pile_organization};old_menu.add_item('Element Library'){element_library};old_menu.add_item('Pile Layout 2.0 - Seçili Kazığı Düzenle'){edit_selected_pile_v2};old_menu.add_item('Toplu Kazık Detay Güncelle'){batch_update_selected_pile_details};old_menu.add_item('Professional QTO / Excel'){export_professional_excel};old_menu.add_item('BOQ / QTO CSV Export'){export_boq_csv};old_menu.add_item('Düz Prekast (PD) Yerleşimi'){create_flat_precast}
+ old_menu.add_item('Deniz Yapıları Araçları (MST)'){show_dialog};old_menu.add_item("MST Tag'lerini Oluştur / Güncelle"){mst_retag_all(true)};old_menu.add_item('Keşif Kütüphanesi'){show_boq_library};old_menu.add_item('ÖBF – Model Miktarı Eşleştirme'){show_boq_mapping};old_menu.add_item('Proje / Ano / Aks Yöneticisi'){project_ano_axis_manager};old_menu.add_item('BIM Veri Çekirdeği / Eleman Kütüphanesi'){bim_data_core_report};old_menu.add_item('Bağımlılık Motoru / Etki Analizi'){stamp_dependency_metadata};old_menu.add_item('Metraj Motoru'){takeoff};old_menu.add_item('Keşif Motoru'){show_boq_engine};old_menu.add_item('Model Kontrolü / Mühendislik Kalite Kontrolü'){model_audit};old_menu.add_item('Döşeme BIM İlişki Onarımı'){repair_deck_bim_relationships};old_menu.add_item('BIM Kimlik Onarımı'){repair_bim_identity};old_menu.add_item('Kazık Tip Kütüphanesi Otomatik Eşitleme'){mst_repair_pile_type_library};old_menu.add_item('Çember Et Kalınlığı — Kurala Çek (Model Geneli)'){mst_ring_rule_normalize_all};old_menu.add_item('Kazık Boru Ağırlıklarını Doğrula / Düzelt'){mst_reconcile_pile_weights!};old_menu.add_item('Kazık Düzeni Eşitleme'){mst_repair_pile_organization};old_menu.add_item('Eleman Kütüphanesi'){element_library};old_menu.add_item('Kazık Yerleşimi - Seçili Kazığı Düzenle'){edit_selected_pile_v2};old_menu.add_item('Toplu Kazık Detay Güncelle'){batch_update_selected_pile_details};old_menu.add_item('Ayrıntılı Metraj (Excel)'){export_professional_excel};old_menu.add_item('Keşif / Metraj CSV Dışa Aktar'){export_boq_csv};old_menu.add_item('Düz Prekast (PD) Yerleşimi'){create_flat_precast}
  # v0.51.2 TB1: gruplu araç çubukları (Genel / Kazık / Donatı / Proje) — Extensions menüsündeki araçların tamamı
  mst_tb_defs=[
   ['Marine Structures',[
-   ['tb_open','MST Aç','Marine Structures Tools penceresini açar',proc{show_dialog}],
-   ['tb_audit','Model Kontrolü (Audit)','Model kontrolü / mühendislik kalite raporu',proc{model_audit}],
+   ['tb_open','MST Aç','Deniz Yapıları Araçları (MST) penceresini açar',proc{show_dialog}],
+   ['tb_audit','Model Kontrolü','Model kontrolü / mühendislik kalite kontrolü raporu',proc{model_audit}],
    ['tb_maint','Model Bakımı','MST penceresinde Model Bakımı sayfasını açar',proc{show_dialog;mst_host_exec("mstShowPage('maint')")}],
-   ['tb_tags','MST Tags Güncelle','Tüm MST elemanlarının Tag\'ini yapı / aile / tip adına göre yeniden atar (tek Undo)',proc{mst_retag_all(true)}]]],
+   ['tb_tags',"MST Tag'lerini Güncelle",'Tüm MST elemanlarının Tag\'ini yapı / aile / tip adına göre yeniden atar (tek Geri Al)',proc{mst_retag_all(true)}]]],
   ['MST Kazık',[
    ['tb_labels','Kazık Numaraları','Kazık numaralarını modelde göster / güncelle (metraj değişmez)',proc{mst_labels_ui(true)}],
    ['tb_find','Numarayla Bul','Kazık / eleman numarasıyla bul ve seç',proc{mst_find_ui}],
@@ -11883,7 +11883,7 @@ def mst_precast_convert(to_component)
   todo=todo.reject{|e|(why=mst_precast_convert_check(e,model)) && skipped << "#{element_visible_id(e)}: #{why}"}
  end
  return UI.messagebox("Çevrilecek prekast yok (#{tg.length} seçili; zaten #{to_component ? 'Component' : 'Group'}).#{skipped.empty? ? '' : "\n\n"+skipped.first(10).join("\n")}") if todo.empty?
- msg="#{todo.length} prekast #{to_component ? 'Component' : 'Group'} yapılacak.\nKonum, kimlik (element_uid), tip ve metraj değişmez; tek Undo."
+ msg="#{todo.length} prekast #{to_component ? 'Component' : 'Group'} yapılacak.\nKonum, kimlik (element_uid), tip ve metraj değişmez; tek Geri Al."
  msg+="\n\nAtlanacak #{skipped.length}:\n#{skipped.first(8).join("\n")}" unless skipped.empty?
  return unless UI.messagebox(msg,MB_YESNO)==IDYES
  model.start_operation(to_component ? 'MST Prekast → Component' : 'MST Prekast → Group',true)
@@ -11904,7 +11904,7 @@ def mst_purge_unused_precast_definitions
  defs=model.definitions.to_a.select{|d|d.valid? && !d.image? && !d.group? && d.get_attribute(DICT,'mst_def_kind','').to_s=='precast' && d.instances.empty?}
  used=model.definitions.to_a.count{|d|d.valid? && !d.group? && d.get_attribute(DICT,'mst_def_kind','').to_s=='precast' && !d.instances.empty?}
  return UI.messagebox("Kullanılmayan prekast tanımı yok.\nKullanımdaki prekast tanımı: #{used}") if defs.empty?
- return unless UI.messagebox("Kullanılmayan prekast tanımları temizlenecek: #{defs.length}\n#{defs.map(&:name).first(12).join("\n")}\n\nKullanımdaki #{used} tanım değişmez. Tek Undo. Devam?",MB_YESNO)==IDYES
+ return unless UI.messagebox("Kullanılmayan prekast tanımları temizlenecek: #{defs.length}\n#{defs.map(&:name).first(12).join("\n")}\n\nKullanımdaki #{used} tanım değişmez. Tek Geri Al. Devam?",MB_YESNO)==IDYES
  model.start_operation('MST Kullanılmayan Prekast Tanımlarını Temizle',true)
  begin
   n=mst_remove_definitions!(model,defs);model.commit_operation
@@ -12156,7 +12156,7 @@ def mst_kn_preview_text(kp,title='Ceplere Kanal Prekastı Yerleştir')
     lines << '' << 'Uyarılar:'
     kp['warnings'].first(10).each{|w|lines << "⚠ #{w}"}
   end
-  lines << '' << 'Kanallar Component olarak, PD ile aynı prekast grubuna eklenir. Tek Undo.' << 'Yerleştirilsin mi?' unless kp['cands'].empty?
+  lines << '' << 'Kanallar Component olarak, PD ile aynı prekast grubuna eklenir. Tek Geri Al.' << 'Yerleştirilsin mi?' unless kp['cands'].empty?
   lines.join("\n")
 end
 
@@ -12334,7 +12334,7 @@ def mst_kn_pockets_preview_text(np)
     lines << '' << 'Uyarılar:'
     np['warnings'].first(10).each{|w|lines << "⚠ #{w}"}
   end
-  lines << '' << 'BK geometrisi cep ile yeniden oluşturulur (UID, kazık bağlantıları, kalıp seçimleri ve donatı korunur); cepli BK yeni tip adı alabilir. Tek Undo.' << 'Uygulansın mı?' unless np['plans'].empty?
+  lines << '' << 'BK geometrisi cep ile yeniden oluşturulur (UID, kazık bağlantıları, kalıp seçimleri ve donatı korunur); cepli BK yeni tip adı alabilir. Tek Geri Al.' << 'Uygulansın mı?' unless np['plans'].empty?
   lines.join("\n")
 end
 
@@ -12614,14 +12614,14 @@ def mst_pile_rebar_apply(raw)
   raise "Donatı uygulanamadı:\n#{errs.first(10).join("\n")}" unless errs.empty?
  end
  msg=if remove
-  "#{targets.length} kazıktan donatı kafesi kaldırılacak (metraj pursantaj kuralına döner). Tek Undo."
+  "#{targets.length} kazıktan donatı kafesi kaldırılacak (metraj pursantaj kuralına döner). Tek Geri Al."
  else
   c0=lines[0][1]
   l=["Kazık İçi Donatı (BIM) — #{targets.length} kazık",'',
      format('Boyuna: %d × Ø%.0f (çevre aralığı %.0f mm), boy %.2f m (filiz %.2f m)',c0['n'],params['long_dia_mm'],c0['spacing_mm'],c0['l_long'],params['anchor_m']),
      format('%s: Ø%.0f / %.0f mm, kafes boyu %.2f m',params['tr_type']=='SPIRAL' ? 'Spiral' : 'Etriye',params['tr_dia_mm'],params['tr_spacing_mm'],c0['lc']),
      format('İlk kazık (%s): %.1f kg  •  Toplam: %.3f t',lines[0][0],c0['kg'],total/1000.0)]
-  l << '' << 'Kazık değişince (Ø, boy, kot, iç beton) kafes otomatik yeniden üretilir. Tek Undo.'
+  l << '' << 'Kazık değişince (Ø, boy, kot, iç beton) kafes otomatik yeniden üretilir. Tek Geri Al.'
   l.join("\n")
  end
  return {'status'=>'İptal edildi; model değişmedi.'} unless UI.messagebox(msg,MB_YESNO)==IDYES
@@ -12649,7 +12649,7 @@ def mst_pile_rebar_apply(raw)
  rescue Exception
   model.abort_operation;raise
  end
- {'status'=>remove ? "#{targets.length} kazıktan donatı kafesi kaldırıldı." : format('%d kazığa donatı kafesi uygulandı • toplam %.3f t (tek Undo)',targets.length,total/1000.0)}
+ {'status'=>remove ? "#{targets.length} kazıktan donatı kafesi kaldırıldı." : format('%d kazığa donatı kafesi uygulandı • toplam %.3f t (tek Geri Al)',targets.length,total/1000.0)}
 end
 
 
@@ -12737,7 +12737,7 @@ def mst_axis_move_confirm(plans,splans=[])
     pl['warnings'].first(8).each{|w|lines << "  ⚠ #{w}"}
     lines << "  ⚠ … #{pl['warnings'].length-8} uyarı daha" if pl['warnings'].length>8
   end
-  lines << '' << 'Evet: aksları kaydet + bağlı kazık/BK\'ları taşı (tek Undo)' << 'Hayır: yalnız aksları kaydet (elemanlar yerinde kalır)' << 'İptal: hiçbir şey kaydetme'
+  lines << '' << 'Evet: aksları kaydet + bağlı kazık/BK\'ları taşı (tek Geri Al)' << 'Hayır: yalnız aksları kaydet (elemanlar yerinde kalır)' << 'İptal: hiçbir şey kaydetme'
   case UI.messagebox(lines.join("\n"),MB_YESNOCANCEL)
   when IDYES then :move
   when IDNO then :axes_only
@@ -12961,7 +12961,7 @@ def project_ano_axis_manager
   html=%Q{<!doctype html><html><head><meta charset='utf-8'><style>
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f3f7fa;color:#17384d}.top{background:#fff;border-bottom:1px solid #cbdde8;padding:15px 20px;display:flex;justify-content:space-between;align-items:center}.top h2{margin:0;color:#073f73}.badge{padding:7px 12px;border-radius:18px;background:#e7f4ff;color:#0874c9;font-weight:700;font-size:11px}.wrap{padding:14px}.card{background:#fff;border:1px solid #cbdde8;border-radius:9px;padding:13px;margin-bottom:12px}.row{display:grid;grid-template-columns:1.4fr .8fr 1fr auto;gap:9px;align-items:end}.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.axisbox{border:1px solid #d7e5ed;border-radius:8px;padding:10px;background:#fbfdfe;overflow-x:auto}.axisbox table{min-width:790px}.axisbox th:nth-child(1){min-width:90px}.axisbox th:nth-child(2){min-width:145px}.axisbox th:nth-child(3){min-width:145px}.axisbox th:nth-child(4){min-width:112px}.axisbox th:nth-child(5){min-width:120px}.axisbox th:nth-child(6){min-width:105px}.axisbox th:nth-child(7){min-width:105px}.axisbox td:nth-child(4) select{min-width:105px}.axisbox td:nth-child(5) select{min-width:112px}.axisbox td:nth-child(6) select{min-width:98px}.axisbox td:nth-child(7) select{min-width:98px}label{font-size:11px;font-weight:700;color:#42677f}input,select{width:100%;padding:8px;border:1px solid #bfd2df;border-radius:6px;margin-top:5px;background:#fff}button{padding:9px 13px;border:0;border-radius:6px;background:#087fd1;color:#fff;font-weight:700;cursor:pointer}.secondary{background:#5c7485}.danger{background:#b94a48}.green{background:#16834f}.sm{padding:6px 8px;font-size:10px}.actions{display:flex;gap:6px;flex-wrap:wrap}table{width:100%;border-collapse:collapse}th,td{font-size:11px;padding:7px;border-bottom:1px solid #e3edf3;text-align:left}th{background:#eaf3f8;color:#42677f}.toolbar{display:grid;grid-template-columns:1fr 90px 110px auto;gap:6px;align-items:end;margin-top:10px}.readonly{background:#eef4f7;font-weight:700}.status{margin-top:8px;font-size:11px;color:#16834f;font-weight:700}.chain{font-weight:700;color:#075d91;padding:9px;background:#eef8fe;border-radius:7px}.placement{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 110px 90px;gap:7px;align-items:end;margin-top:9px}.muted{font-size:10px;color:#6c8494}.titleline{display:flex;justify-content:space-between;align-items:center}.titleline h3{margin:0}.warn{color:#a04a00}
 </style></head><body>
-<div class='top'><div><h2>Proje / Sistem / Yapı — Aks Yöneticisi</h2><div>Temiz aks motoru: Sistemler birbirinden bağımsızdır.</div></div><span class='badge'>v0.34.51</span></div>
+<div class='top'><div><h2>Proje / Sistem / Yapı — Aks Yöneticisi</h2><div>Temiz aks motoru: Sistemler birbirinden bağımsızdır.</div></div><span class='badge'>v#{VERSION}</span></div>
 <div class='wrap'>
 <div class='card'><div class='row'><label>Proje Adı<input id='project' value='#{html_escape(project)}'></label><label>Sistem<select id='system'><option value='DOLFEN'>DOLFEN</option><option value='ISKELE'>İSKELE</option><option value='RIHTIM'>RIHTIM</option></select></label><label>Aktif Yapı<select id='structure'></select></label><button id='saveAll'>Projeyi Kaydet</button></div><div class='row' style='grid-template-columns:1.4fr 1fr auto auto;margin-top:9px'><label>Yeni Yapı<input id='newStructure'></label><div></div><button id='addStructure'>+ Yeni Yapı</button><div class='actions'><button id='copyStructure' class='secondary'>Yapıyı Kopyala</button><button id='deleteStructure' class='danger'>Yapıyı Sil</button></div></div><div id='status' class='status'></div></div>
 <div class='card'><div class='titleline'><h3>Yapı Yerleşim Zinciri</h3></div><div id='chain' class='chain'></div><table><thead><tr><th>Sıra</th><th>Yapı</th><th>X Konumu</th><th>Y Konumu</th><th>Global Başlangıç</th><th>Düzenle</th></tr></thead><tbody id='chainbody'></tbody></table>
@@ -12970,8 +12970,8 @@ def project_ano_axis_manager
 <div class='axisbox'><h3>Y KONUMU</h3><div class='placement' style='grid-template-columns:1fr 1fr 1fr 1fr 1fr 120px'><label>Konumlandırma<select id='yMode'><option value='INDEPENDENT'>Bağımsız (koordinat)</option><option value='SAME_SYSTEM'>Aynı sistemde bağla</option><option value='OTHER_SYSTEM'>Başka sisteme bağla</option></select></label><label>Referans Sistem<select id='yRefSystem'><option>DOLFEN</option><option value='ISKELE'>İSKELE</option><option>RIHTIM</option></select></label><label>Referans Yapı<select id='yRefStructure'></select></label><label>Referans Y Aksı<select id='yRefAxis'></select></label><label>Bu Yapının Y Aksı<select id='yTargetAxis'></select></label><label>Mesafe / Yön<div style='display:flex;gap:5px'><input id='yDistance' inputmode='decimal' value='0.00'><select id='yDirection' style='width:72px'><option>+Y</option><option>-Y</option></select></div></label></div><div class='muted' style='margin-top:6px'>Aynı hat için mesafe 0.00 olabilir: BD-02 / F → 0.00 m → YD-01 / F.</div></div>
 </div><div class='actions' style='margin-top:9px'><button id='savePlacement' class='green'>X + Y Konumunu Kaydet</button><button id='independent' class='secondary' title='Bağlantıyı kopar, yapı bulunduğu yerde kalır; sonra Mesafe ile yeni koordinatı girin'>X + Y Bağımsız Yap (yerinde)</button></div></div>
 <div class='card'><div class='titleline'><h3 id='axisTitle'>AKS SİSTEMİ</h3><div class='actions'><button id='showGrid' class='secondary'>Aksları Modelde Göster / Güncelle</button><button id='saveGrid'>Aks Sistemini Kaydet</button></div></div><div class='row2' style='margin-top:10px'>
-<div class='axisbox'><h3>X Aksları</h3><table><thead><tr><th>Aks</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Linetype</th><th>Lineweight</th><th>Extent</th><th></th></tr></thead><tbody id='xbody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addX' class='sm'>+ X Aksı Ekle</button><label>Yerel X Yönü<select id='xLocalDir'><option value='+X'>+X</option><option value='-X'>-X</option></select></label></div><div class='toolbar'><label>Önek<input id='xprefix' value='X-'></label><label>Adet<input id='xcount' value='6'></label><label>Aralık (m)<input id='xspacing' value='5.60'></label><button id='genX' class='sm secondary'>Düzenli Oluştur</button></div></div>
-<div class='axisbox'><h3>Y Aksları</h3><table><thead><tr><th>Aks</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Linetype</th><th>Lineweight</th><th>Extent</th><th></th></tr></thead><tbody id='ybody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addY' class='sm'>+ Y Aksı Ekle</button><label>Yerel Y Yönü<select id='yLocalDir'><option value='+Y'>+Y</option><option value='-Y'>-Y</option></select></label></div><div class='toolbar'><label>Önek<input id='yprefix' value=''></label><label>Adet<input id='ycount' value='3'></label><label>Aralık (m)<input id='yspacing' value='2.50'></label><button id='genY' class='sm secondary'>Düzenli Oluştur</button></div></div>
+<div class='axisbox'><h3>X Aksları</h3><table><thead><tr><th>Aks</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Çizgi Tipi</th><th>Çizgi Kalınlığı</th><th>Uzanım</th><th></th></tr></thead><tbody id='xbody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addX' class='sm'>+ X Aksı Ekle</button><label>Yerel X Yönü<select id='xLocalDir'><option value='+X'>+X</option><option value='-X'>-X</option></select></label></div><div class='toolbar'><label>Önek<input id='xprefix' value='X-'></label><label>Adet<input id='xcount' value='6'></label><label>Aralık (m)<input id='xspacing' value='5.60'></label><button id='genX' class='sm secondary'>Düzenli Oluştur</button></div></div>
+<div class='axisbox'><h3>Y Aksları</h3><table><thead><tr><th>Aks</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Çizgi Tipi</th><th>Çizgi Kalınlığı</th><th>Uzanım</th><th></th></tr></thead><tbody id='ybody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addY' class='sm'>+ Y Aksı Ekle</button><label>Yerel Y Yönü<select id='yLocalDir'><option value='+Y'>+Y</option><option value='-Y'>-Y</option></select></label></div><div class='toolbar'><label>Önek<input id='yprefix' value=''></label><label>Adet<input id='ycount' value='3'></label><label>Aralık (m)<input id='yspacing' value='2.50'></label><button id='genY' class='sm secondary'>Düzenli Oluştur</button></div></div>
 </div></div></div>
 <script>
 (function(){
@@ -12999,9 +12999,9 @@ var gap=document.createElement('input');if(i===0){gap.value='—';gap.disabled=t
 var c=document.createElement('input');c.value=Number(r.coord_m).toFixed(2);c.disabled=true;c.className='readonly';cells[2].appendChild(c);
 function sel(opts,val,cb){var q=document.createElement('select');q.innerHTML=opts;q.value=val;q.addEventListener('change',cb);return q}
 cells[3].appendChild(sel('<option value="AXIS">Aks</option><option value="SYSTEM">Sistem Aksı</option>',r.line_type,function(){r.line_type=this.value}));
-cells[4].appendChild(sel('<option value="CONTINUOUS">Continuous</option><option value="DASHED">Dashed</option><option value="CENTER">Center</option><option value="DASHDOT">Dash-Dot</option><option value="SHORTDASH">Short Dash</option>',r.pattern,function(){r.pattern=this.value}));
+cells[4].appendChild(sel('<option value="CONTINUOUS">Sürekli</option><option value="DASHED">Kesikli</option><option value="CENTER">Eksen</option><option value="DASHDOT">Kesik-Nokta</option><option value="SHORTDASH">Kısa Kesikli</option>',r.pattern,function(){r.pattern=this.value}));
 cells[5].appendChild(sel('<option value="0.005">0.005 mm</option><option value="0.01">0.01 mm</option><option value="0.02">0.02 mm</option><option value="0.03">0.03 mm</option><option value="0.05">0.05 mm</option><option value="0.07">0.07 mm</option><option value="0.10">0.10 mm</option><option value="0.13">0.13 mm</option><option value="0.15">0.15 mm</option><option value="0.18">0.18 mm</option><option value="0.20">0.20 mm</option><option value="0.25">0.25 mm</option><option value="0.30">0.30 mm</option><option value="0.35">0.35 mm</option><option value="0.50">0.50 mm</option>',r.lineweight,function(){r.lineweight=this.value}));
-cells[6].appendChild(sel('<option value="FINITE">Finite</option><option value="INFINITE">Infinite</option>',r.extent,function(){r.extent=this.value}));
+cells[6].appendChild(sel('<option value="FINITE">Sonlu</option><option value="INFINITE">Sonsuz</option>',r.extent,function(){r.extent=this.value}));
 if(i>0){var rm=document.createElement('button');rm.textContent='Sil';rm.className='sm danger';rm.addEventListener('click',function(){grid()[d].splice(i,1);renderAxis(d);renderPlacementSelectors()});cells[7].appendChild(rm)}
 cells.forEach(function(td){tr.appendChild(td)});b.appendChild(tr)})}
 function renderAxes(){el('axisTitle').textContent='AKS SİSTEMİ — '+currentStructure;renderAxis('x');renderAxis('y');el('xLocalDir').value=grid().x_dir||'+X';el('yLocalDir').value=grid().y_dir||'+Y'}
@@ -13076,8 +13076,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           raise
         end
       end
-      note=moved[0]+moved[1]>0 ? " • #{moved[0]} kazık, #{moved[1]} BK#{moved[2].to_i>0 ? ", #{moved[2]} BK üstü eleman" : ''} taşındı (tek Undo)." : ''
-      note+=" • Yapı taşındı: #{moved_struct} kazık (tek Undo)." if moved_struct>0
+      note=moved[0]+moved[1]>0 ? " • #{moved[0]} kazık, #{moved[1]} BK#{moved[2].to_i>0 ? ", #{moved[2]} BK üstü eleman" : ''} taşındı (tek Geri Al)." : ''
+      note+=" • Yapı taşındı: #{moved_struct} kazık (tek Geri Al)." if moved_struct>0
       nrz=decision==:move ? plans.sum{|pl|(pl['resizes']||[]).length} : 0
       note+=" • #{nrz} prekast yeni açıklığa göre boyutlandı." if nrz>0
       note+=" • Aks çizgileri güncellendi: #{redrawn.join(', ')}." unless redrawn.empty?

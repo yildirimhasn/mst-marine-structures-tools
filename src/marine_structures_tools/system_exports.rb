@@ -16,11 +16,11 @@ def system_export_sheets
  cut=rf.fetch(:geometry_result,{}).fetch('excavation_m3',0).to_f
  rock<<['KAZI','Kazı — taş toplamından ayrı',cut,nil,nil,rf[:source_label]] if cut>0
  [
-  ['BOQ USD',['ÖBF','İş kalemi','Miktar','Birim','Birim fiyat USD','Tutar USD','Para','Kaynak','Durum'],boq_data,[16,65,16,12,20,20,12,32,30]],
+  ['Keşif USD',['ÖBF','İş kalemi','Miktar','Birim','Birim fiyat USD','Tutar USD','Para','Kaynak','Durum'],boq_data,[16,65,16,12,20,20,12,32,30]],
   ['Jet Grout',jg_export_headers,jg_export_rows,Array.new(17,20)],
-  ['Fore Kazik',['Tip','Çap mm','Üst kot m','Alt kot m','Beton','Adet','Boy m','Delgi m','Beton m³','Sipariş m³','Donatı t','Muhafaza','Muhafaza m'],fore,[18,14,14,14,14,10,16,16,16,16,16,18,16]],
+  ['Fore Kazık',['Tip','Çap mm','Üst kot m','Alt kot m','Beton','Adet','Boy m','Delgi m','Beton m³','Sipariş m³','Donatı t','Muhafaza','Muhafaza m'],fore,[18,14,14,14,14,10,16,16,16,16,16,18,16]],
   ['Aksesuarlar',['Tip','Tanım','Konum','Miktar','Birim','Kapasite t/kanca','Kanca/set','Kapsam'],accessories,[18,65,25,16,12,20,16,24]],
-  ['Tas Dolgu',['Kod','Malzeme','Hacim m³','Yoğunluk t/m³','Tonaj t','Aktif hesap kaynağı'],rock,[18,55,18,20,18,40]]
+  ['Taş Dolgu',['Kod','Malzeme','Hacim m³','Yoğunluk t/m³','Tonaj t','Aktif hesap kaynağı'],rock,[18,55,18,20,18,40]]
  ]
 end
 end

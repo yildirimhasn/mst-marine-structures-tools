@@ -313,7 +313,7 @@ def rf_live_action(action,json,dialog)
    result=rf_live_result(state);state['last_result']=result
    if action=='activate'
     # v0.51.5 K62: proje durumu + canlı QTO kaynağı tek işlemde (tek Geri Al); doğrulama (rf_live_qto) aynı işlem içinde
-    model.start_operation('Alternatif-02 Canlı QTO Kaynağı',true)
+    model.start_operation('Alternatif-02 Canlı Metraj Kaynağı',true)
     begin
      model.set_attribute(DICT,RF_LIVE_KEY,JSON.generate(state))
      rf_live_qto
@@ -323,7 +323,7 @@ def rf_live_action(action,json,dialog)
    else
     rf_live_store(state)
    end
-   rf_live_send(dialog,state,'Geometriden hesaplandı. BOQ aynı geometriyi yeniden okuyarak miktarı günceller.');return
+   rf_live_send(dialog,state,'Geometriden hesaplandı. Keşif aynı geometriyi yeniden okuyarak miktarı günceller.');return
   elsif action=='show'
    result=rf_live_result(state);index=Integer(request.fetch('index'));raise 'Kesit seçimi geçersiz.' unless index>=0 && index<result['sections'].size
    section=result['sections'][index].dup;spec=state['types'].fetch(section['type'])

@@ -64,8 +64,8 @@ function setPileQTOData(data){
   var status=data.qto_status||{}, missing=Number(status.incomplete_count)||0;
   var score=document.getElementById('qAuditScore');if(score)score.textContent=missing?'Kontrol gerekli':'Ön kontrol tamam';
   var text=document.getElementById('qAuditText');if(text)text.textContent=missing?
-    missing+' elemanda temel kimlik, organizasyon veya kesit bilgisi eksik. Tam ilişki kontrolü için Model Audit çalıştırın.':
-    'Temel kimlik ve kesit alanları kontrol edildi. İlişkiler, mükerrer kimlikler ve geometri için Model Audit çalıştırın.';
+    missing+' elemanda temel kimlik, organizasyon veya kesit bilgisi eksik. Tam ilişki kontrolü için Model Kontrolü çalıştırın.':
+    'Temel kimlik ve kesit alanları kontrol edildi. İlişkiler, mükerrer kimlikler ve geometri için Model Kontrolü çalıştırın.';
   var update=document.getElementById('qLastUpdate');if(update)update.textContent='Son okuma: '+new Date().toLocaleTimeString('tr-TR');
   if(data.version)setWorkspaceVersion(data.version);
 }

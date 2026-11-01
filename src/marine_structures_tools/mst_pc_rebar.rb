@@ -311,7 +311,7 @@ def mst_pc_ui
   model.abort_operation;raise
  end
  send_boq(@d) if @d rescue nil
- UI.messagebox(format("%d prekast parçasına donatı çizildi (%d tanım). BOQ / hakediş donatısı çizilen çubuklardan.%s",es.length,defs.length,(respond_to?(:mst_rt_visible_note) ? mst_rt_visible_note : '')))
+ UI.messagebox(format("%d prekast parçasına donatı çizildi (%d tanım). Keşif / hakediş donatısı çizilen çubuklardan.%s",es.length,defs.length,(respond_to?(:mst_rt_visible_note) ? mst_rt_visible_note : '')))
  es.length
 rescue => ex
  UI.messagebox("Prekast donatısı: #{ex.message}")

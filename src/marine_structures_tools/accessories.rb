@@ -190,7 +190,7 @@ def accessory_place_on_selected_edge(row,spacing)
   dir=vec.clone; dir.length=1.0
   parent=model.active_entities
   created=[]
-  model.start_operation('Marine Equipment Akıllı Yerleşim',true)
+  model.start_operation('Deniz Ekipmanı Akıllı Yerleşim',true)
   begin
     count.times do |i|
       dist=[i*spacing.m,len].min
@@ -327,7 +327,7 @@ end
 
 def show_accessories
  if @accessory_dialog && @accessory_dialog.visible?;@accessory_dialog.bring_to_front;return;end
- d=mst_html_dialog('accessories',dialog_title:'Marine Accessories BIM • Ekipman, QTO ve BOQ',preferences_key:'MAG_MST_Accessories',width:1450,height:920,resizable:true)
+ d=mst_html_dialog('accessories',dialog_title:'Aksesuarlar (BIM) • Ekipman, Metraj ve Keşif',preferences_key:'MAG_MST_Accessories',width:1450,height:920,resizable:true)
  @accessory_dialog=d
  d.set_file(File.join(__dir__,'accessories.html'))
  d.add_action_callback('accessory_action') do |_,action,json|

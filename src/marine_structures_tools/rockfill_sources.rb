@@ -10,7 +10,7 @@ module MAG
    class Reference
     def quantities(api,selection)
      data=api.rf02_quantity_data
-     raise 'Aktif Alternatif-02 referansı değişmiş; BOQ kaynağını yeniden etkinleştirin.' unless selection['fingerprint']==data[:reference_result]['fingerprint']
+     raise 'Aktif Alternatif-02 referansı değişmiş; keşif kaynağını yeniden etkinleştirin.' unless selection['fingerprint']==data[:reference_result]['fingerprint']
      data.merge(source_mode:'alt2')
     end
    end

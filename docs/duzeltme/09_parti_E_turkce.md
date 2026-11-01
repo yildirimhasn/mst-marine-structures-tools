@@ -1,0 +1,9 @@
+# 09 Parti E — Türkçeleştirme ve 0.51.5 rozetleri (mst-arayuz-tr, 02.11.2026)
+Dayanak: kullanıcı kararı 02.11.2026 "0.51.5 çekilsin, bütün açıklamalar isimler her şey türkçe olsun" (K43/K47/K48 kısıtı kalktı).
+Ana oturum doğrulaması: 33 dosya ±443 satır; ruby -c 66/66 hatasız; r25check failures=0; node --check tüm .js hatasız; check_inline_js 20/20; check_chromium64 hits=0; golden-master 8da4ec1 ↔ çalışma ağacı: 321 anahtar, farklı 0 (metin işi metrajı değiştirmedi); 20 sahte nesne testi 0 kalan (a1_r2 test Host'una VERSION sabiti, c_table_columns ve a2_info_g3 beklenen metinleri yeni adlarla güncellendi). SketchUp'ta denenmedi.
+
+Terimler: Marine Structures Tools → Deniz Yapıları Araçları (MST); BOQ → Keşif; QTO → Metraj; Professional QTO/Excel → Ayrıntılı Metraj (Excel); Model Audit → Model Kontrolü; Element Library → Eleman Kütüphanesi; Identity Repair → Kimlik Onarımı; Dependency Engine → Bağımlılık Motoru; Data Core → BIM Veri Çekirdeği; Snapshot → Anlık Kayıt; Offset → Kaçıklık; Override → Özel Değer.
+Kalanlar: araç çubuğu adları, EXTENSION.creator, modelde saklanan grup adları, aksesuar seçenek değerleri, JSON kataloglar, SketchUp terimleri (Component/Group/Tag), teknik kısaltmalar.
+CSV başlıkları ASCII Türkçe (Kategori, Tip, Malzeme/Sinif, Adet, Boy_m, Beton_m3, Kalip_m2, Celik_t; BOM'suz UTF-8 nedeniyle). Excel sayfa adları: Özet, Ayrıntılı Metraj, Eleman Kütüphanesi, Kazık Metrajı, Keşif USD, Fore Kazık, Taş Dolgu. Dışarıdan okuyan araçlar etkilenebilir.
+Eklenti adı değişikliği: Extension Manager etkin/pasif durumu ve Extensions menü yoluna atanmış kısayollar sıfırlanabilir (doğrulanmadı).
+SketchUp kabul adımları: ajan raporundaki 10 adım (Extension Manager adı, menü, pencere başlığı, sayfa adım geçişleri, Model Kontrolü sağlık kutuları, rozetler, Excel sayfa adları, CSV başlıkları, Geri Al adları, keşif toplamı değişmemiş).

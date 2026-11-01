@@ -228,7 +228,7 @@ module MAG
         end
         MarineStructuresTools.boq_rows.each do |model_row|
           seed=seeds.find { |r| r['source']==model_row[:source] && r['unit']==model_row[:unit] }
-          raise 'BOQ katalog eşleştirmesi bulunamadı.' unless seed
+          raise 'Keşif katalog eşleştirmesi bulunamadı.' unless seed
           target=if model_row[:project_mapping] || model_row[:automatic_mapping]
             rows.find { |r| r['id']==model_row[:library_id] }
           else
@@ -268,9 +268,9 @@ module MAG
         row=load.find { |r| r['id']==id }
         raise 'Kayıt bulunamadı.' unless row
         mapping=target(row)
-        raise 'Bu kayıt aktif BOQ ile aynı para birimi/birim/kaynak eşleşmesine sahip değil.' unless mapping
+        raise 'Bu kayıt aktif keşif ile aynı para birimi/birim/kaynak eşleşmesine sahip değil.' unless mapping
         model=Sketchup.active_model
-        model.start_operation('BOQ Kütüphane Birim Fiyatı',true)
+        model.start_operation('Keşif Kütüphanesi Birim Fiyatı',true)
         begin
           model.set_attribute(MarineStructuresTools::DICT,"boq_price_#{mapping[0]}",row['unit_price'])
           model.commit_operation
@@ -299,7 +299,7 @@ module MAG
         send_boq_library
         return
       end
-      d=mst_html_dialog('boq_library',dialog_title:'Marine BOQ Library v0.31.6',preferences_key:'MAG_MST_BOQ_Library',width:1250,height:820,resizable:true)
+      d=mst_html_dialog('boq_library',dialog_title:"Keşif Kütüphanesi v#{VERSION}",preferences_key:'MAG_MST_BOQ_Library',width:1250,height:820,resizable:true)
       @boq_library_dialog=d
       d.set_file(File.join(__dir__,'boq_library.html'))
       d.add_action_callback('library_action') do |_,action,json|
@@ -316,19 +316,19 @@ module MAG
             send_boq(@d) if @d && @d.visible?
           when 'delete'; BOQLibrary.remove(data.fetch('id')); message='Kayıt silindi. Son değişikliği geri alabilirsiniz.'
           when 'undo'; BOQLibrary.undo; message='Önceki kütüphane geri yüklendi.'
-          when 'capture'; BOQLibrary.capture(data); message='Tek USD arşivi hazır. Aktif BOQ kalemlerinin miktar ve fiyatları güncellendi; aynı pozlar birleştirildi.'
+          when 'capture'; BOQLibrary.capture(data); message='Tek USD arşivi hazır. Aktif keşif kalemlerinin miktar ve fiyatları güncellendi; aynı pozlar birleştirildi.'
           when 'apply'
             code=BOQLibrary.apply(data.fetch('id')); message="#{code} birim fiyatı uygulandı. Model miktarı korunur; Ctrl+Z ile geri alınır."
             send_boq(@d) if @d && @d.visible?
           when 'export'
-            path=UI.savepanel('BOQ Kütüphanesini Dışa Aktar','','Marine_BOQ_Library.json')
+            path=UI.savepanel('Keşif Kütüphanesini Dışa Aktar','','MST_Kesif_Kutuphanesi.json')
             if path
               path+='.json' unless path.downcase.end_with?('.json')
               File.open(path,'w:UTF-8') { |f| f.write(BOQLibrary.encode(BOQLibrary.load)) }
               message='Kütüphane JSON olarak dışa aktarıldı.'
             end
           when 'import'
-            path=UI.openpanel('BOQ Kütüphanesi JSON Seç','','JSON|*.json||')
+            path=UI.openpanel('Keşif Kütüphanesi JSON Seç','','JSON|*.json||')
             if path
               raise 'Dosya 2 MB sınırını aşıyor.' if File.size(path)>BOQLibrary::MAX_BYTES
               raw=File.read(path,encoding:'UTF-8').sub(/\A\uFEFF/,'')

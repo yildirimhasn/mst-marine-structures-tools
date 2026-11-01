@@ -153,7 +153,7 @@ module MarineStructuresTools
       if kind=='__unsupported_plug_count__'
         issues << "Tapa adedi #{count}: görsel şema en fazla iki ayrı tapa konumu destekliyor."
       elsif actual[kind]!=count
-        issues << "#{kind}: BIM/QTO #{count} adet, fiziksel model #{actual[kind]} adet."
+        issues << "#{kind}: BIM/Metraj #{count} adet, fiziksel model #{actual[kind]} adet."
       end
     end
     issues
@@ -172,11 +172,11 @@ module MarineStructuresTools
     dlg.add_action_callback('mst_visual_apply') do |_,raw|
       begin
         colors=JSON.parse(raw);raise 'Renk değeri geçersiz.' unless VIS_DEFAULTS.keys.all?{|k|colors[k].to_s.match?(/\A#[0-9A-Fa-f]{6}\z/)}
-        model.start_operation('MST Pile Visual Geometry Alt04',true)
+        model.start_operation('MST Kazık Görünüm Geometrisi',true)
         begin
           piles.each{|p|mst_visual_refresh_pile(p,colors) if p.valid?}
           model.commit_operation
-          UI.messagebox("#{piles.size} kazığın görünümü ve fiziksel detayları güncellendi. QTO korunarak yenilendi.")
+          UI.messagebox("#{piles.size} kazığın görünümü ve fiziksel detayları güncellendi. Metraj korunarak yenilendi.")
           dlg.close
         rescue => e
           model.abort_operation;raise e

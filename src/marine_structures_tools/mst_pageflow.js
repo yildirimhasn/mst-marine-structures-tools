@@ -28,7 +28,7 @@ var FLOWS={
  deck:{pin:[],note:['Mühendislik Notları'],steps:[
   {t:'Döşeme',h:'ID, toplam kalınlık, beton, oturma payı',m:['Döşeme Tanımı','Yerleşim Mantığı']},
   {t:'Tretuvar ve Baba',h:'Taraflar, ölçüler, baba kaidesi aksları',m:['Bordür / Tretuvar','Baba Kaideleri']},
-  {t:'Kaplama',h:'Topping betonu kalınlığı ve sınıfı',m:['Kaplama']},
+  {t:'Kaplama',h:'Kaplama betonu kalınlığı ve sınıfı',m:['Kaplama']},
   {t:'Donatı BIM',h:'Üst / alt hasır, BK üstü dolgu, tretuvar, baba',m:['Döşeme Donatı BIM']}]},
  crown:{pin:[],note:['Revizyon Standardı'],steps:[
   {t:'Kesit Tipleri',h:'Tip A ve Tip B geometrisi',m:['Tip A Geometrisi','Tip B Geometrisi']},
@@ -37,11 +37,11 @@ var FLOWS={
  rockfill:{pin:[],note:[],steps:[
   {t:'Malzemeler',h:'Dolgu / taş malzeme kütüphanesi',m:['Dolgu Malzeme Kütüphanesi']},
   {t:'Kesitler',h:'Kesit kütüphanesi ve istasyon zinciri',m:['Kesit Kütüphanesi']},
-  {t:'Kübaj',h:'Ortalama uç alan metrajı ve toplamlar',m:['Average End Area','Malzeme Genel Toplamları']}]},
+  {t:'Kübaj',h:'Ortalama uç alan metrajı ve toplamlar',m:['Ortalama Uç Alan','Malzeme Genel Toplamları']}]},
  rockfill_live:{pin:[],note:[],steps:[
   {t:'Aks ve Taban',h:'Hesap aksı, taban yüzeyi / TIN',m:['Hesap aksı ve taban']},
   {t:'Tip Kesitler',h:'Tip kesit ve geçerli olduğu bölge',m:['Tip kesit ve geçerli']},
-  {t:'Hesap',h:'Kübaj ve QTO / BOQ bağlantısı',m:['Hesap ve miktar']}]},
+  {t:'Hesap',h:'Kübaj ve Metraj / Keşif bağlantısı',m:['Hesap ve miktar']}]},
  editor:{pin:[],note:['BIM Prensibi'],steps:[
   {t:'Seçim',h:'Modelde eleman seçip oku',m:['Seçili BIM Elemanı']},
   {t:'Bilgiler',h:'Kimlik, organizasyon, geometri',m:['BIM Kimliği','Kazık Geometrisi','Parametrik Geometri']},
@@ -53,7 +53,7 @@ var FLOWS={
   {t:'Detay Raporları',h:'Disiplin bazında ayrıntılı tablolar',m:['Metraj Detayı']}]},
  boq:{plain:true,pin:[],note:[],steps:[
   {t:'Poz Listesi',h:'Poz no, tanım, birim, miktar kaynağı',m:['Poz Listesi']},
-  {t:'Keşif',h:'Model miktarı × birim fiyat, Excel',m:['ÖBF / BOQ Keşif Özeti']},
+  {t:'Keşif',h:'Model miktarı × birim fiyat, Excel',m:['ÖBF Keşif Özeti']},
   {t:'Para Birimi',h:'Sözleşme para birimi, kur, beton sınıfı',m:['Para Birimi ve Keşif Ayarları']}]},
  progress:{plain:true,pin:[],note:[],steps:[
   {t:'İlerleme Girişi',h:'Eleman × iş kalemi: yüzde, onay, tarih',m:['İş Kalemi İlerlemesi','BIM İmalat Durumu','Modelde İlerleme Görünümü']},
@@ -61,7 +61,7 @@ var FLOWS={
   {t:'İcmal ve Kesintiler',h:'Fiyat farkı, KDV, kesintiler, ödenecek',m:['Dönem ve İcmal','Sözleşme ve Kesintiler']}]},
  settings:{plain:true,pin:[],note:['Çalışma Prensibi','Önemli'],steps:[
   {t:'Donatı Pursantajları',h:'BIM çizilmeyen elemanlar için kg/m³',m:['Donatı Pursantajları']},
-  {t:'Harici Eleman Tanıt',h:'Plugin dışı Group / Component',m:['Mevcut Elemanı Tanıt','Desteklenen Elemanlar','Model Entegrasyonu']}]}
+  {t:'Harici Eleman Tanıt',h:'Eklenti dışı Group / Component',m:['Mevcut Elemanı Tanıt','Desteklenen Elemanlar','Model Entegrasyonu']}]}
 };
 FLOWS.rockfill_alt2={pin:[],note:[],steps:[{t:'Referans Kesitler',h:'Kesit dosyası, kübaj, kaynak',m:['Referans kesitlerinden']},{t:'Aks ve İstasyonlar',h:'Seçili aks, istasyon hazırlığı',m:['Aks ve istasyonlar']}]};
 

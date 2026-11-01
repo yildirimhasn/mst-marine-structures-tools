@@ -13,7 +13,7 @@ Sonuç: Geçti / Kaldı / Denenmedi. "Kullanıcının sözü" kullanıcının bi
 
 | No | Parti / bulgu | Adım | Beklenen | Tarih | Model kopyası | Sonuç | Kullanıcının sözü |
 |---|---|---|---|---|---|---|---|
-| 0.1 | Kurulum | RBZ kur, SketchUp'ı yeniden aç | Ana pencere başlığı "Marine Structures Tools v0.51.5"; Ruby Console'da yükleme hatası yok | | | | |
+| 0.1 | Kurulum | RBZ kur, SketchUp'ı yeniden aç | Ana pencere başlığı "Deniz Yapıları Araçları (MST) v0.51.5"; Ruby Console'da yükleme hatası yok | | | | |
 | 0.2 | Runner | TB1 entegrasyon test eklentisini çalıştır | Sürüm ve SHA kontrolleri **başarısız** (beklenen, 0.51.4'ü bekler); yöntem adı kontrolleri geçer | | | | |
 | 0.3 | Golden-master | Aynı model kopyasında 0.51.4 ve 0.51.5 BOQ CSV + Detailed QTO | Farklar yalnız sürüm notu §2.1 kalemlerinde (ayrıca K08 pano ayrıştırması ve K33/K39 BİLGİ satırları; toplam dışı). Sahte fikstür ön sonucu (SketchUp dışı, kabul kanıtı değil): beklenmeyen 0, `docs\duzeltme\golden\` | | | | |
 | A1-1 | K02/K03/K26 | 21+ revizyon kaydet; fark yokken kaydet; tek Ctrl+Z | Eski kayıt silinmez, numara tekrarlanmaz; fark yoksa kayıt oluşmaz; tek Ctrl+Z | | | | |

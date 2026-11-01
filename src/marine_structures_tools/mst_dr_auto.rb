@@ -647,7 +647,7 @@ def mst_dra_ui(path=nil)
   model.abort_operation;raise
  end
  send_boq(@d) if @d rescue nil
- UI.messagebox(format("%d BK'ya %d çubuk çizildi (%d/%d poz 3B).\nBOQ / hakediş donatısı: %.3f t / BK (pafta tablosu).%s",ok.length,ok.sum{|_,_,pl|pl[:bars].length},res['placed'].length,spec['schedule'].length,pl0[:sched_kg]/1000.0,(respond_to?(:mst_rt_visible_note) ? mst_rt_visible_note : '')))
+ UI.messagebox(format("%d BK'ya %d çubuk çizildi (%d/%d poz 3B).\nKeşif / hakediş donatısı: %.3f t / BK (pafta tablosu).%s",ok.length,ok.sum{|_,_,pl|pl[:bars].length},res['placed'].length,spec['schedule'].length,pl0[:sched_kg]/1000.0,(respond_to?(:mst_rt_visible_note) ? mst_rt_visible_note : '')))
  ok.length
 rescue => ex
  UI.messagebox("Paftadan 3B donatı: #{ex.message}")

@@ -214,7 +214,7 @@ module MAG
           @writing = true
           opened = false
           begin
-            model.start_operation('MST Dependency Auto Rebuild', true, false, true)
+            model.start_operation('MST Bağımlılık Otomatik Yenileme', true, false, true)
             opened = true
             changes.each { |e, k, v| e.set_attribute(DICT, k, v) }
           rescue => error

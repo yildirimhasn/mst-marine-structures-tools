@@ -79,7 +79,7 @@ if NEW
   k50 = out.select { |x| x[3].include?('ayak izi') }
   t('G3/K50: ayak izi diş geçişini kesen kazık (a=8.7 ± 0.508) uyarı, a=5 uyarı yok', k50.map { |x| x[3][/P-\d/] }, ['P-1'])
   out2 = h.mst_audit_v0515([], $all)
-  t('G3: K33/K39/K40 bilgi satırları Model Kontrolü\'nde UYARI (QTO → BOQ)', out2.map { |x| [x[0], x[2]] }.uniq, [['WARNING', 'QTO → BOQ']])
-  t('model_audit çağrısı ve QTO sağlık grubunda Hesap Hatası (statik)', [main.include?('mst_audit_v0515(elems,all).each'), main.include?("'QTO Malzeme','QTO Donatı','Hesap Hatası']")], [true, true])
+  t('G3: K33/K39/K40 bilgi satırları Model Kontrolü\'nde UYARI (QTO → BOQ)', out2.map { |x| [x[0], x[2]] }.uniq, [['WARNING', 'Metraj → Keşif']])
+  t('model_audit çağrısı ve QTO sağlık grubunda Hesap Hatası (statik)', [main.include?('mst_audit_v0515(elems,all).each'), main.include?("'Metraj Malzeme','Metraj Donatı','Hesap Hatası']")], [true, true])
 end
 a1_finish

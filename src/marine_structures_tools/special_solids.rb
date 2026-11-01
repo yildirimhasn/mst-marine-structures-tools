@@ -138,7 +138,7 @@ def show_special_solids
      m.start_operation('Özel Katı Miktar Kaynağı',true)
      begin;m.set_attribute(DICT,ROCKFILL_SOURCE_KEY,JSON.generate({'mode'=>'special'}));m.commit_operation;rescue;m.abort_operation;raise;end
     end
-    rf_special_send(action=='activate' ? 'QTO / BOQ kaynağı: Alternatif-02 özel katılar.' : 'Hacimler güncel modelden hesaplandı.')
+    rf_special_send(action=='activate' ? 'Metraj / keşif kaynağı: Alternatif-02 özel katılar.' : 'Hacimler güncel modelden hesaplandı.')
     @rf_special_dialog.execute_script("specialReport(#{JSON.generate(rf_special_report(q))})")
    when 'alt1'
     m.start_operation('Alternatif-01 Miktar Kaynağı',true)

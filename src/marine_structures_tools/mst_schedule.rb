@@ -267,7 +267,7 @@ def mst_sp_report(model=Sketchup.active_model,prm=nil,dir=nil)
   mst_sp_gantt_svg(sch)+
   "<h2>Özet</h2><table><tr><th class='l'>Faaliyet</th><th>Adet</th><th>Başlangıç</th><th>Bitiş</th><th>Süre (iş günü)</th></tr>"+sum.map{|l,n,s,f,d|"<tr><td class='l'>#{mst_rt_h(l)}</td><td>#{n}</td><td>#{s.strftime('%d.%m.%Y')}</td><td>#{f.strftime('%d.%m.%Y')}</td><td>#{d}</td></tr>"}.join+'</table>'+
   "<h2>Haftalık malzeme ve ekip</h2><table><tr><th class='l'>Hafta</th><th>Beton (m³)</th><th>Donatı (t)</th><th>Kazık</th><th>Prekast</th><th>Aktif ekip</th><th>Kişi</th></tr>"+wk.map{|r|"<tr><td class='l'>#{r['week']}</td><td>#{format('%.1f',r['concrete_m3'])}</td><td>#{format('%.2f',r['rebar_t'])}</td><td>#{r['piles']}</td><td>#{r['precast']}</td><td>#{r['crews']}</td><td>#{r['workers']}</td></tr>"}.join+'</table>'+
-  (mon.empty? ? "<p class='small'>Hakediş tahmini için BOQ birim fiyatları gerekli.</p>" :
+  (mon.empty? ? "<p class='small'>Hakediş tahmini için keşif birim fiyatları gerekli.</p>" :
    "<h2>Aylık hakediş tahmini (#{mst_rt_h(cur)})</h2><table><tr><th class='l'>Ay</th><th>Tutar</th><th>Kümülatif</th><th>%</th></tr>"+mon.map{|r|"<tr><td class='l'>#{r['month']}</td><td>#{format('%.0f',r['amount'])}</td><td>#{format('%.0f',r['cum'])}</td><td>#{format('%.1f',r['pct'])}</td></tr>"}.join+'</table>')+
   "<h2>Parametreler</h2><table><tr><th class='l'>Parametre</th><th>Değer</th><th class='l'>Kaynak</th></tr>"+MST_SP_RATES.map{|k,l,_,src|"<tr><td class='l'>#{mst_rt_h(l)}</td><td>#{prm[k]}</td><td class='l'>#{mst_rt_h(src)}</td></tr>"}.join+'</table>')
  File.write("#{base}.html",html)

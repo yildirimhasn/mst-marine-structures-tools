@@ -11,7 +11,7 @@ module RockfillGeometry
   end
   rows<<refinement_row('TOPLAM TAŞ',coarse['total'],fine['total'])
   rows<<refinement_row('KAZI — AYRI',coarse['excavation_m3']||0,fine['excavation_m3']||0)
-  {'coarse_step'=>step,'fine_step'=>step/2.0,'coarse_sections'=>coarse['sections'].size,'fine_sections'=>fine['sections'].size,'rows'=>rows,'head_included'=>!!coarse['head'],'assumptions'=>coarse['assumptions'],'note'=>'Anlık karşılaştırma. Fark, kesin hata sınırı değildir; iki ağın da kaçırdığı ara taban değişimleri olabilir. Baş açısal aralığı sabit tutulur. Aktif hesap ve BOQ değiştirilmedi.'}
+  {'coarse_step'=>step,'fine_step'=>step/2.0,'coarse_sections'=>coarse['sections'].size,'fine_sections'=>fine['sections'].size,'rows'=>rows,'head_included'=>!!coarse['head'],'assumptions'=>coarse['assumptions'],'note'=>'Anlık karşılaştırma. Fark, kesin hata sınırı değildir; iki ağın da kaçırdığı ara taban değişimleri olabilir. Baş açısal aralığı sabit tutulur. Aktif hesap ve keşif değiştirilmedi.'}
  end
  def refinement_row(code,coarse,fine)
   delta=fine-coarse

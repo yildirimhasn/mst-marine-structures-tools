@@ -642,7 +642,7 @@ def mst_ar_ui(e)
  rescue
   model.abort_operation;raise
  end
- UI.messagebox(format("%s: %d çubuk çizildi · %.3f t.\nBOQ / hakediş donatısı çizilen çubuklardan (pursantaj değil).%s",element_visible_id(e),pl[:bars].length,pl[:kg]/1000.0,(respond_to?(:mst_rt_visible_note) ? mst_rt_visible_note : '')))
+ UI.messagebox(format("%s: %d çubuk çizildi · %.3f t.\nKeşif / hakediş donatısı çizilen çubuklardan (pursantaj değil).%s",element_visible_id(e),pl[:bars].length,pl[:kg]/1000.0,(respond_to?(:mst_rt_visible_note) ? mst_rt_visible_note : '')))
  1
 end
 def mst_ar_draw!(e,pl)

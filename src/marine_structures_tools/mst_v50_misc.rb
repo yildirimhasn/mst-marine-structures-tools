@@ -143,7 +143,7 @@ def mst_ms_ui
  rescue
   model.abort_operation;raise
  end
- UI.messagebox("Proje donatı çeliği: #{g}#{sel.empty? ? '' : "\n#{sel.length} eleman güncellendi#{cc.empty? ? '' : " (beton #{cc})"}#{eg.empty? ? '' : " (çelik #{eg})"}"}.\nBeton sınıfı BOQ'da sınıfa göre ayrılır (BOQ sayfası, 'beton sınıfına göre ayrı poz'); çap metrajında çelik sınıfı yazılır.")
+ UI.messagebox("Proje donatı çeliği: #{g}#{sel.empty? ? '' : "\n#{sel.length} eleman güncellendi#{cc.empty? ? '' : " (beton #{cc})"}#{eg.empty? ? '' : " (çelik #{eg})"}"}.\nBeton sınıfı keşifte sınıfa göre ayrılır (Keşif sayfası, 'beton sınıfına göre ayrı poz'); çap metrajında çelik sınıfı yazılır.")
  1
 rescue => ex
  UI.messagebox("Malzeme sınıfları: #{ex.message}")

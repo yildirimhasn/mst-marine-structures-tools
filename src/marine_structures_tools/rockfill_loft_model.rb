@@ -44,7 +44,7 @@ def rf_live_create_loft(state,dialog)
  rescue
   model.abort_operation;raise
  end
- rf_live_send(dialog,state,'Kapalı katılar oluşturuldu. Malzeme/aralık grupları anlık geometri kopyasıdır; BOQ kaynağı değiştirilmedi.')
+ rf_live_send(dialog,state,'Kapalı katılar oluşturuldu. Malzeme/aralık grupları anlık geometri kopyasıdır; keşif kaynağı değiştirilmedi.')
 end
 end
 end
