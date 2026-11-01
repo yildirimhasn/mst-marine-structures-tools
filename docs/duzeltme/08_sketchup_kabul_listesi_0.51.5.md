@@ -15,7 +15,7 @@ Sonuç: Geçti / Kaldı / Denenmedi. "Kullanıcının sözü" kullanıcının bi
 |---|---|---|---|---|---|---|---|
 | 0.1 | Kurulum | RBZ kur, SketchUp'ı yeniden aç | Ana pencere başlığı "Marine Structures Tools v0.51.5"; Ruby Console'da yükleme hatası yok | | | | |
 | 0.2 | Runner | TB1 entegrasyon test eklentisini çalıştır | Sürüm ve SHA kontrolleri **başarısız** (beklenen, 0.51.4'ü bekler); yöntem adı kontrolleri geçer | | | | |
-| 0.3 | Golden-master | Aynı model kopyasında 0.51.4 ve 0.51.5 BOQ CSV + Detailed QTO | Farklar yalnız sürüm notu §2.1 kalemlerinde | | | | |
+| 0.3 | Golden-master | Aynı model kopyasında 0.51.4 ve 0.51.5 BOQ CSV + Detailed QTO | Farklar yalnız sürüm notu §2.1 kalemlerinde (ayrıca K08 pano ayrıştırması ve K33/K39 BİLGİ satırları; toplam dışı). Sahte fikstür ön sonucu (SketchUp dışı, kabul kanıtı değil): beklenmeyen 0, `docs\duzeltme\golden\` | | | | |
 | A1-1 | K02/K03/K26 | 21+ revizyon kaydet; fark yokken kaydet; tek Ctrl+Z | Eski kayıt silinmez, numara tekrarlanmaz; fark yoksa kayıt oluşmaz; tek Ctrl+Z | | | | |
 | A1-2 | K04/K05/K28 | Eleman Kütüphanesi'ni aç; Dependency stamp çalıştır | Açmak kayıt yazmaz; dolu alanlar ezilmez; tek işlem | | | | |
 | A1-3 | K06 | Döşeme + tretuvarı Ctrl+Move ile kopyala; Model Kontrolü → BIM Identity Repair; revizyon/hakediş kaydı | "kopya olası"; kopyaya yeni UID + `copied_from_uid`; ilerleme devralınmış (onaysız); mükerrer UID sorusu | | | | |

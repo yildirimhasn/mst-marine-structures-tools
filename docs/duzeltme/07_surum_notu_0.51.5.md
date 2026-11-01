@@ -17,7 +17,7 @@ Sürüm adları: `VERSION = '0.51.5'` (`qto_workspace.rb:4`), `MST_BUILD = 'v0.5
 ## 2. Değişiklik notu
 
 ### 2.1 Metraj sonucunu değiştirenler
-Değerler sahte örneklerdir (elle beklenen = test sonucu, SketchUp dışı). Golden-master yapılmadı.
+Değerler sahte örneklerdir (elle beklenen = test sonucu, SketchUp dışı). Sahte fikstür golden-master (SketchUp dışı, 02.11.2026, `ruby tools/golden/run_golden.rb 872d3a3`, kaynak HEAD `8da4ec1`): 44 farklı anahtarın tamamı K36, K50, 08-R6 (§2.1), K08 gösterimi (§2.4) ve K33/K39 bilgi satırlarıyla (§2.2) eşlendi; sayısal farklar beklenen değere eşit; beklenmeyen 0 (`docs\duzeltme\golden\`). Fikstürün kapsamadığı (eylem sonucu oluşan) kalemler: K57, K58, K60, K63, K09, K53, K56, K17, DXF birim, K55, 08-R3, K35 geçmişli eşleme, K06, eğik kazık elipsi (oluşturma). SketchUp içi golden-master (08 satır 0.3) yapılmadı.
 
 | Bulgu | Etkilenen kalem | Değişiklik | Örnek fark (0.51.4 → 0.51.5) | Kaynak |
 |---|---|---|---|---|
@@ -97,6 +97,6 @@ Kurulu `mst_tb1_integration_runner` 1.1.0, 0.51.4 sürüm adını ve 0.51.4 dosy
 |---|---|
 | Statik | Parti C sonrası ana oturum çıktısı (02.11.2026): ruby -c hatasız, Ruby 2.5 dilbilgisi 66 dosya 0 hata, `node --check` OK, `src` içinde `skp:` = 0. Sürüm adı değişikliği ve paketleme sonrası yeniden çalıştırılmalı. Bu belge yazılırken çalıştırılmadı |
 | Sahte nesne | A1 4, A2 9, B 4 test; tümü "0 kaldı" (parti raporları). Yalnız mantığı sınar |
-| Golden-master BOQ/QTO (0.51.4 ↔ 0.51.5) | Yapılmadı. Metrajı değiştiren işler "kabul bekliyor" |
+| Golden-master BOQ/QTO (0.51.4 ↔ 0.51.5) | Sahte fikstür (SketchUp dışı, 872d3a3 ↔ 8da4ec1): 44 fark, beklenmeyen 0 (§2.1 notu). SketchUp içi CSV karşılaştırması yapılmadı; metrajı değiştiren işler "kabul bekliyor". Metin değişikliğinden sonra yeniden çalıştırılmalı |
 | SketchUp 2020 kabulü | Denenmedi. Liste: `08_sketchup_kabul_listesi_0.51.5.md` |
 | Görsel | Yok |

@@ -1,0 +1,45 @@
+bolum;anahtar;eski_0514;yeni_0515;esleme;kontrol
+BOQ_INFO;*;işlev yok;(yok);BİLGİ §2.2 (0.51.4'te işlev yok);
+BOQ_INFO;INFO:PILE_PLUG;(yok);68.753506410;BİLGİ §2.2 K39 (toplam dışı);
+BOQ_INFO;INFO:UNMAPPED_CONCRETE#Prekast#C30/37;(yok);1.500000000;BİLGİ §2.2 K33 (toplam dışı);
+BOQ_QTY;FORMWORK_CAST;79.557072134;81.178536067;METRAJ §2.1 08-R6;fark +1.621464 = beklenen +1.621464
+BOQ_QTY;HB_DECK_CONCRETE;38.373470606;37.968104622;METRAJ §2.1 K50;fark -0.405366 = beklenen -0.405366
+BOQ_QTY;PILE_INFILL;35.376793428;26.251195618;METRAJ §2.1 K36;fark -9.125598 = beklenen -9.125598
+BOQ_QTY;REBAR;17.491423066;15.137057737;METRAJ §2.1 K36 + K50 (türev donatı);fark -2.354365 = beklenen -2.354365
+BOQ_ROW;ÖBF-002|FORMWORK_CAST|m²;79.557072134;81.178536067;METRAJ §2.1 08-R6;fark +1.621464 = beklenen +1.621464
+BOQ_ROW;ÖBF-004|REBAR|ton;17.491423066;15.137057737;METRAJ §2.1 K36 + K50 (türev donatı);fark -2.354365 = beklenen -2.354365
+BOQ_ROW;ÖBF-005|HB_DECK_CONCRETE|m³;38.373470606;37.968104622;METRAJ §2.1 K50;fark -0.405366 = beklenen -0.405366
+BOQ_ROW;ÖBF-010|PILE_INFILL|m³;35.376793428;26.251195618;METRAJ §2.1 K36;fark -9.125598 = beklenen -9.125598
+ELEM;head_beam|BK1|concrete_m3;11.523470606;11.118104622;METRAJ §2.1 K50;fark -0.405366 = beklenen -0.405366
+ELEM;head_beam|BK1|pile_embed_m3;0.326529394;0.731895378;METRAJ §2.1 K50;fark +0.405366 = beklenen +0.405366
+ELEM;head_beam|BK1|rebar_kg;2074.224709034;2001.258832044;METRAJ §2.1 K50 (türev donatı);fark -72.965877 = beklenen -72.965877
+ELEM;head_beam|BK1|rebar_t;2.074224709;2.001258832;METRAJ §2.1 K50 (türev donatı);fark -0.072966 = beklenen -0.072966
+ELEM;head_beam|BK1|steel_t;2.074224709;2.001258832;METRAJ §2.1 K50 (türev donatı);fark -0.072966 = beklenen -0.072966
+ELEM;head_beam|BK2|formwork_m2;20.778536067;22.400000000;METRAJ §2.1 08-R6;fark +1.621464 = beklenen +1.621464
+ELEM;head_beam|BK2|pile_opening_m2;1.621463933;0.000000000;METRAJ §2.1 08-R6;fark -1.621464 = beklenen -1.621464
+ELEM;steel_pipe_pile|P2|bim_concrete_m3;9.125597809;0.000000000;METRAJ §2.1 K36;fark -9.125598 = beklenen -9.125598
+ELEM;steel_pipe_pile|P2|pile_qto_concrete;9.125597809;0.000000000;METRAJ §2.1 K36;fark -9.125598 = beklenen -9.125598
+ELEM;steel_pipe_pile|P2|pile_rebar_t;2.281399452;0.000000000;METRAJ §2.1 K36;fark -2.281399 = beklenen -2.281399
+PILE_GROUP;PILE_INFILL|C30/37;27.376793428;18.251195618;METRAJ §2.1 K36;fark -9.125598 = beklenen -9.125598
+QTO3_CLASS;C30/37;87.250264033;77.719300241;METRAJ §2.1 K36 + K50;fark -9.530964 = beklenen -9.530964
+QTO3_ROW;head_beam|concrete_m3;23.373470606;22.968104622;METRAJ §2.1 K50;fark -0.405366 = beklenen -0.405366
+QTO3_ROW;head_beam|formwork_m2;53.557072134;55.178536067;METRAJ §2.1 08-R6;fark +1.621464 = beklenen +1.621464
+QTO3_ROW;head_beam|steel_t;4.207224709;4.134258832;METRAJ §2.1 K50 (türev donatı);fark -0.072966 = beklenen -0.072966
+QTO3_ROW;pile_infill_concrete|concrete_m3;35.376793428;26.251195618;METRAJ §2.1 K36;fark -9.125598 = beklenen -9.125598
+QTO3_ROW;pile_infill_concrete|count;4.000000000;3.000000000;METRAJ §2.1 K36 (adet);fark -1.000000 = beklenen -1.000000
+QTO3_ROW;pile_infill_concrete|steel_t;8.344198357;6.062798905;METRAJ §2.1 K36;fark -2.281399 = beklenen -2.281399
+QTO3_TOTAL;concrete_m3;105.450264033;95.919300241;METRAJ §2.1 K36 + K50;fark -9.530964 = beklenen -9.530964
+QTO3_TOTAL;formwork_m2;155.557072134;157.178536067;METRAJ §2.1 08-R6;fark +1.621464 = beklenen +1.621464
+QTO3_TOTAL;steel_t;72.359145846;70.004780516;METRAJ §2.1 K36 + K50;fark -2.354365 = beklenen -2.354365
+QTO_SUMMARY;concrete_breakdown|BK;23.373470606;22.968104622;METRAJ §2.1 K50;fark -0.405366 = beklenen -0.405366
+QTO_SUMMARY;concrete_breakdown|DOSP;22.200000000;16.200000000;GÖSTERİM §2.4 K08 (kaplama ayrı satır);fark -6.000000 = beklenen -6.000000
+QTO_SUMMARY;concrete_breakdown|DİĞER;-6.000000000;(yok);GÖSTERİM §2.4 K08 (−kaplama dengeleme kalemi kalktı);
+QTO_SUMMARY;concrete_breakdown|ÇBK;35.376793428;26.251195618;METRAJ §2.1 K36;fark -9.125598 = beklenen -9.125598
+QTO_SUMMARY;total_concrete;105.450264033;95.919300241;METRAJ §2.1 K36 + K50;fark -9.530964 = beklenen -9.530964
+QTO_SUMMARY;total_formwork;155.557072134;157.178536067;METRAJ §2.1 08-R6;fark +1.621464 = beklenen +1.621464
+QTO_SUMMARY_ROW;Betonarme|Başlık Kirişi;2 | - | 23.373 m³ | 53.56 m² | 4.207 t;2 | - | 22.968 m³ | 55.18 m² | 4.134 t;METRAJ §2.1 K50 + 08-R6 (pano satırı);
+QTO_SUMMARY_ROW;Betonarme|Döşeme;1 | - | 22.200 m³ | 26.00 m² | 1.920 t;1 | - | 16.200 m³ | 26.00 m² | 1.800 t;GÖSTERİM §2.4 K08 (kaplama ayrı satır);
+QTO_SUMMARY_ROW;Betonarme|Kaplama;(yok);- | - | 6.000 m³ | - | 0.120 t;GÖSTERİM §2.4 K08 (kaplama ayrı satır);
+QTO_SUMMARY_ROW;Beton|Kazık İçi Beton;4 | - | 35.377 m³ | - | 8.344 t;3 | - | 26.251 m³ | - | 6.063 t;METRAJ §2.1 K36 (pano satırı);
+REBAR_BREAKDOWN;head_beam;4207.224709034;4134.258832044;METRAJ §2.1 K50 (türev donatı);fark -72.965877 = beklenen -72.965877
+REBAR_BREAKDOWN;pile;8344.198356887;6062.798904591;METRAJ §2.1 K36;fark -2281.399452 = beklenen -2281.399452
