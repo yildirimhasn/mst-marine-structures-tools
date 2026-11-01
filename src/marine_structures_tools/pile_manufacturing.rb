@@ -224,22 +224,43 @@ module MAG
           d=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0
           out[:pe_m2]+=Math::PI*d*[p.get_attribute(DICT,'pe_length_m',0).to_f,0.0].max
         end
+        # v0.51.5 K37: tapa/çember önizlemesi QTO (pile_fabrication_qto_row) ile aynı sonucu verir.
+        # Modelde zaten VAR olan imalatın değeri doğrudan QTO satırından okunur; yeni VAR yapılacak
+        # kazıkta QTO'nun aynı ifadesi (adet, çember et kalınlığı) kayıtlı parametrelerle uygulanır.
+        qrow=nil;qtried=false
+        qto=lambda{unless qtried;qtried=true;qrow=(pile_fabrication_qto_row([p],'',true) rescue nil);end;qrow}
+        stored_on=lambda{|key|p.get_attribute(DICT,key,'0').to_s=='1'}
         if state.call('plug_enabled')
-          out[:plug_count]+=1
-          dd=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0; tt=p.get_attribute(DICT,'thickness_mm',0).to_f/1000.0
-          clr=p.get_attribute(DICT,'plug_clearance_mm',10).to_f/1000.0; dp=[dd-2.0*tt-2.0*clr,0.0].max
-          th=p.get_attribute(DICT,'plug_thickness_mm',12).to_f/1000.0
-          out[:plug_kg]+=Math::PI/4.0*dp*dp*th*rho
+          n=[p.get_attribute(DICT,'plug_count_per_pile',1).to_i,1].max
+          out[:plug_count]+=n
+          if stored_on.call('plug_enabled')&&qto.call
+            out[:plug_kg]+=qto.call[8].to_f*1000.0
+          else
+            dd=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0; tt=p.get_attribute(DICT,'thickness_mm',0).to_f/1000.0
+            clr=p.get_attribute(DICT,'plug_clearance_mm',10).to_f/1000.0; dp=[dd-2.0*tt-2.0*clr,0.0].max
+            th=p.get_attribute(DICT,'plug_thickness_mm',12).to_f/1000.0
+            out[:plug_kg]+=Math::PI/4.0*dp*dp*th*rho*n
+          end
         end
         if state.call('upper_ring_enabled')
-          dd=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0
-          w=p.get_attribute(DICT,'upper_ring_width_mm',250).to_f/1000.0; th=p.get_attribute(DICT,'thickness_mm',0).to_f/1000.0
-          out[:upper_kg]+=Math::PI*dd*w*th*rho
+          if stored_on.call('upper_ring_enabled')&&qto.call
+            out[:upper_kg]+=qto.call[10].to_f
+          else
+            dd=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0
+            w=p.get_attribute(DICT,'upper_ring_width_mm',250).to_f/1000.0; th=p.get_attribute(DICT,'upper_ring_thickness_mm',p.get_attribute(DICT,'thickness_mm',0)).to_f/1000.0
+            n=[p.get_attribute(DICT,'upper_ring_count_per_pile',1).to_i,1].max
+            out[:upper_kg]+=Math::PI*(dd+th)*w*th*rho*n
+          end
         end
         if state.call('lower_ring_enabled')
-          dd=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0; tt=p.get_attribute(DICT,'thickness_mm',0).to_f/1000.0; ddi=[dd-2.0*tt,0.0].max
-          w=p.get_attribute(DICT,'lower_ring_width_mm',300).to_f/1000.0; th=p.get_attribute(DICT,'thickness_mm',0).to_f/1000.0
-          out[:lower_kg]+=Math::PI*ddi*w*th*rho
+          if stored_on.call('lower_ring_enabled')&&qto.call
+            out[:lower_kg]+=qto.call[11].to_f
+          else
+            dd=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0; tt=p.get_attribute(DICT,'thickness_mm',0).to_f/1000.0; ddi=[dd-2.0*tt,0.0].max
+            w=p.get_attribute(DICT,'lower_ring_width_mm',300).to_f/1000.0; th=p.get_attribute(DICT,'lower_ring_thickness_mm',p.get_attribute(DICT,'thickness_mm',0)).to_f/1000.0
+            n=[p.get_attribute(DICT,'lower_ring_count_per_pile',1).to_i,1].max
+            out[:lower_kg]+=Math::PI*[ddi-th,0.0].max*w*th*rho*n
+          end
         end
         infill_on = infill_mode=='keep' ? pile_infill_enabled?(p) : infill_mode=='1'
         if infill_on

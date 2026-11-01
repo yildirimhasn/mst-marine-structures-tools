@@ -70,7 +70,7 @@ module MAG
       diameter=number(e.get_attribute(DICT,'diameter_mm',nil),'diameter_mm')
       thickness=number(e.get_attribute(DICT,'thickness_mm',nil),'thickness_mm')
       length=attribute(e,%w[actual_length_m length_m]);raise InvalidQuantity,'Kazık boyu eksik.' if length[:state]=='missing'
-      raise InvalidQuantity,'Kazik kesiti veya boyu gecersiz.' unless diameter>2*thickness && thickness>0 && length[:value]>0
+      raise InvalidQuantity,'Kazık kesiti veya boyu geçersiz (dış çap > 2 × et kalınlığı, et kalınlığı ve boy > 0 olmalı).' unless diameter>2*thickness && thickness>0 && length[:value]>0
       {value:number(api.pile_weight(diameter,thickness,length[:value]),'canonical_pipe_kg')/1000.0,state:'calculated',method:'canonical_pipe_mass'}
      else
       if t=='steel_pipe_pile'

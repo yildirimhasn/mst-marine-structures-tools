@@ -4008,13 +4008,15 @@ bv=bs.sum{|x|head_beam_net_concrete(x)};bf=bs.sum{|x|head_beam_net_formwork_area
  topping_area,topping_vol=topping_quantities(a)
  deck_total_vol=dv+cbv+topping_vol
  deck_total_rebar_t=(mst_rebar_sum(dk)['kg'] + topping_vol*rebar_rate('topping'))/1000.0   # v0.38 UI1
- rows="<tr><td>Kazık</td><td>Çelik Boru Kazık</td><td>#{ps.length}</td><td>#{format('%.2f',plen)} m</td><td>-</td><td>-</td><td>#{format('%.3f',steel)} t</td></tr>"+
- "<tr><td>Beton</td><td>Kazık İçi Beton</td><td>#{infill_count}</td><td>-</td><td>#{format('%.3f',iv)} m³</td><td>-</td><td>#{format('%.3f',(infill_row && infill_row[:steel_t]) ? infill_row[:steel_t].to_f : iv*rebar_rate('pile')/1000.0)} t</td></tr>"+
+ # v0.51.5 K08/K41 (yalnız gösterim): döşeme ve kaplama ayrı satır; tonaj hücresinde türü yazılır. BOQ değişmez.
+ rows="<tr><td>Kazık</td><td>Çelik Boru Kazık</td><td>#{ps.length}</td><td>#{format('%.2f',plen)} m</td><td>-</td><td>-</td><td>#{format('%.3f',steel)} t <small style='color:#5b6b7b'>(boru çeliği)</small></td></tr>"+
+ "<tr><td>Beton</td><td>Kazık İçi Beton</td><td>#{infill_count}</td><td>-</td><td>#{format('%.3f',iv)} m³</td><td>-</td><td>#{format('%.3f',(infill_row && infill_row[:steel_t]) ? infill_row[:steel_t].to_f : iv*rebar_rate('pile')/1000.0)} t <small style='color:#5b6b7b'>(donatı)</small></td></tr>"+
  "<tr><td>Betonarme</td><td>Başlık Kirişi</td><td>#{bs.length}</td><td>-</td><td>#{format('%.3f',bv)} m³</td><td>#{format('%.2f',bf)} m²</td><td>#{mst_rebar_cell(bs)}</td></tr>"+
  "<tr><td>Prekast</td><td>Normal PD</td><td>#{pd.length}</td><td>-</td><td>#{format('%.3f',pv)} m³</td><td>#{format('%.2f',pf)} m²</td><td>#{mst_rebar_cell(pd)}</td></tr>"+
  "<tr><td>Prekast</td><td>Kanal Prekastı</td><td>#{ch.length}</td><td>-</td><td>#{format('%.3f',cv)} m³</td><td>#{format('%.2f',cf)} m²</td><td>#{mst_rebar_cell(ch)}</td></tr>"+
  "<tr><td>Prekast</td><td>Vinç Prekastı</td><td>#{cr.length}</td><td>-</td><td>#{format('%.3f',crv)} m³</td><td>#{format('%.2f',crf)} m²</td><td>#{mst_rebar_cell(cr)}</td></tr>"+
- "<tr><td>Betonarme</td><td>Döşeme</td><td>#{dk.length}</td><td>-</td><td>#{format('%.3f',deck_total_vol)} m³</td><td>#{format('%.2f',df+cbf)} m²</td><td>#{format('%.3f',deck_total_rebar_t)} t <small style='color:#5b6b7b'>(#{html_escape(mst_rebar_sum(dk)['label'])}#{topping_vol>0 ? ' + kaplama %' : ''})</small></td></tr>"+
+ "<tr><td>Betonarme</td><td>Döşeme</td><td>#{dk.length}</td><td>-</td><td>#{format('%.3f',dv+cbv)} m³</td><td>#{format('%.2f',df+cbf)} m²</td><td>#{format('%.3f',mst_rebar_sum(dk)['kg']/1000.0)} t <small style='color:#5b6b7b'>(#{html_escape(mst_rebar_sum(dk)['label'])})</small></td></tr>"+
+ (topping_vol>0 ? "<tr><td>Betonarme</td><td>Kaplama <small style='color:#5b6b7b'>(Toplam Beton kartına dahil değil; BOQ'da ayrı kalem)</small></td><td>-</td><td>-</td><td>#{format('%.3f',topping_vol)} m³</td><td>-</td><td>#{format('%.3f',topping_vol*rebar_rate('topping')/1000.0)} t <small style='color:#5b6b7b'>(donatı; hacim × #{format('%.0f',rebar_rate('topping'))} kg/m³ pursantaj)</small></td></tr>" : '')+
  "<tr><td>Betonarme</td><td>Kronman</td><td>#{cw.length}</td><td>-</td><td>#{format('%.3f',cwv)} m³</td><td>#{format('%.2f',cwf)} m²</td><td>#{mst_rebar_cell(cw)}</td></tr>"
  elems=snap[:elements].reject{|e|e.get_attribute(DICT,'element_type','')=='pile_infill_concrete'}
  status=qto_workspace_status(elems,ps)
@@ -4025,18 +4027,18 @@ bv=bs.sum{|x|head_beam_net_concrete(x)};bf=bs.sum{|x|head_beam_net_formwork_area
  infill_summary=iv
  concrete_summary=snap[:totals][:concrete_m3].to_f
  concrete_breakdown={
-  'BK'=>bv, 'PD'=>pv+cv+crv, 'DOSP'=>deck_total_vol,
+  'BK'=>bv, 'PD'=>pv+cv+crv, 'DOSP'=>dv+cbv,   # K08: kaplama Toplam Beton'da (qto3_snapshot) yok; ayrı satırda gösterilir
   'KRONMAN'=>cwv, 'ÇBK'=>infill_summary,
-  'DİĞER'=>snap[:totals][:concrete_m3].to_f-(bv+pv+cv+crv+deck_total_vol+cwv+iv)
+  'DİĞER'=>snap[:totals][:concrete_m3].to_f-(bv+pv+cv+crv+dv+cbv+cwv+iv)
  }
  concrete_breakdown.delete_if{|_,v|v.abs<0.0000001}
  rfq=rockfill_qto_data
  if rfq[:materials].length > 0
-  rows += "<tr><td>Dolgu</td><td>#{html_escape(rfq[:source_label] || 'Dolgu / Taş (AEA)')}</td><td>#{rfq[:sections].length}</td><td>-</td><td>#{format('%.3f',rfq[:total_volume_m3])} m³</td><td>-</td><td>#{format('%.3f',rfq[:total_tonnage_t])} t</td></tr>"
+  rows += "<tr><td>Dolgu</td><td>#{html_escape(rfq[:source_label] || 'Dolgu / Taş (AEA)')}</td><td>#{rfq[:sections].length}</td><td>-</td><td>#{format('%.3f',rfq[:total_volume_m3])} m³</td><td>-</td><td>#{format('%.3f',rfq[:total_tonnage_t])} t <small style='color:#5b6b7b'>(dolgu tonajı)</small></td></tr>"
  end
  qto3_rows_with_rockfill=snap[:rows].dup
  if rfq[:materials].length > 0
-  qto3_rows_with_rockfill << {name:(rfq[:source_label] || 'Dolgu / Taş (AEA)'),count:(rfq[:solid_count] || rfq[:sections].length),length_m:0.0,concrete_m3:rfq[:total_volume_m3],formwork_m2:0.0,steel_t:rfq[:total_tonnage_t]}
+  qto3_rows_with_rockfill << {type:'rockfill',name:(rfq[:source_label] || 'Dolgu / Taş (AEA)'),count:(rfq[:solid_count] || rfq[:sections].length),length_m:0.0,concrete_m3:rfq[:total_volume_m3],formwork_m2:0.0,steel_t:rfq[:total_tonnage_t]}
  end
  data={jet_grout_html:jg_report_html,version:VERSION,qto_status:status,pile_count:ps.length,pile_length:plen,steel_ton:steel,pd_count:pd.length,pd_volume:pv,channel_count:ch.length,channel_volume:cv,total_concrete:concrete_summary,concrete_breakdown:concrete_breakdown,total_formwork:snap[:totals][:formwork_m2],element_count:elems.length,audit_missing:missing,audit_ok:elems.length-missing,rows:rows,pile_qto_rows:pile_qto_rows,pile_qto_total:pile_qto_total,pile_bim_qto_rows:pile_bim_qto_rows,qto3_rows:qto3_rows_with_rockfill,qto3_concrete:snap[:concrete_by_class],qto3_scopes:snap[:scopes],rockfill_material_count:rfq[:materials].length,rockfill_section_count:(rfq[:solid_count] || rfq[:sections].length),rockfill_volume_m3:rfq[:total_volume_m3],rockfill_tonnage_t:rfq[:total_tonnage_t]}
  dialog.execute_script("setQTO(#{JSON.generate(data)});")
@@ -6624,7 +6626,8 @@ end
 
 def bim_data_core_report
  changed=standardize_model_metadata
- UI.messagebox("BIM Data Core v2.0 tamamlandı.\n\n#{changed} Marine Structures elemanı standardize edildi.\n• Kalıcı element_uid\n• Stabil type_id / library_type_id\n• Project / Ano / Axis / Zone alanları\n• Parent UID altyapısı\n• Schema v2.0")
+ # v0.51.5 K48: ileti, artık yalnız eksik alanları dolduran standardize davranışını anlatır (Project/Ano/Axis/Zone yazılmaz)
+ UI.messagebox("BIM Data Core v2.0 tamamlandı.\n\n#{changed} Marine Structures elemanında eksik kimlik alanı tamamlandı.\n• Eksikse kalıcı element_uid\n• Eksikse type_id / library_type_id ve tip imzası\n• Eksikse şema sürümü 2.0\n\nDolu alanlar değiştirilmez; proje / yapı / aks / bölge bilgisi bu işlemde yazılmaz.")
  element_library(changed)   # K28: kütüphane yazmaz; tek işlem standardize'da
 end
 
@@ -8945,6 +8948,7 @@ def export_professional_excel
       arr.sum{|e|qto3_quantity(e,:concrete_m3)}.round(3),
       arr.sum{|e|qto3_quantity(e,:formwork_m2)}.round(2),
       arr.sum{|e|qto3_quantity(e,:steel_t)}.round(3)]
+    detail.last.concat(k[0]=='steel_pipe_pile' ? [detail.last[7],0.0] : [0.0,detail.last[7]])   # v0.51.5 K41: Boru Çeliği / Donatı ayrı (birleşik sütun uyumluluk için kalır)
   end
   piles=elems.select{|e|e.get_attribute(DICT,'element_type')=='steel_pipe_pile'}
   summary=[
@@ -8958,7 +8962,7 @@ def export_professional_excel
   fallback=snapshot[:rows].find{|row|row[:type]=='pile_infill_concrete'}
   if fallback
     detail.reject!{|row|row[0]=='Kazık İçi Beton'}
-    detail<<['Kazık İçi Beton','Tüm kaynaklar','Sınıf bazında Summary',fallback[:count],fallback[:length_m],fallback[:concrete_m3],fallback[:formwork_m2],fallback[:steel_t]]
+    detail<<['Kazık İçi Beton','Tüm kaynaklar','Sınıf bazında Summary',fallback[:count],fallback[:length_m],fallback[:concrete_m3],fallback[:formwork_m2],fallback[:steel_t],0.0,fallback[:steel_t]]
   end
   library=elems.group_by{|e|e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s}.sort.map do |typ,arr|
     [typ,type_names[arr.first.get_attribute(DICT,'element_type').to_s]||arr.first.get_attribute(DICT,'element_type').to_s,qto_material_class(arr.first),arr.length,arr.map{|e|element_visible_id(e)}.join(', '),arr.first.get_attribute(DICT,'type_signature',element_signature(arr.first)).to_s]
@@ -8979,7 +8983,7 @@ def export_professional_excel
   summary<<['Sürüm',VERSION,'']
   sheets=[
     ['Summary',['Kalem','Miktar','Birim'],summary,[34,16,12]],
-    ['Detailed QTO',['Eleman','Tip','Malzeme / Sınıf','Adet','Boy (m)','Beton (m³)','Kalıp (m²)','Çelik (t)'],detail,[24,20,20,10,14,16,16,14]],
+    ['Detailed QTO',['Eleman','Tip','Malzeme / Sınıf','Adet','Boy (m)','Beton (m³)','Kalıp (m²)','Çelik (t)','Boru Çeliği (t)','Donatı (t)'],detail,[24,20,20,10,14,16,16,14,16,14]],
     ['Element Library',['Tip ID','Eleman','Malzeme / Sınıf','Adet','Fiziksel ID','Tip İmzası'],library,[20,24,20,10,45,65]],
     ['Pile QTO',pile_headers,pile_rows,[22,16,16,13,12,14,18,16,13,15,20,20,18,18,24,14]]]
   sheets.concat(system_export_sheets)
@@ -9432,7 +9436,7 @@ end
 
 def crown_axis_info(dialog)
   edge=crown_selected_edge
-  return dialog.execute_script("crownAxisError('Önce SketchUp\'ta Kronman aksını temsil eden tek bir kenar seçin.')") unless edge
+  return dialog.execute_script("crownAxisError(#{JSON.generate("Önce SketchUp'ta Kronman aksını temsil eden tek bir kenar seçin.")})") unless edge
   len=edge.length.to_m
   dialog.execute_script("crownAxisLoaded(#{JSON.generate({'length_m'=>len})})")
 rescue=>e
@@ -9997,7 +10001,8 @@ def show_boq_engine
   show_dialog
   UI.start_timer(0.15, false) do
     begin
-      @d.execute_script("var b=Array.from(document.querySelectorAll('.tabs button')).find(function(x){return x.textContent.indexOf('Keşif / BOQ')>=0;}); if(b){T('boq',b);refreshBOQ();}") if @d && @d.visible?
+      # v0.51.5 K31: sekme metnine bağlı arama yerine sayfa kimliğiyle geçiş
+      @d.execute_script("if(window.mstShowPage){mstShowPage('boq');}else{T('boq',document.createElement('button'));} if(window.refreshBOQ)refreshBOQ();") if @d && @d.visible?
     rescue => ex
       puts "MST BOQ navigation: #{ex.message}"
     end
@@ -10564,7 +10569,8 @@ def show_dialog
  @d.add_action_callback('controlled_editor_cancel'){|_|@controlled_editor_pending=nil}
  @d.add_action_callback('controlled_editor_preview'){|_,raw|controlled_editor_preview(raw,@d)}
  @d.add_action_callback('controlled_editor_apply'){|_,raw|controlled_editor_apply(raw,@d)}
- @d.add_action_callback('universal_edit'){|_,j|update_selected_element(j)}
+ # v0.51.5 K01: update_selected_element tanımlı değil; sessiz NameError yerine açıklayıcı ileti (model değişmez)
+ @d.add_action_callback('universal_edit'){|_,j|UI.messagebox('Bu düzenleme yolu bu sürümde desteklenmiyor; seçili eleman için Kontrollü Düzenleme panelini kullanın.')}
  @d.add_action_callback('export_professional_excel'){|_|export_professional_excel}
  @d.add_action_callback('pd_bk_length_info'){|_|pd_bk_length_info}
  @d.add_action_callback('create_flat_precast'){|_,json| cbj=mst_cb_json(json,'Prekast yerleşimi');r=cbj ? create_flat_precast(cbj) : nil;mst_kn_open_pockets(true) if r==true}   # v0.38 KN2

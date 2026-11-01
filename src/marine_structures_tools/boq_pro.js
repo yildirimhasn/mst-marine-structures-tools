@@ -171,7 +171,7 @@ window.progressSave=function(){
 };
 function renderIcmal(d){
  var b=$('#pg2IcmalRows');if(!b)return;var cur=d.currency||PG.currency||'USD',ic=d.icmal||[];
- b.innerHTML=ic.length?ic.map(function(l){var cls=(l.key==='C'||l.key==='F')?' class="total"':(l.key==='E'?' class="subtotal"':'');return '<tr'+cls+'><td><b>'+esc(l.key)+'</b></td><td class="txt">'+esc(l.name)+'</td><td class="num">'+num(l.cum)+' '+cur+'</td><td class="num">'+num(l.prev)+' '+cur+'</td><td class="num"><b>'+num(l.cur)+' '+cur+'</b></td></tr>';}).join(''):'<tr><td colspan="5">—</td></tr>';
+ b.innerHTML=ic.length?ic.map(function(l){/* v0.51.5 K38: '!' satırı icmal kalemi değil, icmal ↔ cetvel uyarısıdır (tutar sütunu yok) */if(l.key==='!')return '<tr class="bq2-icmal-warn"><td><b>!</b></td><td class="txt" colspan="4">'+esc(l.name)+'</td></tr>';var cls=(l.key==='C'||l.key==='F')?' class="total"':(l.key==='E'?' class="subtotal"':'');return '<tr'+cls+'><td><b>'+esc(l.key)+'</b></td><td class="txt">'+esc(l.name)+'</td><td class="num">'+num(l.cum)+' '+cur+'</td><td class="num">'+num(l.prev)+' '+cur+'</td><td class="num"><b>'+num(l.cur)+' '+cur+'</b></td></tr>';}).join(''):'<tr><td colspan="5">—</td></tr>';
  var msg=$('#pg2IcMsg');if(msg)msg.textContent=(d.archived?'Arşiv: ':'Önizleme: ')+'dönem sonu '+(d.period_date||'—')+(d.last_date?' · son hakediş '+d.last_date:' · ilk hakediş');
  if(d.period_date&&!d.archived)$('#pg2PeriodDate').value=d.period_date;
  $('#pg2PriceDiff').value=Number(d.price_diff||0);
@@ -190,7 +190,7 @@ function wrapProgress(){
  var w=function(d){var r=o.apply(this,arguments);try{
   PG.data=d;var cur=(d&&d.currency)||'USD';
   /* eksilen (negatif) satırları işaretle */
-  var trs=$$('#progressBody tr');((d&&d.rows)||[]).forEach(function(row,i){var tr=trs[i];if(!tr)return;if(row.warning||Number(row.current_period)<-1e-9){tr.classList.add('pg2-neg');tr.title=row.warning||'Önceki hakedişe göre azalma';}if(row.manual)tr.classList.add('pg2-manual');if(row.price_missing){tr.classList.add('pg2-noprice');tr.title=(tr.title?tr.title+' · ':'')+'Birim fiyat yok';}if(row.removed)tr.classList.add('pg2-removed');});
+  var trs=$$('#progressBody tr');((d&&d.rows)||[]).forEach(function(row,i){var tr=trs[i];if(!tr)return;/* v0.51.5 K34: uyarı notu satırda görünür (ui.html progressLoaded); kırmızı yalnız azalan/negatif satırda */if(row.warning)tr.title=row.warning;if(Number(row.current_period)<-1e-9){tr.classList.add('pg2-neg');tr.title=row.warning||'Önceki hakedişe göre azalma';}if(row.manual)tr.classList.add('pg2-manual');if(row.price_missing){tr.classList.add('pg2-noprice');tr.title=(tr.title?tr.title+' · ':'')+'Birim fiyat yok';}if(row.removed)tr.classList.add('pg2-removed');});
   renderIcmal(d||{});renderContract(d&&d.contract);
   var vs=$('#pg2ViewSrc');if(vs){var keep=vs.value;vs.innerHTML='<option value="">Tüm kalemler (eleman durumu)</option>'+((d&&d.rows)||[]).filter(function(r){return !r.manual&&!r.removed;}).map(function(r){return '<option value="'+esc(r.key||r.source)+'">'+esc(r.code)+' · '+esc(r.name)+'</option>';}).join('');vs.value=keep;}
   var sel=$('#progressPeriodSelect');if(sel&&d&&d.history){Array.prototype.forEach.call(sel.options,function(o){var h=d.history.filter(function(x){return String(x.no)===o.value;})[0];if(h&&h.date)o.textContent='Hakediş '+String(h.no).padStart(2,'0')+' · dönem sonu '+h.date;});}

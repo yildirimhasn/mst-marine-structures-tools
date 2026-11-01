@@ -121,6 +121,12 @@ tr.pg2-manual td:first-child::after{content:" ✎";color:#8a5a00}
 .bq2-ok{border-left:4px solid #2e9b55!important}.bq2-part{border-left:4px solid #e3a21a!important}.bq2-none{border-left:4px solid #b7c3cc!important}
 .bq2-icmal tr.total td{font-weight:700;background:#e8f1f8}
 .bq2-icmal tr.subtotal td{background:#f4f8fb}
+/* v0.51.5 K38/K34/K33/K39/K40 — yalnız gösterim: uyarı ve bilgi satırları (toplama girmez) */
+.bq2-icmal tr.bq2-icmal-warn td{background:#fff4d6;color:#6e4300;font-weight:600}
+.mst-row-note{display:block;color:#9a5300;font-size:9px;margin-top:2px;font-weight:600}
+.boq-table tr.boq-info-head td{background:#eef2f6;color:#33495b;font-weight:700;border-top:2px solid #b8c7d3}
+.boq-table tr.boq-info-row td{background:#f7f9fb;color:#33495b}
+.boq-info{display:inline-block;padding:3px 7px;border-radius:12px;font-size:8px;font-weight:800;background:#e1e8ef;color:#2b4459}
 
 .bq2-card td.txt,.bq2-card th{text-align:left}
 .bq2-card td.num{text-align:right}
