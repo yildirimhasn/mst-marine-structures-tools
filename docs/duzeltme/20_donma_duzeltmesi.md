@@ -12,3 +12,6 @@ pile_qto_infill_children okuma batch önbelleği (Group: persistent_id, Componen
 
 ## D5 (02.11.2026)
 revision_shape_memo (iç imza tanım başına, alt ağaç varlık başına; örnek dönüşümü her öğede), revision_create_snapshot anlık kaydı bir kez; jg_walk dünya dönüşümü yalnız jet grout öğesinde, jg_elements okuma batch önbelleği. p4 73/73 (eski kodda 11 kaldı); 45 test 0 kalan; golden b751978 433/433. Sahte: revision_create 3,50 → 1,97 s; revision_send kazancı Component sayısına bağlı (her kazık ayrı Group ise küçük). Yapılmayan: parametre imzası, revizyonu düğmeye bağlama, jg gezintisini kesme.
+
+## Q1 gömülü sayfa iç bağlantısı (02.11.2026, kullanıcı bildirimi)
+Aksesuarlar sayfasında tür başlığı bağlantısına (Baba, Usturmaça…) tıklanınca iframe içinde ana MST arayüzü (Çalışma Alanı) açılıyordu. Neden: mstEmbedShow srcdoc iframe; srcdoc taban adresi ana sayfa olduğundan href="#group-…" iframe'i ui.html'e götürüyor. 0.51.4'te de vardı. Düzeltme: mstEmbedShim iç bağlantı tıklamasını yakalayıp bölüme kaydırır; dış bağlantı ve düğmeler etkilenmez. Test q1_embed_anchor (yeni kod 3/3, eski kodda kalıyor); 46 test 0 kalan. Metraj yok.

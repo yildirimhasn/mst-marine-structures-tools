@@ -2469,6 +2469,8 @@ function mstEmbedShim(key){
  return '<script>(function(){var K='+JSON.stringify(key)+',P=window.parent;'+
   'var S=new Proxy({},{get:function(t,n){if(typeof n!=="string"||n==="then"||n==="toJSON")return undefined;return function(){P.mstEmbedCall(K,n,Array.prototype.slice.call(arguments));};}});'+
   'try{Object.defineProperty(window,"sketchup",{value:S,writable:false,configurable:false});}catch(e){window.sketchup=S;}'+
+  /* srcdoc iframe'in taban adresi ana sayfadır: "#bolum" bağlantısı iframe'e ana MST arayüzünü yükler. Sayfa içi bağlantı burada kaydırılır. */
+  'document.addEventListener("click",function(ev){var a=ev.target;while(a&&a.tagName!=="A")a=a.parentElement;if(!a)return;var h=a.getAttribute("href")||"";if(h.charAt(0)!=="#")return;ev.preventDefault();var t=h.length>1?document.getElementById(h.slice(1)):null;if(t)t.scrollIntoView();},true);'+
   'window.close=function(){P.mstEmbedUserClose(K);};})();<\/script>';
 }
 function mstEmbedShow(key,title,html){
