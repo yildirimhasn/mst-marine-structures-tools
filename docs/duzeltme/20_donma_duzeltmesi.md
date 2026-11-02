@@ -15,3 +15,6 @@ revision_shape_memo (iç imza tanım başına, alt ağaç varlık başına; örn
 
 ## Q1 gömülü sayfa iç bağlantısı (02.11.2026, kullanıcı bildirimi)
 Aksesuarlar sayfasında tür başlığı bağlantısına (Baba, Usturmaça…) tıklanınca iframe içinde ana MST arayüzü (Çalışma Alanı) açılıyordu. Neden: mstEmbedShow srcdoc iframe; srcdoc taban adresi ana sayfa olduğundan href="#group-…" iframe'i ui.html'e götürüyor. 0.51.4'te de vardı. Düzeltme: mstEmbedShim iç bağlantı tıklamasını yakalayıp bölüme kaydırır; dış bağlantı ve düğmeler etkilenmez. Test q1_embed_anchor (yeni kod 3/3, eski kodda kalıyor); 46 test 0 kalan. Metraj yok.
+
+## Q2 Revizyonlar sayfası düğmeyle hesaplar (02.11.2026, kullanıcı kararı "Düğmeyle hesaplasın")
+Kullanıcı modelinde revision_send ≈22 s (604 öğe geometri imzası). Sol menü (ui.html nav) ve iş akışı alt adımı (mst_workflow.js subs extra) artık revisionRefresh yerine revisionMarkStale çağırır: hesap yapılmaz, "Gösterilen sayılar son hesaplamaya aittir; güncel revizyon farkı için ↻ Yenile" notu gösterilir. ↻ Yenile ve standart çubuk "Seçiliyi Oku" hesaplar; hesaplama sırasında "hesaplanıyor…" notu. Anlık Kayıt Oluştur değişmedi. Sonuç birebir aynı; 46 test 0 kalan; golden 7535fb8 433/433. Metraj yok.

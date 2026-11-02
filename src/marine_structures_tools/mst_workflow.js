@@ -18,7 +18,7 @@ var FLOW=[
  {n:7, key:'rebar', title:'Donatı BIM', page:'rebar', desc:'Hangi elemanın donatısı modellendi (BIM), hangisi pursantajla hesaplanıyor.', need:['beam']},
  {n:8, key:'audit', title:'Model Kontrolü', emb:'model_audit', open:'model_audit', desc:'Hata ve uyarılar; listeden seçip modelde göster, güvenli onarım.', need:[]},
  {n:9, key:'qto', title:'Metraj', page:'qto', desc:'Tek hesap motorundan beton, kalıp, donatı, çelik ve dolgu metrajı.', need:[]},
- {n:10,key:'boq', title:'Keşif / Hakediş', page:'boq', desc:'ÖBF iş kalemleri, birim fiyat, revizyon ve hakediş.', need:['qto'], subs:[{title:'Revizyonlar', page:'revision', extra:'revisionRefresh()'},{title:'Hakediş / İlerleme', page:'progress', extra:'progressRefresh()'}]}
+ {n:10,key:'boq', title:'Keşif / Hakediş', page:'boq', desc:'ÖBF iş kalemleri, birim fiyat, revizyon ve hakediş.', need:['qto'], subs:[{title:'Revizyonlar', page:'revision', extra:'revisionMarkStale()'},{title:'Hakediş / İlerleme', page:'progress', extra:'progressRefresh()'}]}
 ];
 var TOOLS=[
  {key:'editor', title:'Eleman Düzenle', page:'editor', desc:'Seçili BIM elemanının kimliği, ilişkileri ve kontrollü güncelleme.'},
