@@ -7,8 +7,12 @@
  function el(id){return document.getElementById(id);}
  function clear(node){while(node.firstChild)node.removeChild(node.firstChild);}
  function text(tag,value,cls){var n=document.createElement(tag);n.textContent=value;if(cls)n.className=cls;return n;}
- function labels(r){var f=r.fields;return [f.project||'Proje atanmamış',f.system||'Sistem atanmamış',f.structure||'Yapı atanmamış',f.axis||'Aks atanmamış',r.label];}
- function searchable(r){return [r.id,r.uid,r.label,'Ø'+(r.fields.diameter_mm||''),'t'+(r.fields.thickness_mm||'')].concat(Object.keys(r.fields).map(function(k){return r.fields[k];})).join(' ').toLocaleLowerCase('tr-TR');}
+ /* 02.11.2026 ADR 22: yapı görünen adı ("Ad (kod)") yalnız gösterimde; süzgeç ve kimlik değeri fields.structure (kod) kalır. structure_label yoksa kod gösterilir. */
+ var structureNames={};
+ function structureText(code){var c=(code===null||code===undefined)?'':String(code),l=Object.prototype.hasOwnProperty.call(structureNames,c)?structureNames[c]:'';return l||c;}
+ function indexStructureNames(records){structureNames={};(records||[]).forEach(function(r){var c=r&&r.fields?r.fields.structure:null,l=r?r.structure_label:null;if(!unassigned(c)&&typeof l==='string'&&l.trim()&&!Object.prototype.hasOwnProperty.call(structureNames,String(c)))structureNames[String(c)]=l;});}
+ function labels(r){var f=r.fields;return [f.project||'Proje atanmamış',f.system||'Sistem atanmamış',unassigned(f.structure)?'Yapı atanmamış':((typeof r.structure_label==='string'&&r.structure_label.trim())?r.structure_label:structureText(f.structure)),f.axis||'Aks atanmamış',r.label];}
+ function searchable(r){return [r.id,r.uid,r.label,r.structure_label||'','Ø'+(r.fields.diameter_mm||''),'t'+(r.fields.thickness_mm||'')].concat(Object.keys(r.fields).map(function(k){return r.fields[k];})).join(' ').toLocaleLowerCase('tr-TR');}
  function unassigned(value){return value===null||value===undefined||String(value).trim()==='';}
  function visible(records,query,filters){var terms=(query||'').trim().toLocaleLowerCase('tr-TR').split(/\s+/).filter(Boolean);filters=filters||{};return records.filter(function(r){
   var haystack=searchable(r);if(!terms.every(function(term){return haystack.includes(term);}))return false;
@@ -27,7 +31,7 @@
  function cancelSearch(accept){if(searchTimer!==null)clearTimeout(searchTimer);searchTimer=null;if(accept)state.query=el('pwSearch').value;}
  function searchChanged(){cancelSearch(false);el('pwInspectResults').disabled=true;el('pwCount').textContent='Arama güncelleniyor…';searchTimer=setTimeout(function(){searchTimer=null;state.query=el('pwSearch').value;renderTree();},140);}
  function activeFilters(){return !!(state.query.trim()||state.filters.type||state.filters.structure||state.filters.axis||state.filters.status!=='all');}
- function fillFilter(id,key,label){var node=el(id),previous=node.value;clear(node);var option=text('option',label);option.value='';node.appendChild(option);var representatives=new Map();state.records.forEach(function(r){var value=key==='type'?r.type:r.fields[key];if(!unassigned(value)&&!representatives.has(value))representatives.set(value,r);});var values=Array.from(representatives.keys()).sort(function(a,b){return String(a).localeCompare(String(b),'tr',{numeric:true});});values.forEach(function(value){var row=representatives.get(value),item=text('option',key==='type'?row.label:String(value));item.value=value;node.appendChild(item)});node.value=values.includes(previous)?previous:'';state.filters[key]=node.value;}
+ function fillFilter(id,key,label){var node=el(id),previous=node.value;clear(node);var option=text('option',label);option.value='';node.appendChild(option);var representatives=new Map();state.records.forEach(function(r){var value=key==='type'?r.type:r.fields[key];if(!unassigned(value)&&!representatives.has(value))representatives.set(value,r);});var values=Array.from(representatives.keys()).sort(function(a,b){return String(a).localeCompare(String(b),'tr',{numeric:true});});values.forEach(function(value){var row=representatives.get(value),item=text('option',key==='type'?row.label:key==='structure'?structureText(value):String(value));item.value=value;if(key==='structure'&&structureText(value)!==String(value))item.title='Yapı kodu: '+value;node.appendChild(item)});node.value=values.includes(previous)?previous:'';state.filters[key]=node.value;}
  function updateFilters(){fillFilter('pwTypeFilter','type','Tüm türler');fillFilter('pwStructureFilter','structure','Tüm yapılar');fillFilter('pwAxisFilter','axis','Tüm akslar');}
  function resetFilters(){state.query='';state.filters={type:'',structure:'',axis:'',status:'all'};el('pwSearch').value='';['pwTypeFilter','pwStructureFilter','pwAxisFilter'].forEach(function(id){el(id).value=''});el('pwIssueFilter').value='all';}
  function build(records){
@@ -78,7 +82,7 @@
   container=el('pwProperties');clear(container);
   (summary.common||[]).forEach(function(item){
    container.appendChild(text('dt',item.label));
-   container.appendChild(text('dd',!count?'—':item.mixed?'Farklı değerler':item.value===null||item.value===undefined||item.value===''?'Atanmamış':String(item.value),item.mixed?'mixed':''));
+   container.appendChild(text('dd',!count?'—':item.mixed?'Farklı değerler':item.value===null||item.value===undefined||item.value===''?'Atanmamış':item.key==='structure'?structureText(item.value):String(item.value),item.mixed?'mixed':''));
   });
   container=el('pwElements');clear(container);
   focusRows().slice(0,300).forEach(function(r){var button=text('button',r.id+' · '+r.label);button.onclick=function(){setFocus([r.key],false);action(false,false);};container.appendChild(button);});
@@ -204,7 +208,7 @@
  function loaded(data){
   cancelSearch(true);viewCache=null;focusCache=null;page=0;revealKey=null;
   depInvalidate('Model güncellendi; önceki bağımlılık sonucu temizlendi.');
-  if(state.token&&state.token!==data.model_token){state.focus=[];state.selected=[];state.expanded.clear();state.scope=false;resetFilters();}state.records=data.records||[];state.token=data.model_token;updateFilters();state.ready=true;state.selected=(data.selection&&data.selection.keys)||[];
+  if(state.token&&state.token!==data.model_token){state.focus=[];state.selected=[];state.expanded.clear();state.scope=false;resetFilters();}state.records=data.records||[];indexStructureNames(state.records);state.token=data.model_token;updateFilters();state.ready=true;state.selected=(data.selection&&data.selection.keys)||[];
   if(state.selected.length){state.focus=state.selected.slice();state.scope=false;reveal(state.selected);}
   else{var available=new Set(state.records.map(function(r){return r.key;}));state.focus=state.focus.filter(function(key){return available.has(key);});}
   if(!state.expanded.size)view().tree.children.forEach(function(n){state.expanded.add(n.key);});

@@ -24,11 +24,18 @@ var pileQTOColumns=[
   ['Tapa (t)',3],['Boru çeliği (t)',3],['Üst çember (kg)',2],['Alt çember (kg)',2],
   ['Manipülasyon (t)',3],['Beton (m³)',3],['PE (m²)',2],['Foraj (m)',2]
 ];
+/* 02.11.2026 ADR 22: yapı satırında label = görünen ad, structure / key = kod (seçim ve kimlik kodla yapılır).
+   Gösterim: "Ad (kod)"; görünen ad yoksa veya koda eşitse yalnız kod. */
+function pileQTOStructureText(row){
+  var code=row&&row.structure;if(code===null||code===undefined||code==='')return 'Tüm yapılar';
+  var name=row.structure_label;code=String(code);
+  return (typeof name==='string'&&name.trim()&&name!==code)?name+' ('+code+')':code;
+}
 function pileQTOVisibleRows(rows,query,collapsed){
   if(query){
     var keys=new Set();
     rows.filter(function(r){return r.level==='section';}).forEach(function(r){
-      var hay=[r.zone,r.structure,r.label].join(' ').toLocaleLowerCase('tr-TR');
+      var hay=[r.zone,r.structure,r.structure_label||'',r.label].join(' ').toLocaleLowerCase('tr-TR');
       if(hay.includes(query)){
         keys.add(r.key);keys.add(r.parent);
         var parent=rows.find(function(p){return p.key===r.parent;});if(parent)keys.add(parent.parent);
@@ -97,7 +104,9 @@ function renderPileQTO(){
           toggle.onclick=function(){if(pileQTOCollapsed.has(row.key))pileQTOCollapsed.delete(row.key);else pileQTOCollapsed.add(row.key);renderPileQTO();};
           td.appendChild(toggle);
         }
-        var label=document.createElement('span');label.textContent=row.label;td.appendChild(label);
+        var label=document.createElement('span');label.textContent=row.label;
+        if(row.level==='structure'&&row.structure!==null&&row.structure!==undefined&&String(row.structure)!==String(row.label))label.title='Yapı kodu: '+row.structure;
+        td.appendChild(label);
       }else{
         var value=i===1?row.diameter_mm:(i===2?row.thickness_mm:row.values[i]);
         td.textContent=value===null||value===undefined?'—':Number(value).toLocaleString('tr-TR',{minimumFractionDigits:pileQTOColumns[i][1],maximumFractionDigits:pileQTOColumns[i][1]});
@@ -107,8 +116,8 @@ function renderPileQTO(){
     var td=document.createElement('td');
     if(!isTotal&&(!query||row.level==='section')){
       var select=document.createElement('button');select.className='secondary pq-select';select.textContent='Seç';
-      select.title=row.zone+' / '+(row.structure||'Tüm yapılar')+' / '+row.label+' elemanlarını seç';
-      select.onclick=function(){selectPileQTO(row.zone,row.diameter_mm,row.thickness_mm,row.structure);var status=document.getElementById('pileQTOSelection');if(status)status.textContent='Seçim kapsamı: '+row.zone+' / '+(row.structure||'Tüm yapılar')+' · '+row.values[3]+' kazık';};
+      select.title=row.level==='section'?(row.zone+' / '+pileQTOStructureText(row)+' / '+row.label+' elemanlarını seç'):((row.level==='structure'?row.zone+' / '+pileQTOStructureText(row):row.zone+' / Tüm yapılar')+' elemanlarını seç');
+      select.onclick=function(){selectPileQTO(row.zone,row.diameter_mm,row.thickness_mm,row.structure);var status=document.getElementById('pileQTOSelection');if(status)status.textContent='Seçim kapsamı: '+row.zone+' / '+pileQTOStructureText(row)+' · '+row.values[3]+' kazık';};
       td.appendChild(select);
     }
     tr.appendChild(td);body.appendChild(tr);
@@ -135,7 +144,7 @@ function expandPileQTO(open){
 function updatePileActionScope(){
   var count=typeof customAxes==='undefined'?0:customAxes.reduce(function(n,a){return n+(a.points||[]).filter(function(p){return p.selected;}).length;},0);
   document.querySelectorAll('#pile button[onclick="pile()"]').forEach(function(button){button.textContent=count+' Kazık Oluştur';button.disabled=count===0;});
-  var e=document.getElementById('pileActionScope');if(e)e.textContent=(window.currentPileSystem||'Sistem seçilmedi')+' / '+(window.currentPileStructure||'Yapı seçilmedi')+' · '+count+' seçili nokta';
+  var e=document.getElementById('pileActionScope');if(e)e.textContent=(window.currentPileSystem||'Sistem seçilmedi')+' / '+(window.currentPileStructureLabel||window.currentPileStructure||'Yapı seçilmedi')+' · '+count+' seçili nokta';
 }
 function validatePileForm(){
   var creationFields=new Set(['diameter_mm','thickness_mm','length_m','top_elevation_m','seabed_elevation_m','driving_length_m','batter_ratio','azimuth_deg','splice_count_per_pile','plug_count_per_pile','plug_thickness_mm','plug_clearance_mm','upper_ring_width_mm','upper_ring_thickness_mm','upper_ring_count_per_pile','lower_ring_width_mm','lower_ring_thickness_mm','lower_ring_count_per_pile','pe_length_m','drilling_length_m','count_x','count_y','spacing_x_m','spacing_y_m','start_no','start_low_count','start_low_top_m','end_low_count','end_low_top_m','infill_bottom_normal_m','infill_bottom_start_m','infill_bottom_end_m']);
