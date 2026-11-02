@@ -580,7 +580,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
 <section class="pile-panel" id="mstPileTargetPanel" style="display:none">
  <div class="panel-head"><div><h3>Uygulama Kapsamı</h3><small>Referans kazık formu doldurur; değişiklik yalnız seçtiğiniz hedef kazıklara uygulanır.</small></div><span class="panel-badge">TARGET SET</span></div>
  <div class="pile-form four">
-  <label>Hedef Kazıklar<select id="mstPileTargetScope" onchange="mstPileTargetScopeChanged()"><option value="ACTIVE">Yalnız aktif kazık</option><option value="SELECTED">Modelde seçili kazıklar</option><option value="TYPE">Aynı BIM Tipi</option><option value="IDS">Kazık ID / Aralık</option></select></label>
+  <label>Hedef Kazıklar<select id="mstPileTargetScope" onchange="mstPileTargetScopeChanged()"><option value="ACTIVE">Yalnız aktif kazık</option><option value="SELECTED">Modelde seçili kazıklar</option><option value="TYPE">Aynı BIM Tipi</option><option value="IDS">Kazık ID / Aralık</option><option value="ALL">Projedeki tüm kazıklar</option></select></label>
   <label id="mstPileTargetIdsWrap" style="display:none;grid-column:span 2">Kazık ID / Aralık<input id="mstPileTargetIds" placeholder="P-001–P-050, P-071–P-120"></label>
   <label><span>&nbsp;</span><button type="button" class="secondary" style="width:100%" onclick="mstPileTargetPreview()">Hedefleri Önizle</button></label>
  </div>
@@ -1133,7 +1133,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
 <div class="qto-kpis">
  <div><small>Çelik Boru Kazık</small><b id="qPileCount">—</b><em id="qPileLength">— m</em></div>
  <div><small>Kazık Çeliği</small><b id="qSteelTon">— t</b><em>teorik ağırlık</em></div>
- <div><small>Toplam Beton</small><b id="qConcrete">— m³</b><em id="qConcreteBreak">BK + PD + DOSP + KRONMAN + ÇBK</em></div>
+ <div><small>Toplam Beton</small><b id="qConcrete">— m³</b><em id="qConcreteBreak">BK + PD + DOSP + KAPLAMA + KRONMAN + ÇBK</em></div>
  <div><small>Toplam Kalıp</small><b id="qFormwork">— m²</b><em>BK + Prekast</em></div>
  <div><small>Normal PD</small><b id="qPDCount">—</b><em id="qPDVol">— m³</em></div>
  <div><small>Kanal Prekastı</small><b id="qChannelCount">—</b><em id="qChannelVol">— m³</em></div>

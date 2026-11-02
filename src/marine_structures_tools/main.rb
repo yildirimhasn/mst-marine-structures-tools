@@ -3520,7 +3520,8 @@ def mst_boq_rebar_breakdown(all,pile_infill=nil,topping_vol=nil)
  else
   rows << {key:'pile',name:'Kazık içi',count:[by.('pile_infill_concrete').length,piles.length].max,kg:pile_infill*rebar_rate('pile'),label:"% #{format('%.0f',rebar_rate('pile'))}"}
  end
- [['head_beam','Başlık kirişi'],['deck_slab','Döşeme'],['flat_precast','Normal prekast'],['channel_precast','Kanal prekastı'],
+ # ADR-0515 G4: ayrı bordür / tretuvar öğesinin donatısı (hacim × rebar_rate('deck')) Keşif ÖBF-004'e girer; kaplama satırı yine 3. sıraya eklenir
+ [['head_beam','Başlık kirişi'],['deck_slab','Döşeme'],['curb','Bordür / Tretuvar'],['flat_precast','Normal prekast'],['channel_precast','Kanal prekastı'],
   ['crane_precast','Vinç prekastı'],['crown_wall','Kronman'],['bored_pile','Fore kazık']].each do |t,n|
   es=by.(t);s=mst_rebar_sum(es)
   rows << {key:t,name:n,count:es.length,kg:s['kg'],label:s['label']}
@@ -3822,7 +3823,7 @@ def boq_trace_entities(source)
   when 'TOPPING_AREA','TOPPING_CONCRETE' then by_type.call('deck_topping','deck_slab')
   when 'PILE_INFILL' then by_type.call('steel_pipe_pile').select{|p| pile_bim_qto_item(p)[:concrete_m3].to_f>0}.uniq{|p|p.persistent_id}
   when 'PILE_STEEL','PILE_MANIP','PILE_RINGS','PILE_SPLICES','PILE_DRIVING','PILE_PE','PILE_DRILLING' then by_type.call('steel_pipe_pile')
-  when 'REBAR' then QuantityService.rebar_sources(all).reject{|e| e.get_attribute(DICT,'element_type','')=='curb'}
+  when 'REBAR' then QuantityService.rebar_sources(all)   # ADR-0515 G4: bordür donatısı Keşif REBAR'da; izleme de bordürü içerir
   else
     # Project mappings and future BOQ keys may carry their source key in metadata.
     all.select{|e| e.get_attribute(DICT,'boq_source','').to_s==source.to_s}
@@ -4027,7 +4028,7 @@ bv=bs.sum{|x|head_beam_net_concrete(x)};bf=bs.sum{|x|head_beam_net_formwork_area
  "<tr><td>Prekast</td><td>Kanal Prekastı</td><td>#{ch.length}</td><td>-</td><td>#{format('%.3f',cv)} m³</td><td>#{format('%.2f',cf)} m²</td><td>#{mst_rebar_cell(ch)}</td></tr>"+
  "<tr><td>Prekast</td><td>Vinç Prekastı</td><td>#{cr.length}</td><td>-</td><td>#{format('%.3f',crv)} m³</td><td>#{format('%.2f',crf)} m²</td><td>#{mst_rebar_cell(cr)}</td></tr>"+
  "<tr><td>Betonarme</td><td>Döşeme</td><td>#{dk.length}</td><td>-</td><td>#{format('%.3f',dv+cbv)} m³</td><td>#{format('%.2f',df+cbf)} m²</td><td>#{format('%.3f',mst_rebar_sum(dk)['kg']/1000.0)} t <small style='color:#5b6b7b'>(#{html_escape(mst_rebar_sum(dk)['label'])})</small></td></tr>"+
- (topping_vol>0 ? "<tr><td>Betonarme</td><td>Kaplama <small style='color:#5b6b7b'>(Toplam Beton kartına dahil değil; keşifte ayrı kalem)</small></td><td>-</td><td>-</td><td>#{format('%.3f',topping_vol)} m³</td><td>-</td><td>#{format('%.3f',topping_vol*rebar_rate('topping')/1000.0)} t <small style='color:#5b6b7b'>(donatı; hacim × #{format('%.0f',rebar_rate('topping'))} kg/m³ pursantaj)</small></td></tr>" : '')+
+ (topping_vol>0 ? "<tr><td>Betonarme</td><td>Kaplama <small style='color:#5b6b7b'>(Toplam Beton'a dahil; keşifte ayrı kalem ÖBF-072)</small></td><td>-</td><td>-</td><td>#{format('%.3f',topping_vol)} m³</td><td>-</td><td>#{format('%.3f',topping_vol*rebar_rate('topping')/1000.0)} t <small style='color:#5b6b7b'>(donatı; hacim × #{format('%.0f',rebar_rate('topping'))} kg/m³ pursantaj)</small></td></tr>" : '')+
  "<tr><td>Betonarme</td><td>Kronman</td><td>#{cw.length}</td><td>-</td><td>#{format('%.3f',cwv)} m³</td><td>#{format('%.2f',cwf)} m²</td><td>#{mst_rebar_cell(cw)}</td></tr>"
  elems=snap[:elements].reject{|e|e.get_attribute(DICT,'element_type','')=='pile_infill_concrete'}
  status=qto_workspace_status(elems,ps)
@@ -4036,9 +4037,10 @@ bv=bs.sum{|x|head_beam_net_concrete(x)};bf=bs.sum{|x|head_beam_net_formwork_area
  pile_qto_total=pile_fabrication_qto_row(ps,'TOPLAM',true)
  pile_bim_qto_rows=ps.map{|p|pile_bim_qto_item(p)}.sort_by{|x|x[:pile_id]}
  infill_summary=iv
- concrete_summary=snap[:totals][:concrete_m3].to_f
+ concrete_summary=snap[:totals][:concrete_m3].to_f+topping_vol   # ADR-0515 G6: Toplam Beton kaplamayı içerir (qto3_snapshot değişmez)
  concrete_breakdown={
-  'BK'=>bv, 'PD'=>pv+cv+crv, 'DOSP'=>dv+cbv,   # K08: kaplama Toplam Beton'da (qto3_snapshot) yok; ayrı satırda gösterilir
+  'BK'=>bv, 'PD'=>pv+cv+crv, 'DOSP'=>dv+cbv,   # K08: kaplama ayrı satırda; G6: KAPLAMA kırılımı Toplam Beton'a dahil (DİĞER qto3_snapshot'tan, değişmez)
+  'KAPLAMA'=>topping_vol,
   'KRONMAN'=>cwv, 'ÇBK'=>infill_summary,
   'DİĞER'=>snap[:totals][:concrete_m3].to_f-(bv+pv+cv+crv+dv+cbv+cwv+iv)
  }
@@ -7000,6 +7002,8 @@ def mst_resolve_pile_targets(data)
     dup=ids.select{|id|by_id[id].length>1}
     raise "Bu Kazık ID'ler modelde birden fazla kazıkta kullanılıyor: #{dup.first(12).map{|id|"#{id} (#{by_id[id].length})"}.join(', ')}. ID ile hedefleme belirsiz; 'Modelde seçili kazıklar' seçeneğini kullanın." unless dup.empty?
     ids.map{|id|by_id[id].first}
+  when 'ALL'   # 0.51.5 G-b: yalnız açıkça "Projedeki tüm kazıklar" seçilince; önizleme sayıyı gösterir
+    piles
   else
     [ref]
   end
@@ -7762,10 +7766,11 @@ def repair_bim_identity
  # Refresh dependency UID/ID metadata without opening a nested SketchUp operation.
  if respond_to?(:mst_all_elements)
   dep_all=mst_all_elements
+  _ga,gch,gpa,_gu=dependency_graph(Sketchup.active_model,dep_all)   # ADR-0515 G7: grafik kimlik yazımlarından sonra bir kez (döngüdeki yazımlar grafik girdisi değil)
+  # ADR-0515 G7 ayrı öneri: ara dependency_* / '2.1' yazımı kaldırıldı — commit_with_dependencies (aşağıda) aynı işlemde son değerleri
+  # ('2.2') yazar. Bağlı öğelerde eksik UID üretimi (ensure_uid) aynı sırayla korunur; işlem sonundaki öznitelikler aynıdır.
   dep_all.each do |e|
-   deps=mst_direct_dependencies(e,dep_all);parents=mst_direct_parents(e,dep_all)
-   e.set_attribute(DICT,'dependency_child_uids',deps.map{|x|ensure_uid(x)}.uniq.join(','));e.set_attribute(DICT,'dependency_child_ids',deps.map{|x|element_visible_id(x)}.uniq.join(','))
-   e.set_attribute(DICT,'dependency_parent_uids',parents.map{|x|ensure_uid(x)}.uniq.join(','));e.set_attribute(DICT,'dependency_parent_ids',parents.map{|x|element_visible_id(x)}.uniq.join(','));e.set_attribute(DICT,'dependency_schema','2.1')
+   gch[e].each{|x|ensure_uid(x)};gpa[e].each{|x|ensure_uid(x)}
   end
  end
  model.set_attribute(DICT,'identity_repair_revision','v0.21.1');commit_with_dependencies(model)
@@ -8318,6 +8323,14 @@ def mst_audit_v0515(elems,all=elems)
  decks.select{|d|d.get_attribute(DICT,'topping_enabled',nil).nil?}.each do |d|
   out << ['WARNING',d,'Döşeme Metrajı',"#{element_visible_id(d)}: kaplama durumu kayıtlı değil (eski döşeme). Keşif kaplamayı bu döşemede 0,10 m ile sayıyor; metraj raporu kaplama satırı göstermiyor.",'Kaplama varsa Kaplama Ekle / Kaplama Eğimi ile kaydedin; yoksa döşemeyi yeniden oluşturun. (Belge: kaplama niyeti)',[d.persistent_id]]
  end
+ # ADR-0515 G4: gövdesinde bordür betonu olan döşemeye ayrıca ayrı bordür öğesi bağlı → bordür betonu ve donatısı iki kez sayılır (yalnız uyarı)
+ curbs=all.select{|e|typ[e]=='curb'}
+ decks.select{|d|d.get_attribute(DICT,'curb_volume_m3',0).to_f>0}.each do |d|
+  du=d.get_attribute(DICT,'element_uid','').to_s;did=element_visible_id(d)
+  cs=curbs.select{|c|pu=c.get_attribute(DICT,'parent_uid','').to_s;pu.empty? ? c.get_attribute(DICT,'parent_deck_id','').to_s==did : (!du.empty? && pu==du)}
+  next if cs.empty?
+  out << ['WARNING',d,'Döşeme Metrajı',format('%s: döşeme gövdesinde bordür betonu var (%.3f m³) ve döşemeye ayrıca %d ayrı bordür / tretuvar öğesi bağlı (%s). Bordür betonu ve donatısı iki kez sayılıyor olabilir.',did,d.get_attribute(DICT,'curb_volume_m3',0).to_f,cs.length,cs.first(10).map{|c|element_visible_id(c)}.join(', ')),'Ayrı bordür öğelerinin döşeme gövdesindeki bordürle aynı olup olmadığını kontrol edin; aynıysa birini kaldırın.',[d.persistent_id]+cs.map(&:persistent_id)]
+ end
  # K54: PV diş < oturma (yalnız uyarı)
  elems.select{|e|typ[e]=='crane_precast'}.each{|e|mst_pv_tooth_seat_warnings(e).each{|w|out << ['WARNING',e,'Prekast Metrajı',w,'Diş boyunu oturma boyuna eşit / büyük seçin ya da kesişimi elle düşün.',[e.persistent_id]]}}
  # K21 (S7 / S8): sessiz 0 yerine görünür hata
@@ -8617,11 +8630,8 @@ def export_boq_csv
  all=[];collect_elements(Sketchup.active_model.entities,all)
  path=UI.savepanel('Keşif / Metraj CSV Kaydet','','MST_Kesif_Metraj.csv');return unless path
  path+='.csv' unless path.downcase.end_with?('.csv')
- require 'csv';rows=[['Kategori','Tip','Malzeme/Sinif','Adet','Boy_m','Beton_m3','Kalip_m2','Celik_t']]
- groups=all.select{|e|%w[steel_pipe_pile head_beam flat_precast channel_precast crane_precast deck_slab curb pile_infill_concrete crown_wall].include?(e.get_attribute(DICT,'element_type').to_s)}.group_by{|e|[e.get_attribute(DICT,'element_type').to_s,e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s,e.get_attribute(DICT,'concrete_class',e.get_attribute(DICT,'steel_grade','-')).to_s]}
- groups.each do |k,arr|
-  rows<<[k[0],k[1],k[2],arr.length,arr.sum{|e|e.get_attribute(DICT,'actual_length_m',e.get_attribute(DICT,'length_m',0)).to_f},arr.sum{|e|e.get_attribute(DICT,'concrete_volume_m3',0).to_f},arr.sum{|e|e.get_attribute(DICT,'formwork_area_m2',0).to_f},arr.sum{|e|e.get_attribute(DICT,'weight_kg',0).to_f}/1000.0]
- end
+ require 'csv';rows=[['Kategori','Tip','Malzeme/Sinif','Adet','Boy_m','Beton_m3','Kalip_m2','Celik_t','Donati_t']]
+ rows.concat(mst_boq_csv_rows(all))   # ADR-0515 G5: Keşif ile aynı kaynak (net BK betonu, tüm iç beton, boru çeliği, donatı)
  CSV.open(path,'w',write_headers:false,encoding:'UTF-8') do |csv|
  rows.each_with_index do |r,index|
   output=r.dup
@@ -8694,8 +8704,9 @@ def stamp_dependency_metadata
     u
   end
   blank=lambda{|e,k|e.get_attribute(DICT,k,'').to_s.strip.empty?}
+  pgraph=dependency_graph(model,all)[2]   # ADR-0515 G7: grafik bir kez (döngü modele yazmaz; mst_direct_parents ile aynı sonuç)
   all.each do |e|
-    uid_of.call(e); parents=mst_direct_parents(e,all)
+    uid_of.call(e); parents=pgraph[e]
     ch << [e,'parent_uid',uid_of.call(parents.first)] if parents.length==1 && blank.call(e,'parent_uid')
     if %w[flat_precast channel_precast crane_precast].include?(e.get_attribute(DICT,'element_type','').to_s)
       l=mst_element_by_pid(e.get_attribute(DICT,'support_left_pid',0),all); r=mst_element_by_pid(e.get_attribute(DICT,'support_right_pid',0),all)
@@ -8981,38 +8992,95 @@ rescue => e
  UI.messagebox("Kazık metraj grubu seçim hatası: #{e.message}")
 end
 
+MST_QTO_DETAIL_TYPE_NAMES={'steel_pipe_pile'=>'Çelik Boru Kazık','pile_infill_concrete'=>'Kazık İçi Beton','head_beam'=>'Başlık Kirişi','flat_precast'=>'Normal Prekast','channel_precast'=>'Kanal Prekastı','crane_precast'=>'Vinç Prekastı','deck_slab'=>'Döşeme','curb'=>'Bordür / Tretuvar','crown_wall'=>'Kronman','bored_pile'=>'Fore Kazık'}.freeze
+
+# ADR-0515 G5 (salt okuma): Ayrıntılı Metraj satırları — Excel 'Ayrıntılı Metraj' sayfası ve Keşif / Metraj CSV ortak kaynağı.
+# Satır: [Eleman, Tip, Malzeme / Sınıf, Adet, Boy, Beton, Kalıp, Çelik (birleşik), Boru Çeliği, Donatı]; rounded=false → yuvarlanmamış (CSV).
+def mst_qto_detail_rows(all,snapshot,rounded=true)
+  allowed=%w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab curb crown_wall bored_pile]
+  elems=all.select{|e|allowed.include?(e.get_attribute(DICT,'element_type','').to_s)}
+  type_names=MST_QTO_DETAIL_TYPE_NAMES
+  rd=rounded ? ->(v,n){v.round(n)} : ->(v,_n){v}
+  groups=elems.group_by{|e|[e.get_attribute(DICT,'element_type','').to_s,e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s,qto_material_class(e)]}
+  detail=[]
+  groups.sort_by{|k,a|k.join('|')}.each do |k,arr|
+    detail<<[type_names[k[0]]||k[0],k[1],k[2],arr.length,
+      rd.(arr.sum{|e|qto3_quantity(e,:length_m)},2),
+      rd.(arr.sum{|e|qto3_quantity(e,:concrete_m3)},3),
+      rd.(arr.sum{|e|qto3_quantity(e,:formwork_m2)},2),
+      rd.(arr.sum{|e|qto3_quantity(e,:steel_t)},3)]
+    detail.last.concat(k[0]=='steel_pipe_pile' ? [detail.last[7],0.0] : [0.0,detail.last[7]])   # v0.51.5 K41: Boru Çeliği / Donatı ayrı (birleşik sütun uyumluluk için kalır)
+  end
+  fallback=snapshot[:rows].find{|row|row[:type]=='pile_infill_concrete'}
+  if fallback
+    detail.reject!{|row|row[0]==type_names['pile_infill_concrete']}   # v0.51.5 F1: fiziksel iç beton satırları Özet satırında zaten var
+    detail<<['Kazık İçi Beton','Tüm kaynaklar','Sınıf bazında Özet',fallback[:count],fallback[:length_m],fallback[:concrete_m3],fallback[:formwork_m2],fallback[:steel_t],0.0,fallback[:steel_t]]
+  end
+  detail
+end
+
+# ADR-0515 G6 (salt okuma): kaplama betonu sınıf bazında {sınıf=>hacim}; toplam = topping_quantities(all)[1]. Sınıfsız kaplama C35/45 (kaplama formu varsayılanı).
+def mst_topping_by_class(all)
+  decks=all.select{|e|e.get_attribute(DICT,'element_type','').to_s=='deck_slab'};rest=all-decks
+  decks.group_by{|d|c=d.get_attribute(DICT,'topping_concrete_class','').to_s.strip;c.empty? ? 'C35/45' : c}.map{|cc,ds|[cc,topping_quantities(rest+ds)[1]]}.to_h
+end
+
+# ADR-0515 G5 (salt okuma): Keşif / Metraj CSV satırları = Ayrıntılı Metraj satırları + 'Keşif ek kalemi' satırları (yuvarlanmamış).
+# Sütunlar: Kategori, Tip, Malzeme/Sinif, Adet, Boy_m, Beton_m3, Kalip_m2, Celik_t (boru çeliği), Donati_t (Keşif ÖBF-004 dökümüyle aynı kaynak).
+def mst_boq_csv_rows(all)
+  snapshot=qto3_snapshot
+  bd=mst_boq_rebar_breakdown(all)
+  kg=->(key){bd.select{|r|r[:key].to_s==key}.sum{|r|r[:kg].to_f}}
+  chair=bd.any?{|r|r[:key].to_s=='chair'}   # sehpa ayrı satırdaysa BK / döşeme satırından düşülür (mst_v50_breakdown_extras kuralı)
+  typ=->(e){e.get_attribute(DICT,'element_type','').to_s}
+  allowed=%w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab curb crown_wall bored_pile]
+  groups=all.select{|e|allowed.include?(typ.(e))}.group_by{|e|[typ.(e),e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s,qto_material_class(e)]}
+  rebar_of={}
+  groups.each do |k,arr|
+   next if %w[steel_pipe_pile pile_infill_concrete].include?(k[0])
+   r=mst_rebar_sum(arr)['kg']
+   r-=arr.sum{|e|mst_v50_chair_kg(e)} if chair && %w[head_beam deck_slab].include?(k[0])
+   rebar_of[[MST_QTO_DETAIL_TYPE_NAMES[k[0]]||k[0],k[1],k[2]]]=r/1000.0
+  end
+  infill_row=false
+  rows=mst_qto_detail_rows(all,snapshot,false).map do |d|
+   cat=MST_QTO_DETAIL_TYPE_NAMES.key(d[0]) || d[0]
+   if d[1]=='Tüm kaynaklar' && cat=='pile_infill_concrete'
+    infill_row=true;don=kg.('pile')/1000.0
+   else
+    don=cat=='pile_infill_concrete' ? 0.0 : rebar_of.fetch([d[0],d[1],d[2]],0.0)
+   end
+   [cat,d[1],d[2],d[3],d[4],d[5],d[6],d[8],don]
+  end
+  ek='Keşif ek kalemi'
+  rows << [ek,'Kazık içi donatı','-',0,0.0,0.0,0.0,0.0,kg.('pile')/1000.0] if !infill_row && kg.('pile').abs>1e-12
+  decks=all.select{|e|typ.(e)=='deck_slab'}
+  mst_topping_by_class(all).sort.each{|cc,vol|rows << [ek,'Kaplama Betonu',cc,decks.count{|d|(d.get_attribute(DICT,'topping_concrete_class','').to_s.strip.empty? ? 'C35/45' : d.get_attribute(DICT,'topping_concrete_class','').to_s.strip)==cc},0.0,vol,0.0,0.0,vol*rebar_rate('topping')/1000.0] if vol>0}
+  rows << [ek,'Sehpa','-',0,0.0,0.0,0.0,0.0,kg.('chair')/1000.0] if chair
+  rows << [ek,'Aksesuar ankrajı','-',0,0.0,0.0,0.0,0.0,kg.('acc_anchor')/1000.0] if bd.any?{|r|r[:key].to_s=='acc_anchor'}
+  rows
+end
+
 def export_professional_excel
   all=[];collect_elements(Sketchup.active_model.entities,all)
   allowed=%w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab curb crown_wall bored_pile]
   elems=all.select{|e|allowed.include?(e.get_attribute(DICT,'element_type','').to_s)}
   path=UI.savepanel('Ayrıntılı Metraj (Excel) Raporu','','MST_Ayrintili_Metraj.xlsx');return unless path
   path+='.xlsx' unless path.downcase.end_with?('.xlsx')
-  type_names={'steel_pipe_pile'=>'Çelik Boru Kazık','pile_infill_concrete'=>'Kazık İçi Beton','head_beam'=>'Başlık Kirişi','flat_precast'=>'Normal Prekast','channel_precast'=>'Kanal Prekastı','crane_precast'=>'Vinç Prekastı','deck_slab'=>'Döşeme','curb'=>'Bordür / Tretuvar','crown_wall'=>'Kronman','bored_pile'=>'Fore Kazık'}
+  type_names=MST_QTO_DETAIL_TYPE_NAMES
   snapshot=qto3_snapshot
-  groups=elems.group_by{|e|[e.get_attribute(DICT,'element_type','').to_s,e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s,qto_material_class(e)]}
-  detail=[]
-  groups.sort_by{|k,a|k.join('|')}.each do |k,arr|
-    detail<<[type_names[k[0]]||k[0],k[1],k[2],arr.length,
-      arr.sum{|e|qto3_quantity(e,:length_m)}.round(2),
-      arr.sum{|e|qto3_quantity(e,:concrete_m3)}.round(3),
-      arr.sum{|e|qto3_quantity(e,:formwork_m2)}.round(2),
-      arr.sum{|e|qto3_quantity(e,:steel_t)}.round(3)]
-    detail.last.concat(k[0]=='steel_pipe_pile' ? [detail.last[7],0.0] : [0.0,detail.last[7]])   # v0.51.5 K41: Boru Çeliği / Donatı ayrı (birleşik sütun uyumluluk için kalır)
-  end
+  detail=mst_qto_detail_rows(all,snapshot)   # ADR-0515 G5: Keşif / Metraj CSV ile ortak satırlar
   piles=elems.select{|e|e.get_attribute(DICT,'element_type')=='steel_pipe_pile'}
+  topping_vol=topping_quantities(all)[1]
   summary=[
     ['Toplam Çelik Boru Kazık',piles.length,'adet'],
     ['Toplam Kazık Boyu',piles.sum{|e|qto3_quantity(e,:length_m)}.round(2),'m'],
     ['Toplam Kazık Çeliği',piles.sum{|e|qto3_quantity(e,:steel_t)}.round(3),'t'],
-    ['Toplam Beton',snapshot[:totals][:concrete_m3],'m³'],
+    ['Toplam Beton',snapshot[:totals][:concrete_m3]+topping_vol,'m³'],   # ADR-0515 G6: kaplama dahil (qto3_snapshot değişmez)
     ['Toplam Kalıp',elems.sum{|e|qto3_quantity(e,:formwork_m2)}.round(2),'m²']]
   # Concrete-class subtotals make the summary directly usable for BOQ checks.
   snapshot[:concrete_by_class].sort.each{|cc,vol|summary<<["Beton #{cc}",vol,'m³']}
-  fallback=snapshot[:rows].find{|row|row[:type]=='pile_infill_concrete'}
-  if fallback
-    detail.reject!{|row|row[0]==type_names['pile_infill_concrete']}   # v0.51.5 F1: fiziksel iç beton satırları Özet satırında zaten var
-    detail<<['Kazık İçi Beton','Tüm kaynaklar','Sınıf bazında Özet',fallback[:count],fallback[:length_m],fallback[:concrete_m3],fallback[:formwork_m2],fallback[:steel_t],0.0,fallback[:steel_t]]
-  end
+  mst_topping_by_class(all).sort.each{|cc,vol|summary<<["Beton Kaplama (#{cc})",vol,'m³'] if vol>0}   # G6: sınıf satırları + kaplama = Toplam Beton
   library=elems.group_by{|e|e.get_attribute(DICT,'library_type_id',element_signature(e)).to_s}.sort.map do |typ,arr|
     [typ,type_names[arr.first.get_attribute(DICT,'element_type').to_s]||arr.first.get_attribute(DICT,'element_type').to_s,qto_material_class(arr.first),arr.length,arr.map{|e|element_visible_id(e)}.join(', '),arr.first.get_attribute(DICT,'type_signature',element_signature(arr.first)).to_s]
   end

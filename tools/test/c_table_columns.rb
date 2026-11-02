@@ -38,6 +38,8 @@ hdr = dq[1].scan(/'[^']*'/).size
 wid = dq[2].split(',').size
 t('Detailed QTO başlık sütunu', hdr, 10)
 t('Detailed QTO sütun genişliği', wid, 10)
+# G-b / G5: Ayrıntılı Metraj satırları ortak yardımcıda (mst_qto_detail_rows); yoksa (eski kaynak) Excel işlevinin içinde
+ex = A1.grab(main, 'def mst_qto_detail_rows(', true) || ex
 grp = ex[/detail<<\[type_names.*?\]\n/m].to_s
 t('Detailed QTO grup satırı: 8 değer', grp.scan(/arr\.length|qto3_quantity|type_names\[|k\[1\]|k\[2\]/).size, 8)
 t('Detailed QTO grup satırı: +2 (Boru Çeliği / Donatı)', ex.include?("detail.last.concat(k[0]=='steel_pipe_pile' ? [detail.last[7],0.0] : [0.0,detail.last[7]])"), true)

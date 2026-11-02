@@ -103,8 +103,8 @@ module MAG
     if api.respond_to?(:mst_boq_rebar_breakdown)
      return api.mst_boq_rebar_breakdown(elements).sum{|row|number(row.fetch(:kg),'boq_rebar_kg')}/1000.0
     end
-    # Curb rebar is not in the legacy BOQ REBAR scope; keep that contract explicit.
-    sources=rebar_sources(elements).reject{|e|%w[curb deck_topping].include?(type(e))}
+    # ADR-0515 G4: curb rebar is in the BOQ REBAR scope; topping rebar is added below from the deck topping volume.
+    sources=rebar_sources(elements).reject{|e|type(e)=='deck_topping'}
     total=sources.sum{|e|value(e,:rebar_t)}
     _area,volume=api.topping_quantities(elements)
     total+number(volume,'topping_volume')*number(api.rebar_rate('topping'),'topping_rate')/1000.0

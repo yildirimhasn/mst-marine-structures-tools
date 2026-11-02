@@ -17,6 +17,10 @@ class Host
   def mst_all_elements; $model.entities.dup; end
   def mst_direct_parents(e, _all = nil); (@parents_of || {})[e] || []; end
   def mst_direct_dependencies(_e, _all = nil); []; end
+  # G-b / G7: stamp grafiği bir kez kurar (dependency_graph); sahte grafik yukarıdaki sahte ilişkilere yönlenir
+  def dependency_graph(_m, all = nil)
+    [Array(all), Hash.new { |h, k| h[k] = mst_direct_dependencies(k, all) }, Hash.new { |h, k| h[k] = mst_direct_parents(k, all) }, {}]
+  end
   def mst_element_by_pid(pid, all = mst_all_elements); all.find { |x| x.persistent_id == pid.to_i }; end
   def dependency_changes(_m); $dep_changes || []; end
   def send_dependency_analysis(*_a); end

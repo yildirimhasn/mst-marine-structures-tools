@@ -1,7 +1,7 @@
 # Golden-master turu (yeniden calistirilabilir): taban commit kaynagini gecici klasore `git archive` ile acar,
 # iki kaynak icin golden_qto.rb, sonra compare.rb calistirir. Ciktilar: docs/duzeltme/golden/
 #   golden_<taban>.csv, golden_HEAD-<kisa>.csv (calisma agaci src/), fark_<taban>_<kisa>.csv
-# Kullanim (depo kokunden): ruby tools/golden/run_golden.rb [taban=872d3a3]
+# Kullanim (depo kokunden): ruby tools/golden/run_golden.rb [taban=872d3a3] [kural seti: 0514 | Gb]
 # Calisma agacindaki src/ kullanilir (commit edilmemis degisiklikler dahil); kisa ad HEAD commit'i + "-dirty" (src kirliyse).
 require 'tmpdir'
 require 'fileutils'
@@ -28,7 +28,9 @@ Dir.mktmpdir('mst_golden') do |tmp|
     abort "golden_qto başarısız: #{src}" unless st.success?
   end
 end
-out, st = Open3.capture2e('ruby', File.join(__dir__, 'compare.rb'), old_csv, new_csv, diff_csv)
+# esleme kural seti: 872d3a3 (0.51.4) tabaninda 0514, diger tabanlarda Parti G-b (Gb); ikinci arguman ile secilebilir
+profile = ARGV[1] || (base.start_with?('872d3a3') ? '0514' : 'Gb')
+out, st = Open3.capture2e('ruby', File.join(__dir__, 'compare.rb'), old_csv, new_csv, diff_csv, profile)
 puts out
 puts "eski=#{old_csv}\nyeni=#{new_csv}\nfark=#{diff_csv}"
 exit(st.success? ? 0 : 1)

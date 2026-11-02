@@ -18,9 +18,20 @@
 #  PD2 Group normal prekast C30/37 (poz eslenmemis sinif), 1.5 m³, kalip 6 m²
 #  PK1 Component kanal prekasti C35/45, 3.0 m³, kalip 10 m²; tanimda pc_rebar_attrs_json rebar_t 0.12
 #  PV1 Group vinc prekasti C35/45, 4.0 m³, kalip 12 m²
+# Parti G-b eklemeleri (ADR 13 "Golden-master gerekli"; G4/G5/G6 ve kopyanin kopyasi hakedisi):
+#  D1  ek: hakedis kaydi HB_DECK_CONCRETE %100 onayli (2026-10-01)
+#  C1  ek: eski durum alani progress_status=Onaylandi (onceki donemde onaylanmis bordur)
+#  D2  Eski tip doseme (topping_enabled YOK → kaplama 0.10 m, alan = brut 20 − bordur 1.5 = 18.5 m²), beton 10 m³, kalip 8 m²,
+#      C30/37, donati pursantaj (rebar_mode yok); kaplama sinifi yok
+#  C2  Ayri bordur (parent_deck_id D2) 5×0.3, C35/45, beton 0.6 m³, kalip 3 m² — donatisi hacim × rebar_rate('deck')
+#  D3  DS2 doseme (bordur govdede, curb_volume_m3 0.4), kaplama yok, beton 5 m³, kalip 4 m², C30/37, pursantaj
+#  C3  Ayri bordur (parent_deck_id D3) C30/37, beton 0.3 m³, kalip 1.5 m² (Model Kontrolu G4 uyarisi: cift sayim olasi)
+#  D1K D1'in kopyasinin kopyasi, BIM Kimlik Onarimi sonrasi durum: yeni UID, copied_from_uid, devralinmis ilerleme +
+#      progress_inherited_history_json (1 kayit), progress_items_json YOK, durum Planlandi; kaplama yok, beton 15 m³, kalip 20 m²
 # Model: pile_boq_mode_PILE_STEEL = separate (K35 kod-NN atamasi gorunur), hakedis gecmisi yok.
 D = 'MAG_MarineStructures'.freeze unless defined?(D)
 V_INFILL = Math::PI / 4 * 0.984**2 * 12.0
+GB_PJ = '{"HB_DECK_CONCRETE":{"claim":100,"ok":[["2026-10-01",100,"golden"]]}}'.freeze
 
 def gf_face(type, fw, area)
   f = Sketchup::Face.new(nil, 'formwork_type' => type, 'formwork' => fw)
@@ -88,10 +99,11 @@ def golden_build_fixture
 
   d1 = Sketchup::Group.new(5001, 'element_type' => 'deck_slab', 'deck_id' => 'D1', 'concrete_volume_m3' => 15.0, 'formwork_area_m2' => 20.0,
                                  'concrete_class' => 'C30/37', 'topping_enabled' => '1', 'topping_area_m2' => 50.0, 'topping_thickness_m' => 0.12,
-                                 'topping_concrete_class' => 'C30/37', 'gross_area_m2' => 50.0, 'rebar_mode' => 'bim_detail', 'rebar_t' => 1.8, 'element_uid' => 'MST-GOLD-D1')
+                                 'topping_concrete_class' => 'C30/37', 'gross_area_m2' => 50.0, 'rebar_mode' => 'bim_detail', 'rebar_t' => 1.8, 'element_uid' => 'MST-GOLD-D1',
+                                 'progress_items_json' => GB_PJ)
   t1 = Sketchup::Group.new(5002, 'element_type' => 'deck_topping', 'parent_deck_id' => 'D1', 'parent_uid' => 'MST-GOLD-D1', 'concrete_volume_m3' => 6.0, 'net_area_m2' => 50.0)
   c1 = Sketchup::Group.new(5003, 'element_type' => 'curb', 'parent_deck_id' => 'D1', 'length_m' => 10.0, 'width_m' => 0.4,
-                                 'concrete_volume_m3' => 1.2, 'formwork_area_m2' => 6.0, 'concrete_class' => 'C35/45')
+                                 'concrete_volume_m3' => 1.2, 'formwork_area_m2' => 6.0, 'concrete_class' => 'C35/45', 'progress_status' => 'Onaylandı')
   cw1 = Sketchup::Group.new(5004, 'element_type' => 'crown_wall', 'concrete_volume_m3' => 20.0, 'formwork_area_m2' => 40.0, 'concrete_class' => 'C30/37')
   pd1 = Sketchup::Group.new(6001, 'element_type' => 'flat_precast', 'concrete_volume_m3' => 2.0, 'formwork_area_m2' => 8.0, 'concrete_class' => 'C35/45')
   pd2 = Sketchup::Group.new(6002, 'element_type' => 'flat_precast', 'concrete_volume_m3' => 1.5, 'formwork_area_m2' => 6.0, 'concrete_class' => 'C30/37')
@@ -100,7 +112,24 @@ def golden_build_fixture
   pk1.definition = pkd
   pv1 = Sketchup::Group.new(6004, 'element_type' => 'crane_precast', 'concrete_volume_m3' => 4.0, 'formwork_area_m2' => 12.0, 'concrete_class' => 'C35/45')
 
-  ents = [p1, p2, p2b, p3, p4, bk1, bk2, d1, t1, c1, cw1, pd1, pd2, pk1, pv1]
+  # Parti G-b eklemeleri
+  d2 = Sketchup::Group.new(5011, 'element_type' => 'deck_slab', 'deck_id' => 'D2', 'concrete_volume_m3' => 10.0, 'formwork_area_m2' => 8.0,
+                                 'concrete_class' => 'C30/37', 'gross_area_m2' => 20.0, 'element_uid' => 'MST-GOLD-D2')
+  c2 = Sketchup::Group.new(5012, 'element_type' => 'curb', 'curb_id' => 'B-D2-1', 'parent_deck_id' => 'D2', 'length_m' => 5.0, 'width_m' => 0.3,
+                                 'concrete_volume_m3' => 0.6, 'formwork_area_m2' => 3.0, 'concrete_class' => 'C35/45')
+  d3 = Sketchup::Group.new(5013, 'element_type' => 'deck_slab', 'deck_id' => 'D3', 'concrete_volume_m3' => 5.0, 'formwork_area_m2' => 4.0,
+                                 'concrete_class' => 'C30/37', 'topping_enabled' => '0', 'curb_volume_m3' => 0.4, 'element_uid' => 'MST-GOLD-D3')
+  c3 = Sketchup::Group.new(5014, 'element_type' => 'curb', 'curb_id' => 'B-D3-1', 'parent_deck_id' => 'D3', 'length_m' => 3.0, 'width_m' => 0.25,
+                                 'concrete_volume_m3' => 0.3, 'formwork_area_m2' => 1.5, 'concrete_class' => 'C30/37')
+  hist = JSON.generate([{ 'v' => 1, 'at' => '2026-10-20T10:00:00+0300', 'source' => 'repair_bim_identity', 'from_uid' => 'MST-5009-1790000000-R',
+                          'new_uid' => 'MST-5015-1800000000-R', 'items_json' => GB_PJ, 'status' => nil, 'prev_copied_from_uid' => 'MST-GOLD-D1',
+                          'prev_uid_owner_pid' => 5009 }])
+  d1k = Sketchup::Group.new(5015, 'element_type' => 'deck_slab', 'deck_id' => 'D1-K', 'concrete_volume_m3' => 15.0, 'formwork_area_m2' => 20.0,
+                                  'concrete_class' => 'C30/37', 'topping_enabled' => '0', 'element_uid' => 'MST-5015-1800000000-R', 'uid_owner_pid' => 5015,
+                                  'copied_from_uid' => 'MST-5009-1790000000-R', 'progress_inherited_json' => GB_PJ,
+                                  'progress_inherited_history_json' => hist, 'progress_status' => 'Planlandı')
+
+  ents = [p1, p2, p2b, p3, p4, bk1, bk2, d1, t1, c1, cw1, pd1, pd2, pk1, pv1, d2, c2, d3, c3, d1k]
   $model.entities = Sketchup::Entities.new(ents)
   $model.entities.parent = $model
   ents.each { |e| e.parent = $model.entities }

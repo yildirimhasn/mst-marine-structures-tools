@@ -520,7 +520,7 @@ def progress_live_rows(date=nil)
   if prog2_base(r[:source])=='REBAR' && !r[:trace_pids] && r[:quantity].to_f>0
    begin
     gap=r[:quantity].to_f-prog2_row_entities(r).sum{|e|progress_entity_quantity(e,r[:source].to_s).to_f}
-    k34="Hakedişe eleman bazında girmeyen donatı: #{format('%.3f',gap)} t (kaplama, aksesuar ankrajı, kazık kafesi, kazık içi beton donatısı: parametreli / BIM kafes; eleman ilerlemesiyle ödenmez)" if gap>1e-6
+    k34="Hakedişe eleman bazında girmeyen donatı: #{format('%.3f',gap)} t (kaplama, aksesuar ankrajı, kazık kafesi, kazık içi beton donatısı: parametreli / BIM kafes; eleman ilerlemesiyle ödenmez. Bordür / tretuvar donatısı eleman ilerlemesiyle ödenir)" if gap>1e-6
    rescue => ex
     k34="Eleman bazında donatı karşılaştırılamadı: #{ex.message}"
    end

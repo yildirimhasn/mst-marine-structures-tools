@@ -1,9 +1,11 @@
 # Golden-master karsilastirmasi: eski (taban) CSV ↔ yeni CSV. Her farki 07 surum notundaki bir kaleme eslemeye calisir;
 # sayisal farkin beklenen degere (fikstur sabitleri ve RATE bolumu ile hesaplanan) esit olmasi da sinanir (tol 1e-6).
 # Eslenemeyen ya da sayisi tutmayan fark = BEKLENMEYEN; cikis kodu 1.
-# Kullanim: ruby tools/golden/compare.rb <eski.csv> <yeni.csv> <fark.csv>
+# Kullanim: ruby tools/golden/compare.rb <eski.csv> <yeni.csv> <fark.csv> [kural seti: 0514 (varsayilan) | Gb]
+#   0514 = 0.51.4 (872d3a3) ↔ 0.51.5 esleme; Gb = Parti G-b (taban 7e2e9c7) esleme: G4, G5, G6
 # Kategoriler: "METRAJ §2.1 <bulgu>" | "GÖSTERİM §2.4 K08" | "BİLGİ §2.2 K33/K39" | "BEKLENMEYEN"
-old_f, new_f, out_f = ARGV
+old_f, new_f, out_f, profile = ARGV
+profile ||= '0514'
 abort 'kullanim: ruby tools/golden/compare.rb <eski.csv> <yeni.csv> <fark.csv>' unless out_f
 rd = lambda do |f|
   h = {}
@@ -67,17 +69,38 @@ RULES = [
   [/\ABOQ_INFO;\*\z/, 'BİLGİ §2.2 (0.51.4\'te işlev yok)', :text]
 ].freeze
 
+# Parti G-b (taban 7e2e9c7): fikstur sabitleri — bordurler C1 1.2 + C2 0.6 + C3 0.3 m³; kaplama D1 50×0.12 + D2 (20 − 5×0.3)×0.10
+CURB_V = 1.2 + 0.6 + 0.3
+GB_TOP = 6.0 + (20.0 - 5.0 * 0.3) * 0.10
+RULES_GB = [
+  [/\ABOQ_(QTY|ROW);(ÖBF-\d+\|)?REBAR/, "#{M21} G4 (bordür donatısı Keşif'te)", CURB_V * rate.('deck') / 1000.0],
+  [/\AREBAR_BREAKDOWN;curb\z/, "#{M21} G4 (Bordür / Tretuvar satırı)", CURB_V * rate.('deck')],
+  [/\AREBAR_TRACE;count\z/, "#{M21} G4 (REBAR izlemesine 3 bordür)", 3.0],
+  [/\AREBAR_TRACE;sum_t\z/, "#{M21} G4 (REBAR izlemesine bordür donatısı)", CURB_V * rate.('deck') / 1000.0],
+  [/\AHAKEDIS;REBAR\|approved\z/, "#{M21} G4 (önceden onaylı bordür C1 donatısı bu dönem artışı)", 1.2 * rate.('deck') / 1000.0],
+  [/\AHAKEDIS;REBAR\|warning\z/, "#{M21} G4 (K34 notu: bordür eleman ilerlemesiyle ödenir)", :text],
+  [/\AQTO_SUMMARY;total_concrete\z/, "#{M21} G6 (Toplam Beton + kaplama)", GB_TOP],
+  [/\AQTO_SUMMARY;concrete_breakdown\|KAPLAMA\z/, "#{M21} G6 (KAPLAMA kırılımı)", GB_TOP],
+  [/\AQTO_SUMMARY_ROW;Betonarme\|Kaplama/, "#{M21} G6 (kaplama satırı açıklaması)", :text],
+  [/\AEXCEL_SUMMARY;Toplam Beton\z/, "#{M21} G6 (Excel Özet Toplam Beton + kaplama)", GB_TOP],
+  [/\AEXCEL_SUMMARY;Beton Kaplama \(C30\/37\)\z/, "#{M21} G6 (Beton Kaplama satırı, D1)", 6.0],
+  [/\AEXCEL_SUMMARY;Beton Kaplama \(C35\/45\)\z/, "#{M21} G6 (Beton Kaplama satırı, D2 sınıfsız → C35/45)", GB_TOP - 6.0],
+  [/\ACSV(_TOTAL)?;/, "#{M21} G5 (CSV = Keşif; g5_csv_boq ile sayısal kabul)", :text]
+].freeze
+rules = profile == 'Gb' ? RULES_GB : RULES
+
 out = []
 bad = 0
 (o.keys | n.keys).sort.each do |k|
   next if o[k] == n[k]
   ov = o[k] || '(yok)'
   nv = n[k] || '(yok)'
-  rule = RULES.find { |re, _, _| k =~ re }
+  rule = rules.find { |re, _, _| k =~ re }
   cat = rule ? rule[1] : 'BEKLENMEYEN'
   check = ''
   if rule && rule[2].is_a?(Numeric)
-    d = num.(nv) && num.(ov) ? num.(nv) - num.(ov) : nil
+    oz = num.(ov) || (profile == 'Gb' && o[k].nil? ? 0.0 : nil)   # Gb: tabanda olmayan yeni anahtar 0'dan sayılır
+    d = num.(nv) && oz ? num.(nv) - oz : nil
     if d && (d - rule[2]).abs <= 1e-6
       check = format('fark %+.6f = beklenen %+.6f', d, rule[2])
     else

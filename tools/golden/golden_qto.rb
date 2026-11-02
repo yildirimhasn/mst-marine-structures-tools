@@ -118,6 +118,54 @@ end
 # 9) pursantaj oranlari (karsilastirma betiginin beklenen farki hesaplamasi icin)
 %w[pile head_beam deck topping].each { |k| safe.("RATE", k) { M.rebar_rate(k) } }
 
+# 10) Parti G-b: Kesif REBAR izleme (hakedis eleman kumesi) — adet ve eleman donatisi toplami
+safe.('REBAR_TRACE', 'count') { M.boq_trace_entities('REBAR').size }
+safe.('REBAR_TRACE', 'sum_t') { M.boq_trace_entities('REBAR').sum { |e| M.progress_entity_quantity(e, 'REBAR').to_f } }
+# 11) Parti G-b: Kesif / Metraj CSV (export_boq_csv gercek ciktisi; satir anahtari = sira + ilk 3 sutun)
+require 'tmpdir'
+require 'csv'
+begin
+  Dir.mktmpdir('mst_golden_csv') do |tmp|
+    path = File.join(tmp, 'g.csv')
+    UI.define_singleton_method(:savepanel) { |*_a| path }
+    M.export_boq_csv
+    crows = CSV.read(path, encoding: 'UTF-8')
+    put.('CSV', 'header', crows[0].join('|'))
+    crows.drop(1).each_with_index { |r, i| put.('CSV', "#{i}|#{r[0]}|#{r[1]}|#{r[2]}", r[3..-1].join('|')) }
+    (5...crows[0].size).each { |c| put.('CSV_TOTAL', crows[0][c], crows.drop(1).sum { |r| r[c].to_f }) }
+  end
+rescue StandardError => e
+  put.('CSV', '*', "HATA: #{e.class}: #{e.message[0, 160]}")
+end
+# 12) Parti G-b: Ayrintili Metraj (Excel) — Ozet ve Ayrintili Metraj sayfa satirlari (xlsx_sheet_xml girdisi)
+begin
+  sheets = {}
+  orig_x = M.method(:xlsx_sheet_xml)
+  M.define_singleton_method(:xlsx_sheet_xml) { |h, r, w| sheets[h] = r; orig_x.call(h, r, w) }
+  Dir.mktmpdir('mst_golden_xlsx') do |tmp|
+    path = File.join(tmp, 'g.xlsx')
+    UI.define_singleton_method(:savepanel) { |*_a| path }
+    M.export_professional_excel
+  end
+  summ = sheets.find { |h, _| h == %w[Kalem Miktar Birim] }&.last or raise 'Özet sayfası yok'
+  summ.each { |r| put.('EXCEL_SUMMARY', r[0], r[1]) if r[1].is_a?(Numeric) }
+  det = sheets.find { |h, _| h.include?('Boru Çeliği (t)') }&.last or raise 'Ayrıntılı Metraj sayfası yok'
+  det.each { |r| put.('EXCEL_DETAIL', "#{r[0]}|#{r[1]}|#{r[2]}", r[3..-1].map { |v| fmt.(v) }.join('|')) }
+  put.('EXCEL_DETAIL_TOTAL', 'beton_m3', det.sum { |r| r[5].to_f })
+  put.('EXCEL_DETAIL_TOTAL', 'donati_t', det.sum { |r| r[9].to_f })
+rescue StandardError => e
+  put.('EXCEL_SUMMARY', '*', "HATA: #{e.class}: #{e.message[0, 160]}")
+end
+# 13) Parti G-b: hakedis canli satirlari (gecmis yok; D1 onayli, C1 eski durum Onaylandi, D1K kopyanin kopyasi onaysiz)
+begin
+  M.progress_live_rows('2026-11-02').each do |r|
+    put.('HAKEDIS', "#{r[:key]}|approved", r[:approved_quantity])
+    put.('HAKEDIS', "#{r[:key]}|warning", r[:warning].to_s) unless r[:warning].to_s.empty?
+  end
+rescue StandardError => e
+  put.('HAKEDIS', '*', "HATA: #{e.class}: #{e.message[0, 160]}")
+end
+
 File.open(out, 'w:UTF-8') do |f|
   f.puts 'bolum;anahtar;deger'
   rows.each { |r| f.puts r.join(';') }

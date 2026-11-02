@@ -41,7 +41,9 @@ snap = M.qto3_snapshot
 row = snap[:rows].find { |r| r[:type] == 'pile_infill_concrete' }
 t('F1: iç beton donatısı Özet (qto3_snapshot) satırıyla aynı (çift değil)', inf_rows.sum { |r| r[9].to_f }.round(6), row[:steel_t].round(6))
 tot = summary.find { |r| r[0] == 'Toplam Beton' }
-t('F1: sayfadaki tüm beton = Özet "Toplam Beton"', detail.sum { |r| r[5].to_f }.round(3), tot && tot[1].to_f.round(3))
+# G-b / G6: Özet "Toplam Beton" kaplamayı içerir ("Beton Kaplama (sınıf)" satırları); Ayrıntılı Metraj'da kaplama satırı yok (eski kaynakta 0)
+kap = summary.select { |r| r[0].to_s.start_with?('Beton Kaplama') }.sum { |r| r[1].to_f }
+t('F1: sayfadaki tüm beton + Özet kaplama = Özet "Toplam Beton"', (detail.sum { |r| r[5].to_f } + kap).round(3), tot && tot[1].to_f.round(3))
 t('F1: Eleman Kütüphanesi adı tutarlı ("Kazık İçi Beton")',
   sheets.find { |h, _| h.include?('Tip İmzası') }&.last.to_a.select { |r| r[1].to_s.start_with?('Kazık İçi') }.map { |r| r[1] }.uniq, ['Kazık İçi Beton'])
 t('F1: işlem açılmadı / kapatılmadı', $model.ops, [])

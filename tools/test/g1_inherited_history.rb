@@ -11,6 +11,7 @@ class Host
   def bim_type_prefix(_t); 'D'; end
   def mst_next_unique_physical_id(_p, _u); 'X'; end
   def mst_all_elements; []; end
+  def dependency_graph(_m, all = nil); [Array(all), Hash.new { |h, k| h[k] = [] }, Hash.new { |h, k| h[k] = [] }, {}]; end   # G-b / G7: onarım grafiği bir kez kurar
   def model_audit; $log << [:audit]; end
   def mst_world_box(e); e.box; end
 end
