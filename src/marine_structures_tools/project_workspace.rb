@@ -126,12 +126,14 @@ module MAG
    end
   end
   def project_workspace_refresh(dialog=@d)
+  mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
    return unless dialog&&dialog.visible?
    project_workspace_attach(Sketchup.active_model)
    @workspace_entries=ProjectWorkspace.entries(Sketchup.active_model)
    data=ProjectWorkspace.payload(Sketchup.active_model,@workspace_entries)
    @workspace_rows=data[:records].each_with_object({}){|r,h|h[r[:key]]=r}
    dialog.execute_script("projectWorkspaceLoaded(#{JSON.generate(data)})")
+  end # mst_read_batch
   rescue=>error
    dialog.execute_script("projectWorkspaceError(#{JSON.generate(error.message)},true)") if dialog
   end

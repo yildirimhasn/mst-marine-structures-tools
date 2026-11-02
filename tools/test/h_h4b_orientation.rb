@@ -24,6 +24,9 @@ end
 A1.load(Host, main, 'def mst_hb_ents(', 'def head_beam_formwork_area(', 'def head_beam_pile_opening_area(', 'def head_beam_gross_formwork_area(',
         'def head_beam_net_formwork_area(', 'def pile_batter_ratio(', 'def pile_orientation(', 'def pile_rotation_transform(',
         'def apply_selected_pile_orientations(', 'def mst_pile_index_by_id', 'def mst_bk_connected_piles(', 'def mst_pile_ids_for_beam(')
+# P1 (0.51.5 donma düzeltmesi): kazık dizini ortak önbellekten; eski kaynakta bu işlevler yok (isteğe bağlı yükleme)
+A1.load_opt(Host, main, 'def mst_pile_index_cache')
+A1.load_opt(Host, main, 'def mst_pile_index_by_pid')
 NEW = A1.load_opt(Host, main, 'def mst_pile_opening_m2(') & A1.load_opt(Host, main, 'def mst_pile_opening_ratio(') &
       A1.load_opt(Host, main, 'def mst_pile_orientation_bk_openings!(') & A1.load_opt(Host, bm, 'def mst_bk_set_net_formwork!(')
 t('H4b yardımcılar tanımlı (mst_pile_orientation_bk_openings!, mst_bk_set_net_formwork!)', NEW, true)

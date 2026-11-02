@@ -370,8 +370,10 @@ end
 # send_boq: para birimi ve ayarlar
 alias_method :send_boq_base, :send_boq unless method_defined?(:send_boq_base)
 def send_boq(dialog=@d)
+mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
  send_boq_base(dialog)
  dialog.execute_script("boq2Loaded(#{JSON.generate(boq2_payload)})") if dialog
+end # mst_read_batch
 rescue => e
  # v0.51.5 H3b: hata görünür — konsola uyarı + oturumda bir kez kullanıcı iletisi (her yenilemede tekrarlanmaz)
  warn("MST BOQ2: #{e.message}")

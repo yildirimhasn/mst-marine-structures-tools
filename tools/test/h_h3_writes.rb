@@ -39,6 +39,9 @@ class Host
   def boq2_payload; {}; end
 end
 Host.class_eval(A1.grab(bq, 'def send_boq(dialog=@d)'))
+# P2 (0.51.5 donma düzeltmesi): send_boq gövdesi mst_read_batch içinde; eski kaynakta yok (isteğe bağlı yükleme)
+A1.load_opt(Host, main, 'def mst_scan_batch(')
+A1.load_opt(Host, main, 'def mst_read_batch(')
 a1_reset!
 require 'stringio'
 old_err = $stderr; $stderr = StringIO.new

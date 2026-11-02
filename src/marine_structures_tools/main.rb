@@ -2208,6 +2208,24 @@ def mst_scan_batch(model=Sketchup.active_model)
  end
 end
 
+# v0.51.5 P2: salt okuma ekran yenilemesi (Keşif, Metraj, Hakediş, durum rozetleri, Donatı, Proje, Model Kontrolü) tek model
+# taraması. Açık bir batch varsa (yazma ya da okuma) ona katılır, durumunu değiştirmez; yoksa mst_scan_batch'i açar (bitince
+# mst_scan_batch'in ensure'u durumu sıfırlar). Okuma batch'i boyunca kazık dizini (mst_pile_index_cache) aynı taramadan kurulur ve
+# 1,5 s süre sınırı yerine batch sonuna kadar geçerlidir. Öğe ekleyen / silen / element_type değiştiren yollar sarılmaz.
+def mst_read_batch(model=Sketchup.active_model)
+ return yield if @mst_scan_batch_on
+ @mst_read_batch_seq=(@mst_read_batch_seq||0)+1
+ seq=@mst_read_batch_seq
+ mst_scan_batch(model) do
+  @mst_read_batch_on=seq
+  begin
+   yield
+  ensure
+   @mst_read_batch_on=nil
+  end
+ end
+end
+
 # Creation-time type sync request (add_pile_infill). Outside a batch: immediate, as before.
 def mst_request_pile_type_sync(model=Sketchup.active_model)
  return mst_sync_pile_type_library(model) unless @mst_scan_batch_on
@@ -2546,21 +2564,36 @@ end
 # Değer saklanmaz; her okumada kazığın güncel kotundan hesaplanır. Kazık içi beton kazık pozunda kalır → çift sayım yok.
 # BK geometrisi ve 'concrete_volume_m3' (brüt) değişmez; metraj / BOQ / hakediş / rapor net değeri okur.
 def mst_pile_index_by_id
+ mst_pile_index_cache[:idx]
+end
+# v0.51.5 P1: aynı taramadan persistent_id → kazık dizini (yalnız steel_pipe_pile). find_entity_by_persistent_id SketchUp'ta
+# çağrı başına ≈25 ms ölçüldü; mst_bk_connected_piles önce bu dizinden çözer. Okuma işlevi; model yazımı yok.
+def mst_pile_index_by_pid
+ mst_pile_index_cache[:pidx]
+end
+def mst_pile_index_cache
  model=Sketchup.active_model
  c=@mst_pile_idx_cache
  now=Time.now.to_f
- return c[:idx] if c && c[:model]==model.object_id && now-c[:t]<1.5
+ rb=@mst_read_batch_on   # P2: okuma batch'inde dizin batch boyunca geçerli; dışında eski 1,5 s kuralı
+ return c if c && c[:pidx] && c[:model]==model.object_id && (rb ? c[:rb]==rb : (c[:rb].nil? && now-c[:t]<1.5))
  all=[];collect_elements(model.entities,all)
- idx=Hash.new{|h,k|h[k]=[]}
- all.each{|e|idx[e.get_attribute(DICT,'pile_id','').to_s] << e if e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'}
- @mst_pile_idx_cache={model:model.object_id,t:now,idx:idx}
- idx
+ idx=Hash.new{|h,k|h[k]=[]};pidx={}
+ all.each do |e|
+  next unless e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'
+  idx[e.get_attribute(DICT,'pile_id','').to_s] << e
+  pidx[e.persistent_id] ||= e
+ end
+ @mst_pile_idx_cache={model:model.object_id,t:now,idx:idx,pidx:pidx,rb:rb}
 end
 def mst_bk_connected_piles(b)
  model=Sketchup.active_model
  pids=b.get_attribute(DICT,'connected_pile_persistent_ids','').to_s.split(/[,\s]+/).map(&:to_i).reject{|x|x<=0}.uniq
  if !pids.empty? && model.respond_to?(:find_entity_by_persistent_id)
-  out=pids.map{|pid|(model.find_entity_by_persistent_id(pid) rescue nil)}.compact.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'}
+  # P1: dizinde olmayan ya da dizindeki nesnesi geçersiz PID için eski arama (yeni / iç içe / Geri Al sonrası kazık); dizin
+  # kurulamazsa tüm PID'ler eski aramaya düşer (sonuç eskisiyle aynı). Sonraki süzgeç ve ID yolu değişmedi.
+  pidx=(mst_pile_index_by_pid rescue {})
+  out=pids.map{|pid|e=pidx[pid];(e && e.valid?) ? e : (model.find_entity_by_persistent_id(pid) rescue nil)}.compact.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'}
   return out if out.length==pids.length
  end
  ids=b.get_attribute(DICT,'connected_pile_ids','').to_s.split(',').map(&:strip).reject(&:empty?).uniq
@@ -3978,6 +4011,7 @@ end
 # ===== end v0.32.2 =====
 
 def send_boq(dialog=@d)
+mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
   rows=boq_rows
   rows.each do |r|
    r[:trace]=boq_trace_payload(r[:source])
@@ -3994,6 +4028,7 @@ def send_boq(dialog=@d)
   data[:info_rows]=info
   data[:rows]=rows+info
   dialog.execute_script("setBOQ(#{JSON.generate(data)});") if dialog
+end # mst_read_batch
 rescue=>e
   UI.messagebox("Keşif oluşturma hatası: #{e.message}")
 end
@@ -4030,6 +4065,7 @@ def pile_report_concrete_classes(piles)
 end
 
 def qto_summary(dialog)
+mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
  a=[];collect_elements(Sketchup.active_model.entities,a)
  ps=a.select{|e|e.get_attribute(DICT,'element_type')=='steel_pipe_pile'}
  inf=a.select{|e|e.get_attribute(DICT,'element_type')=='pile_infill_concrete'}
@@ -4085,6 +4121,7 @@ bv=bs.sum{|x|head_beam_net_concrete(x)};bf=bs.sum{|x|head_beam_net_formwork_area
  end
  data={jet_grout_html:jg_report_html,version:VERSION,qto_status:status,pile_count:ps.length,pile_length:plen,steel_ton:steel,pd_count:pd.length,pd_volume:pv,channel_count:ch.length,channel_volume:cv,total_concrete:concrete_summary,concrete_breakdown:concrete_breakdown,total_formwork:snap[:totals][:formwork_m2],element_count:elems.length,audit_missing:missing,audit_ok:elems.length-missing,rows:rows,pile_qto_rows:pile_qto_rows,pile_qto_total:pile_qto_total,pile_bim_qto_rows:pile_bim_qto_rows,qto3_rows:qto3_rows_with_rockfill,qto3_concrete:snap[:concrete_by_class],qto3_scopes:snap[:scopes],rockfill_material_count:rfq[:materials].length,rockfill_section_count:(rfq[:solid_count] || rfq[:sections].length),rockfill_volume_m3:rfq[:total_volume_m3],rockfill_tonnage_t:rfq[:total_tonnage_t]}
  dialog.execute_script("setQTO(#{JSON.generate(data)});")
+end # mst_read_batch
 rescue=>e
  dialog.execute_script("qtoError(#{JSON.generate(e.message)})") if dialog
  UI.messagebox("Metraj özet hatası: #{e.message}")
@@ -8414,6 +8451,7 @@ def mst_audit_v0515(elems,all=elems)
 end
 
 def model_audit
+mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
  model=Sketchup.active_model
  all=[];collect_elements(model.entities,all)
  elems=all.select{|e|%w[steel_pipe_pile pile_infill_concrete head_beam flat_precast channel_precast crane_precast deck_slab deck_topping curb crown_wall bored_pile accessory].include?(e.get_attribute(DICT,'element_type','').to_s)}
@@ -8680,6 +8718,7 @@ def model_audit
  d.add_action_callback('audit_repair_deck'){|_|d.close;repair_deck_bim_relationships;model_audit}
  d.show;@audit_dialog=d
  model.set_attribute(DICT,'last_model_audit_error_count',errors);model.set_attribute(DICT,'last_model_audit_warning_count',warnings);model.set_attribute(DICT,'last_model_audit_check_count',checks)
+end # mst_read_batch
 end
 
 def export_boq_csv
@@ -10159,7 +10198,9 @@ def progress_payload(period_no=nil)
 end
 
 def progress_send(dialog=@d,period_no=nil)
+mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
   dialog.execute_script("progressLoaded(#{JSON.generate(progress_payload(period_no))});") if dialog
+end # mst_read_batch
 rescue=>error
   dialog.execute_script("progressError(#{JSON.generate(error.message)})") if dialog
 end
@@ -10258,6 +10299,7 @@ end
 # ===== v0.38 UI4 — İş akışı (adım durumları) + UI5 Model Bakımı =====
 # Durum: ok (tamam) · missing (eksik) · stale (güncel değil / kısmi) · optional (isteğe bağlı) · info
 def mst_workflow_status(model=Sketchup.active_model)
+mst_read_batch(model) do   # v0.51.5 P2: salt okuma, tek model taraması
  all=[];collect_elements(model.entities,all)
  by=Hash.new{|h,k|h[k]=[]};all.each{|e|by[e.get_attribute(DICT,'element_type','').to_s] << e}
  n=->(*ts){ts.sum{|t|by[t].length}}
@@ -10299,6 +10341,7 @@ def mst_workflow_status(model=Sketchup.active_model)
  prices=model.attribute_dictionary(DICT) ? model.attribute_dictionary(DICT).keys.count{|k|k.to_s.start_with?('boq_price_')} : 0
  st['boq']=prices>0 ? {'state'=>'ok','text'=>"#{prices} birim fiyat girildi"} : {'state'=>(all.empty? ? 'missing' : 'stale'),'text'=>'Birim fiyat girilmedi'}
  st
+end # mst_read_batch
 end
 
 def mst_send_workflow_status(dialog=@d)
@@ -10441,11 +10484,13 @@ def mst_send_maint(dialog=@d)
 end
 
 def mst_send_rebar_page(dialog=@d)
+mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
  return unless dialog
  rows=mst_rebar_source_summary
  all=[];collect_elements(Sketchup.active_model.entities,all)
  dia=(mst_rt_dia_rows(all) rescue nil)   # v0.49 DM1: çap çap
  dialog.execute_script("mstRebarPage(#{JSON.generate({rows:rows,rates:Hash[REBAR_DEFAULTS.keys.map{|k|[k,rebar_rate(k)]}],dia:dia,settings:(mst_rs_all rescue {})})})")
+end # mst_read_batch
 rescue => e
  puts "MST donatı sayfası: #{e.message}"
 end
@@ -11545,7 +11590,9 @@ def mst_structures_for_system(system,model=Sketchup.active_model)
   a=a.uniq
   h[system]=a
   # K20: okuma yolu; kayıt bozuksa varsayılan liste yalnız bellekte döner, kayıt ezilmez
-  model.set_attribute(DICT,'system_structures_json',JSON.generate(h)) unless mst_json_attr_bad?(model,'system_structures_json',Hash)
+  # v0.51.5 P3: yalnız değer farklıysa yazılır (H3e deseni; kayıtlı değer aynı) — her sayfa geçişinde işlem dışı yazım olmasın
+  js=JSON.generate(h)
+  model.set_attribute(DICT,'system_structures_json',js) unless mst_json_attr_bad?(model,'system_structures_json',Hash) || model.get_attribute(DICT,'system_structures_json',nil)==js
   key="active_structure__#{system}"
   cur=model.get_attribute(DICT,key,'').to_s
   model.set_attribute(DICT,key,a.first) unless a.include?(cur)
@@ -11563,7 +11610,8 @@ def mst_active_structure_for_system(system,model=Sketchup.active_model)
   rows=mst_structures_for_system(system,model); key="active_structure__#{system}"
   cur=model.get_attribute(DICT,key,'').to_s
   cur=rows.first unless rows.include?(cur)
-  model.set_attribute(DICT,key,cur);cur
+  model.set_attribute(DICT,key,cur) unless model.get_attribute(DICT,key,nil)==cur   # v0.51.5 P3: yalnız değer farklıysa (H3e deseni)
+  cur
 end
 
 def mst_set_active_system_structure(system,name,model=Sketchup.active_model)

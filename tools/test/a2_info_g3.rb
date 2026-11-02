@@ -22,6 +22,9 @@ class Host
 end
 class Dlg; def execute_script(s); $script = s; end; end
 A1.load(Host, main, 'def qto_material_class(', 'def send_boq(', 'def mst_attr_hash(')
+# P2 (0.51.5 donma düzeltmesi): send_boq gövdesi mst_read_batch içinde; eski kaynakta yok (isteğe bağlı yükleme)
+A1.load_opt(Host, main, 'def mst_scan_batch(')
+A1.load_opt(Host, main, 'def mst_read_batch(')
 NEW = A1.load_opt(Host, main, 'def mst_boq_info_rows(') & A1.load_opt(Host, main, 'def mst_audit_v0515(')
 A1.load(Host, bm, 'def mst_hb_zones_list('); A1.load_opt(Host, bm, 'def mst_hb_zone_segments('); A1.load_opt(Host, bm, 'def mst_hb_bottom_depth(')
 a2_const(Host, main, 'MST_AUDIT_ERROR_FLAGS') if NEW
