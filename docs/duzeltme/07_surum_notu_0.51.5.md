@@ -7,7 +7,7 @@ Kaynaklar: `01_plan_proje_yonetici.md`, `02_adr_mimar.md`, `03`–`06` parti rap
 | Sürüm | Kaynak | Tarih | Kurulu mu |
 |---|---|---|---|
 | 0.51.4 TB1 RUBY25 (temel) | Kullanıcı paketi `MST_v0.51.4_TB1_Ruby25_TEST.rbz`, SHA-256 `5684bec3375e57403c13b4c0476d8daa3547659a6b376a40274b53a303f2ac42` (02.11.2026 çalışma kopyasındaki kaynak RBZ'den). Çalışma kopyasında `docs\kaynak_MST_v0.51.4_TB1_Ruby25_TEST.rbz` | 28.10.2026 | 29.10.2026 denetiminde SketchUp 2020'de kurulu, 201/201 dosya aynı. Bugün yeniden doğrulanmadı |
-| 0.51.5 TB1 FIX1 | Çalışma kopyası `mst_tb1` (git), parti commit'leri: A1 `25da577`, A2 `7244973`, B `38a7946`, C `6e48ee8`, D `8da4ec1`, E `f7046b5`, F `a31e168`, satır sonu `98222c5` | 02.11.2026 | Hayır. RBZ `distMST_v0.51.5_TB1_FIX1_TEST.rbz`, 201 dosya, 1.172.753 bayt, SHA-256 `e1ad035fc2c1e730f384fbe0be8a0b1c7969053095101fe7427a2d4bdea28d87`; src ile 201/201 aynı; iki üretimde aynı SHA |
+| 0.51.5 TB1 FIX1 | Çalışma kopyası `mst_tb1` (git), parti commit'leri: A1 `25da577`, A2 `7244973`, B `38a7946`, C `6e48ee8`, D `8da4ec1`, E `f7046b5`, F `a31e168`, satır sonu `98222c5`, G arayüz `c39c52c`, G-a `7e2e9c7`, G-b `eaaa858` | 02.11.2026 | Hayır. RBZ `distMST_v0.51.5_TB1_FIX1_TEST.rbz`, 201 dosya, 1.177.336 bayt, SHA-256 `454daf8ed3d5298e694d55689268f451bd950e17111188b040dbaf1842167bbe`; src ile 201/201 aynı; iki üretimde aynı SHA |
 | mst_tb1_integration_runner 1.1.0 | Kullanıcı test eklentisi (ayrı paket) | — | 29.10.2026'da kurulu; 0.51.4'ü bekler |
 
 Yerel `mst` deposu (0.52.0-dev1) ayrı sürüm hattıdır; bu düzeltmeler orada yoktur, oradaki değişiklikler burada var sayılmaz.
