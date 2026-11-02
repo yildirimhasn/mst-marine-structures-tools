@@ -72,6 +72,8 @@ module MstZip
 end
 
 def sha(b); Digest::SHA256.hexdigest(b); end
+# tools/package_runner.rb bu dosyayi `require` ile yalniz MstZip ve sha icin yukler; asagidaki paketleme yalniz dogrudan calistirmada.
+return unless File.expand_path(__FILE__) == File.expand_path($PROGRAM_NAME)
 
 if ARGV[0] == '--list'
   MstZip.read(File.binread(ARGV[1])).sort_by(&:first).each { |n, d| puts "#{sha(d)}  #{n}" }
