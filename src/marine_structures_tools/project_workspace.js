@@ -83,6 +83,64 @@
   container=el('pwElements');clear(container);
   focusRows().slice(0,300).forEach(function(r){var button=text('button',r.id+' · '+r.label);button.onclick=function(){setFocus([r.key],false);action(false,false);};container.appendChild(button);});
   if(count>300)container.appendChild(text('p','İlk 300 eleman gösteriliyor. Ağacı arayarak kapsamı daraltın.'));
+  renderDeps();
+ }
+ /* 02.11.2026: Eleman başına bağımlılık listesi (eski Eleman Düzenleyici edDepList görünümü) Çalışma Alanı özellik panelinde.
+    Mevcut salt okuma callback'i dependency_analysis kullanılır; Ruby setDependencyAnalysis(d) ile döner, ui.html'deki işlev buraya da iletir.
+    Otomatik çağrı yok: hesap yalnız "Bağımlılıkları Göster" düğmesiyle başlar. */
+ var depTypes={steel_pipe_pile:'Çelik boru kazık',head_beam:'Başlık kirişi',flat_precast:'Normal prekast',channel_precast:'Kanal prekastı',crane_precast:'Vinç prekastı',deck_slab:'Döşeme',curb:'Bordür / tretuvar',crown_wall:'Kronman',bored_pile:'Fore kazık',pile_infill_concrete:'Kazık içi beton',deck_topping:'Kaplama'};
+ var dep={key:null,pending:false,timer:null,data:null,note:''},depIndex=null;
+ function depTypeLabel(t){return depTypes[t]||t||'Tür bilinmiyor';}
+ function depTarget(){var rows=focusRows();if(!state.ready||rows.length!==1)return null;if(state.selected.length!==1||state.selected[0]!==rows[0].key)return null;return rows[0];}
+ function depStop(){if(dep.timer!==null)clearTimeout(dep.timer);dep.timer=null;dep.pending=false;}
+ function depInvalidate(note){var had=!!dep.data||dep.pending;depStop();dep.data=null;dep.note=had?note:'';}
+ function depRecord(item){
+  if(!depIndex||depIndex.source!==state.records){var byUid={},byId={};state.records.forEach(function(r){if(r.uid)(byUid[r.uid]=byUid[r.uid]||[]).push(r);var k=r.id+'|'+r.type;(byId[k]=byId[k]||[]).push(r);});depIndex={source:state.records,byUid:byUid,byId:byId};}
+  var list=item.uid?depIndex.byUid[item.uid]:null;if(list&&list.length===1)return list[0];
+  list=depIndex.byId[item.id+'|'+item.type];return list&&list.length===1?list[0]:null;
+ }
+ function depRow(item,depth){
+  var record=depRecord(item),label=(depth?'↳ ':'')+(item.id||'Kimliksiz')+' · '+depTypeLabel(item.type),node;
+  if(record){node=text('button',label,'pw-dep-row');node.type='button';node.title='Çalışma Alanı\'nda seç ve modelde göster'+(item.uid?' · UID: '+item.uid:'');node.onclick=function(){if(!state.ready)return;reveal([record.key]);setFocus([record.key],false);action(false,false);};}
+  else{node=text('div',label+' · Çalışma Alanı listesinde tekil eşleşme yok','pw-dep-row pw-dep-plain');if(item.uid)node.title='UID: '+item.uid;}
+  if(depth>1)node.style.paddingLeft=(8+(depth-1)*14)+'px';
+  return node;
+ }
+ function depList(container,title,items,depthKey,empty){
+  container.appendChild(text('h5',title+': '+items.length+' eleman'));
+  if(!items.length){container.appendChild(text('p',empty,'note'));return;}
+  var box=text('div','','pw-dep-list');items.slice(0,300).forEach(function(x){box.appendChild(depRow(x,depthKey?Number(x.depth)||1:0));});container.appendChild(box);
+  if(items.length>300)container.appendChild(text('p','İlk 300 satır gösteriliyor.','note'));
+ }
+ function renderDeps(){
+  var section=el('pwDeps');if(!section)return;
+  var target=depTarget(),key=target?target.key:null,rows=focusRows();
+  if(dep.key!==key){depInvalidate('Seçim değişti; önceki bağımlılık sonucu temizlendi.');dep.key=key;}
+  var button=el('pwDepRun'),status=el('pwDepStatus'),body=el('pwDepBody');clear(body);
+  button.disabled=!target||dep.pending;button.textContent=dep.pending?'Hesaplanıyor…':'Bağımlılıkları Göster';
+  if(!target){status.textContent=!state.ready?'Model okunuyor…':!rows.length?'Bağımlılıklar tek eleman için gösterilir. Bir eleman seçin.':rows.length>1?'Bağımlılıklar tek eleman için gösterilir. Kapsamda '+rows.length+' eleman var; tek bir eleman seçin.':'Eleman modelde seçili değil. Ağaçta elemana tıklayın, sonra düğmeye basın.';return;}
+  if(dep.pending){status.textContent='Hesaplanıyor… ('+target.id+' için tüm model ilişkileri taranıyor)';return;}
+  var d=dep.data;
+  if(!d){status.textContent=(dep.note?dep.note+' ':'')+target.id+' için bağımlılıkları görmek üzere "Bağımlılıkları Göster" düğmesine basın.';return;}
+  status.textContent=d.root_id+' · '+depTypeLabel(d.root_type)+': '+(d.parents||[]).length+' doğrudan üst eleman, '+(Number(d.affected_count)||0)+' etkilenen eleman (aşağı akış).';
+  depList(body,'Bağlı olduğu (doğrudan üst)',d.parents||[],false,'Kayıtlı üst ilişki yok.');
+  depList(body,'Etkilediği (aşağı akış, tüm kademeler)',d.items||[],true,'Kayıtlı aşağı akış bağımlılığı yok.');
+  if(d.impacts&&d.impacts.length)body.appendChild(text('p','Etkilenebilecek metraj / işlemler (kural listesi, miktar hesabı değil): '+d.impacts.join(' · '),'note'));
+  body.appendChild(text('p','Kaynak: kayıtlı ilişki bilgileri (BK bağlı kazık kimlikleri, prekast ve döşeme mesnet kayıtları, bordür üst eleman kaydı). Geometriden ölçülmez; kaydı eksik ilişki listede görünmez. Model değişirse sonuç temizlenir.','note pw-dep-source'));
+ }
+ function depRun(){
+  var target=depTarget();if(!target||dep.pending)return;
+  if(!(global.sketchup&&sketchup.dependency_analysis)){dep.note='SketchUp bağlantısı hazır değil.';renderDeps();return;}
+  dep.data=null;dep.note='';dep.pending=true;renderDeps();
+  dep.timer=setTimeout(function(){dep.timer=null;if(!dep.pending)return;dep.pending=false;dep.note='Yanıt gelmedi. Model büyükse biraz bekleyip yeniden deneyin.';renderDeps();},30000);
+  sketchup.dependency_analysis();
+ }
+ function depReceived(d){
+  var target=depTarget();if(!target||!el('pwDeps'))return;
+  if(!d||!d.ok){if(dep.pending){depStop();dep.note=(d&&d.message)||'Bağımlılık analizi yapılamadı.';renderDeps();}return;}
+  var same=d.root_id===target.id&&d.root_type===target.type&&(!d.root_uid||!target.uid||d.root_uid===target.uid);
+  if(!same){if(dep.pending){depStop();dep.note='Gelen sonuç seçili elemana ait değil ('+d.root_id+'). Seçimi kontrol edip yeniden deneyin.';renderDeps();}return;}
+  depStop();dep.data=d;dep.note='';renderDeps();
  }
  function setFocus(keys,scope){state.focus=keys;state.scope=scope;renderProperties();renderTree();}
  function treeRows(cached){if(!cached.rows){var result=[];function visit(node,depth,context){result.push({node:node,depth:depth,context:context});if(node.children.length&&(state.expanded.has(node.key)||state.query))node.children.forEach(function(child){visit(child,depth+1,context.concat(node.label));});}cached.tree.children.forEach(function(node){visit(node,0,[])});cached.rows=result;}return cached.rows;}
@@ -145,6 +203,7 @@
  }
  function loaded(data){
   cancelSearch(true);viewCache=null;focusCache=null;page=0;revealKey=null;
+  depInvalidate('Model güncellendi; önceki bağımlılık sonucu temizlendi.');
   if(state.token&&state.token!==data.model_token){state.focus=[];state.selected=[];state.expanded.clear();state.scope=false;resetFilters();}state.records=data.records||[];state.token=data.model_token;updateFilters();state.ready=true;state.selected=(data.selection&&data.selection.keys)||[];
   if(state.selected.length){state.focus=state.selected.slice();state.scope=false;reveal(state.selected);}
   else{var available=new Set(state.records.map(function(r){return r.key;}));state.focus=state.focus.filter(function(key){return available.has(key);});}
@@ -169,11 +228,11 @@
   el('pwInspectResults').onclick=function(){if(!state.ready||searchTimer!==null)return;var rows=filtered();if(rows.length)setFocus(rows.map(function(r){return r.key;}),true);};
   el('pwExpand').onclick=function(){cancelSearch(true);invalidateRows();page=0;function visit(n){if(n.children.length)state.expanded.add(n.key);n.children.forEach(visit);}visit(view().tree);renderTree();};
   el('pwCollapse').onclick=function(){cancelSearch(true);invalidateRows();page=0;state.expanded.clear();renderTree();};
-  el('pwElevation').onclick=function(){if(state.ready&&state.focus.length)sketchup.elevation_sync(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwMaterial').onclick=function(){if(state.ready&&state.focus.length)sketchup.material_change(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwHealth').onclick=function(){if(!state.ready||!state.focus.length)return;sketchup.scoped_model_health(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwShow').onclick=function(){action(true,false);};el('pwEdit').onclick=function(){var rows=focusRows();if(rows.length===1&&rows[0].type==='head_beam'){editBeam(rows[0]);return;}action(false,true);};el('pwQTO').onclick=function(){navigate('qto');};
+  el('pwElevation').onclick=function(){if(state.ready&&state.focus.length)sketchup.elevation_sync(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwMaterial').onclick=function(){if(state.ready&&state.focus.length)sketchup.material_change(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwHealth').onclick=function(){if(!state.ready||!state.focus.length)return;sketchup.scoped_model_health(JSON.stringify({model_token:state.token,keys:state.focus}));};el('pwShow').onclick=function(){action(true,false);};el('pwEdit').onclick=function(){var rows=focusRows();if(rows.length===1&&rows[0].type==='head_beam'){editBeam(rows[0]);return;}action(false,true);};el('pwQTO').onclick=function(){navigate('qto');};if(el('pwDepRun'))el('pwDepRun').onclick=depRun;
   refresh();
  }
  global.MSTProjectWorkspace={refresh:refresh,build:build,visible:visible,summarize:summarize,quantitySummary:quantitySummary};
- global.projectWorkspaceLoaded=loaded;global.projectWorkspaceSelection=selection;global.projectWorkspaceError=error;global.projectWorkspaceOpenPileEditor=function(){navigate('pile');if(global.sketchup&&sketchup.pile_load_selected_for_edit)sketchup.pile_load_selected_for_edit();var panel=document.getElementById('mstPileModePanel');if(panel)panel.scrollIntoView({block:'center'});};
+ global.projectWorkspaceLoaded=loaded;global.projectWorkspaceSelection=selection;global.projectWorkspaceError=error;global.projectWorkspaceDependency=depReceived;global.projectWorkspaceOpenPileEditor=function(){navigate('pile');if(global.sketchup&&sketchup.pile_load_selected_for_edit)sketchup.pile_load_selected_for_edit();var panel=document.getElementById('mstPileModePanel');if(panel)panel.scrollIntoView({block:'center'});};
  global.projectWorkspaceOpenBeamEditor=function(){navigate('beam');if(typeof global.mstBKSetMode==='function')global.mstBKSetMode('edit');if(global.mstPageStep)global.mstPageStep('beam',0);if(typeof global.mstBKLoadEdit==='function')global.mstBKLoadEdit();var status=document.getElementById('mstBKEditStatus');if(status)status.scrollIntoView({block:'center'});};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })(window);

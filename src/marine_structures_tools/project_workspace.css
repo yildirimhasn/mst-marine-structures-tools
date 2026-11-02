@@ -43,5 +43,19 @@
 
 .pw-metrics small{line-height:1.65;overflow-wrap:anywhere}.pw-metrics b{margin-bottom:8px}
 
+/* 02.11.2026: Bağımlılıklar bölümü (özellik paneli içinde; flex/grid gap kullanılmaz). */
+.pw-deps{margin-top:16px;padding-top:12px;border-top:1px solid #e7edf1}
+.pw-dep-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.pw-dep-head h4{margin:0 12px 6px 0;color:#173f56}
+.pw-dep-head button{margin:0 0 6px 0;width:auto}
+.pw-deps h5{margin:12px 0 4px;font-size:12px;color:#42677f}
+.pw-dep-list{max-height:260px;overflow:auto;border:1px solid #e5edf2;border-radius:4px}
+.pw-dep-row{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e5edf2;background:#fff;color:#31556d;font-size:12px;padding:6px 8px;margin:0;box-sizing:border-box}
+button.pw-dep-row{cursor:pointer}
+button.pw-dep-row:hover{background:#eef5f7}
+.pw-deps button:focus{outline:2px solid #08798d;outline-offset:1px}
+.pw-dep-plain{color:#5f7280}
+.pw-dep-source{color:#906a20}
+
 /* Global context bar in the TB1 base remains visible above the browser. */
 .pw-browser{top:160px}
