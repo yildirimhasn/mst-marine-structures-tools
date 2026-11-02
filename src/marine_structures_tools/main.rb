@@ -4189,7 +4189,7 @@ def takeoff(mode='all',want=nil)
  end
  infill_total=infills.sum{|c|c.get_attribute(DICT,'concrete_volume_m3',0).to_f}
  infill_h=infills.sum{|c|c.get_attribute(DICT,'height_m',0).to_f}
- infill_html="<h3 style='margin-top:24px'>Kazık İçi Betonu</h3><table><tr><th>Beton Sınıfı</th><th>Bölge</th><th>Adet</th><th>Kazık ID</th><th>Toplam Beton Yüksekliği</th><th>Beton Hacmi</th><th>Donatı Pursantajı</th><th>Donatı</th></tr>#{infill_rows}<tr class='total'><td>TOPLAM</td><td>-</td><td>#{infills.length}</td><td>-</td><td>#{format('%.2f',infill_h)} m</td><td>#{format('%.3f',infill_total)} m³</td><td>#{format('%.0f',rebar_rate('pile'))} kg/m³</td><td>#{format('%.3f',infill_total*rebar_rate('pile')/1000.0)} t</td></tr></table>"
+ infill_html="<h3 style='margin-top:24px'>Kazık İçi Beton</h3><table><tr><th>Beton Sınıfı</th><th>Bölge</th><th>Adet</th><th>Kazık ID</th><th>Toplam Beton Yüksekliği</th><th>Beton Hacmi</th><th>Donatı Pursantajı</th><th>Donatı</th></tr>#{infill_rows}<tr class='total'><td>TOPLAM</td><td>-</td><td>#{infills.length}</td><td>-</td><td>#{format('%.2f',infill_h)} m</td><td>#{format('%.3f',infill_total)} m³</td><td>#{format('%.0f',rebar_rate('pile'))} kg/m³</td><td>#{format('%.3f',infill_total*rebar_rate('pile')/1000.0)} t</td></tr></table>"
 
  pd_all=[];collect_elements(Sketchup.active_model.entities,pd_all)
  pd=pd_all.select{|e|e.get_attribute(DICT,'element_type')=='flat_precast'};pd_rows=String.new

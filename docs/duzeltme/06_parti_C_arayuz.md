@@ -6,7 +6,7 @@ Ana oturum doğrulaması (02.11.2026): 7 dosya +96/−59; ruby -c main.rb, pile_
 |---|---|---|
 | K24 | ui.html 20 `skp:` → `sketchup.<ad>()`; mst_workflow.js eşleştirme dizgeleri; loadRockfillState açılışta alternatif göndermez (K24 sonrası istenmeyen '01' yazımı/Undo adımı önlendi) | SketchUp testi bekliyor |
 | K25 | main.rb crownAxisError JSON.generate | SketchUp testi bekliyor |
-| K01 | Eleman Düzenle yalnız önizleme + Proje Çalışma Alanı'na yönlendirme; "Bu Tipteki Tüm Elemanları Güncelle" pasif; universal_edit adı korunur, Türkçe ileti verir (update_selected_element yok; yeni yazma yolu kapsam dışı) | SketchUp testi bekliyor |
+| K01 | Eleman Düzenleyici 5. kart "Kontrollü Güncelleme" (ui.html:1087): "✓ Seçili Elemanın Etkisini Önizle" yalnız editor_preview çağırır, modele yazmaz; not, güncelleme için Proje Çalışma Alanı → Elemanı Düzenle düğmesini (BK / normal ve kanal prekast → Kontrollü Düzenleme paneli, kazık → kazık paneli) gösterir; "Bu Tipteki Tüm Elemanları Güncelle" pasif. universal_edit callback adı korunur (main.rb:10573), ui.html'den çağrılmaz; çağrılırsa model değişmeden "Bu düzenleme yolu bu sürümde desteklenmiyor; seçili eleman için Kontrollü Düzenleme panelini kullanın." iletisini verir (update_selected_element yok; yeni yazma yolu kapsam dışı). Metin 02.11.2026 kod inceleme #14 ile koda uyduruldu | SketchUp testi bekliyor |
 | K31 | show_boq_engine `mstShowPage('boq')` | SketchUp testi bekliyor |
 | K48 | BIM Data Core iletisi; quantity_service.rb Türkçe hata metni | düzeltildi |
 | K42 / 08-R1 | updateDrivingAuto kot silinince alanı temizler + not; boş kot/0 m kaydında onay | SketchUp testi bekliyor |
