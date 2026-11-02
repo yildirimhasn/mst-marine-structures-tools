@@ -1012,6 +1012,7 @@ def boq2_kesif_xlsx_write(path)
         {v:tot*fx,f:"F#{last+1}*E#{last+2}",s:st.id(:sub,boq2_money_fmt('TL'))},{v:'',s:st.id(:sub)}]
  end
  # poz metrajları: her pozun elemanları
+ sn=mst_structure_display_names(Sketchup.active_model)   # ADR-0515-I
  m=[[{v:'Poz Metrajları — eleman bazında',s:st.id(:title)}],[{v:'Her pozun miktarını oluşturan BIM elemanları. Toplu hesaplanan pozlarda (kazık imalat / ek / çarık vb.) eleman toplamı keşif miktarına ölçeklenmiştir.',s:st.id(:note)}],[]]
  rows.each do |r|
   src=r[:source].to_s
@@ -1020,15 +1021,16 @@ def boq2_kesif_xlsx_write(path)
   if es.empty?
    m << [{v:(boq2_manual?(src) ? 'Elle girilen miktar' : 'Modelde eleman yok (götürü / elle)'),s:st.id(:note)},{v:r[:quantity].to_f,s:st.id(:cell,boq2_qty_fmt(r[:unit]))}];m << [];next
   end
-  m << ['Eleman','Tip','Yapı','Miktar'].map{|h|{v:h,s:st.id(:header)}}
+  m << ['Eleman','Tip','Yapı','Yapı Kodu','Miktar'].map{|h|{v:h,s:st.id(:header)}}   # ADR-0515-I: Yapı = görünen ad, Yapı Kodu = kod
   per=es.map{|e|[e,progress_entity_quantity(e,src).to_f]}
   sum=per.sum{|_,q|q}
   per.select{|_,q|q>0}.sort_by{|e,_|element_visible_id(e).to_s}.each do |e,q|
+   yk=(e.get_attribute(DICT,'ano','').to_s.empty? ? e.get_attribute(DICT,'structure','').to_s : e.get_attribute(DICT,'ano','').to_s)
    m << [{v:element_visible_id(e).to_s,s:st.id(:cell)},{v:e.get_attribute(DICT,'element_type','').to_s,s:st.id(:cell)},
-         {v:(e.get_attribute(DICT,'ano','').to_s.empty? ? e.get_attribute(DICT,'structure','').to_s : e.get_attribute(DICT,'ano','').to_s),s:st.id(:cell)},
+         {v:mst_structure_display(yk,sn),s:st.id(:cell)},{v:yk,s:st.id(:cell)},
          {v:q,s:st.id(:cell,boq2_qty_fmt(r[:unit]))}]
   end
-  m << [{v:"Eleman toplamı#{(sum-r[:quantity].to_f).abs>1e-6 && sum>0 ? " (Keşif: #{format('%.3f',r[:quantity])})" : ''}",s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:es.length,s:st.id(:sub,'#,##0')},{v:sum,s:st.id(:sub,boq2_qty_fmt(r[:unit]))}]
+  m << [{v:"Eleman toplamı#{(sum-r[:quantity].to_f).abs>1e-6 && sum>0 ? " (Keşif: #{format('%.3f',r[:quantity])})" : ''}",s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:es.length,s:st.id(:sub,'#,##0')},{v:'',s:st.id(:sub)},{v:sum,s:st.id(:sub,boq2_qty_fmt(r[:unit]))}]
   m << []
  end
  boq2_xl_write(path,{styles:st,list:[['Keşif Cetveli',k],['Poz Metrajları',m],['Bilgi',boq2_info_rows(st,'Keşif Bilgileri')]]})
@@ -1086,7 +1088,8 @@ def boq2_hakedis_xlsx_write(path,period_no=nil)
  unless rec
   mt=[[{v:"Onaylı Metraj — eleman bazında (#{vdate} itibarıyla, kümülatif)",s:st.id(:title)}],
       [{v:'Dönem sonu tarihine kadar onaylanmış iş kalemleri. Eski "Onaylandı" eleman durumu tüm kalemler için %100 sayılır. Satır toplamı poz miktarıyla sınırlandırılır.',s:st.id(:note)}],[]]
-  mt << ['Poz No','Eleman','Tip','Yapı','Eleman Miktarı','Onaylı %','Onay Tarihi','Onaylayan','Onaylı Miktar'].map{|h|{v:h,s:st.id(:header)}}
+  mt << ['Poz No','Eleman','Tip','Yapı','Yapı Kodu','Eleman Miktarı','Onaylı %','Onay Tarihi','Onaylayan','Onaylı Miktar'].map{|h|{v:h,s:st.id(:header)}}   # ADR-0515-I
+  sn=mst_structure_display_names(Sketchup.active_model)
   brows=boq_rows(true)
   rows.each do |r|
    next if r[:removed] || r[:manual]
@@ -1097,8 +1100,9 @@ def boq2_hakedis_xlsx_write(path,period_no=nil)
     q=progress_entity_quantity(e,src).to_f
     rc=prog2_rec(e,src);x=rc ? prog2_ok_entry(rc,vdate) : nil
     when_s=x ? (x[0].to_s=='0000-00-00' ? 'eski durum' : x[0].to_s) : 'eski durum'
+    yk=(e.get_attribute(DICT,'ano','').to_s.empty? ? e.get_attribute(DICT,'structure','').to_s : e.get_attribute(DICT,'ano','').to_s)
     mt << [{v:r[:code].to_s,s:st.id(:cell)},{v:element_visible_id(e).to_s,s:st.id(:cell)},{v:e.get_attribute(DICT,'element_type','').to_s,s:st.id(:cell)},
-           {v:(e.get_attribute(DICT,'ano','').to_s.empty? ? e.get_attribute(DICT,'structure','').to_s : e.get_attribute(DICT,'ano','').to_s),s:st.id(:cell)},
+           {v:mst_structure_display(yk,sn),s:st.id(:cell)},{v:yk,s:st.id(:cell)},
            {v:q,s:st.id(:cell,boq2_qty_fmt(r[:unit]))},{v:f,s:st.id(:cell,'0%')},{v:when_s,s:st.id(:cell)},{v:(x ? x[2] : '').to_s,s:st.id(:cell)},
            {v:q*f,s:st.id(:cell,boq2_qty_fmt(r[:unit]))}]
    end

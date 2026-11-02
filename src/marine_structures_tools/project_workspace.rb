@@ -39,7 +39,7 @@ module MAG
    rescue=>error
     {value:nil,state:'invalid',message:error.message,unit:QuantityService::UNITS[key]}
    end
-   def row(entry)
+   def row(entry,sn=nil)
     e=entry[:entity];type=e.get_attribute(DICT,'element_type','').to_s
     fields=FIELDS.keys.each_with_object({}){|key,h|h[key]=e.get_attribute(DICT,key,nil)}
     fields['structure']=e.get_attribute(DICT,'ano',nil) if fields['structure'].to_s.strip.empty?
@@ -53,7 +53,8 @@ module MAG
     issues<<'Proje atanmamış.' if fields['project'].to_s.strip.empty?
     issues<<'Tip kimliği eksik.' if fields['library_type_id'].to_s.strip.empty?
     quantities.each{|key,r|issues<<"#{key}: #{r[:message]}" if r[:state]=='invalid'}
-    {key:entry[:key],pid:e.persistent_id,uid:uid,id:api.element_visible_id(e),type:type,label:TYPES[type],
+    st=fields['structure'].to_s   # ADR-0515-I: süzgeç değeri kod (fields.structure); structure_label yalnız gösterim
+    {key:entry[:key],pid:e.persistent_id,uid:uid,id:api.element_visible_id(e),type:type,label:TYPES[type],structure_label:(st.strip.empty? ? '' : api.mst_structure_label(st,sn)),
      fields:fields,quantities:quantities,issues:issues,nested:!entry[:path].empty?}
    end
    def selected_entries(model,list)
@@ -94,7 +95,7 @@ module MAG
     {count:rows.size,keys:rows.map{|r|r[:key]},common:common,totals:totals,issues:rows.flat_map{|r|r[:issues]}.uniq}
    end
    def payload(model,list=entries(model))
-    rows=list.map{|entry|row(entry)}
+    sn=api.mst_structure_display_names(model);rows=list.map{|entry|row(entry,sn)}
     duplicates=rows.reject{|r|r[:uid].empty?}.group_by{|r|r[:uid]}.select{|uid,records|records.size>1}
     duplicates.each_value{|records|records.each{|r|r[:issues]<<'Kimlik başka bir fiziksel örnekte de kullanılıyor; kimlik kontrolü gerekli.'}}
     index=rows.each_with_object({}){|r,h|h[r[:key]]=r}

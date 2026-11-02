@@ -143,11 +143,13 @@ module MAG
     # Shared hierarchy and full-precision values for dashboard and Excel.
     def pile_qto_hierarchy(piles)
       rows = []
+      sn = mst_structure_display_names(Sketchup.active_model)   # ADR-0515-I: label = görünen ad; key / structure = kod
       add = lambda do |items, level, label, system, structure, section|
         key = JSON.generate([level, system, structure, section])
         parent = level == 'structure' ? JSON.generate(['system', system, nil, nil]) :
           (level == 'section' ? JSON.generate(['structure', system, structure, nil]) : nil)
         rows << {level: level, key: key, parent: parent, label: label, zone: system, structure: structure,
+          structure_label: structure && mst_structure_display(structure, sn),
           diameter_mm: section && section[0], thickness_mm: section && section[1],
           values: pile_fabrication_qto_row(items, label, true),
           concrete_classes: pile_report_concrete_classes(items)}
@@ -155,7 +157,7 @@ module MAG
       piles.group_by { |p| pile_report_system(p) }.sort.each do |system, sys_piles|
         add.call(sys_piles, 'system', system, system, nil, nil)
         sys_piles.group_by { |p| pile_report_structure(p) }.sort.each do |structure, structure_piles|
-          add.call(structure_piles, 'structure', structure, system, structure, nil)
+          add.call(structure_piles, 'structure', mst_structure_display(structure, sn), system, structure, nil)
           structure_piles.group_by { |p| [p.get_attribute(DICT, 'diameter_mm', 0).to_f.round(3), p.get_attribute(DICT, 'thickness_mm', 0).to_f.round(3)] }.sort.each do |section, items|
             add.call(items, 'section', "Ø#{format('%.1f', section[0])} × #{format('%.1f', section[1])}", system, structure, section)
           end

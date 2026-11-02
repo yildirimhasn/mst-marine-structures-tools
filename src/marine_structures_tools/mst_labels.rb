@@ -58,11 +58,12 @@ def mst_label_plan(model=Sketchup.active_model)
  piles=all.select{|e|MST_LABEL_PILE_TYPES.include?(e.get_attribute(DICT,'element_type','').to_s)}.uniq
  z=mst_label_z(all,piles)
  dup=piles.group_by{|p|mst_label_pile_id(p)}.select{|_,v|v.map{|p|mst_label_structure(p)}.uniq.length>1}.keys
+ sn=mst_structure_display_names(model)   # ADR-0515-I: etikette görünen ad; ayrım (dup) kodla
  plan=piles.map do |p|
   id=mst_label_pile_id(p)
   st=mst_label_structure(p)
   x,y=mst_label_xy(p)
-  {pile:p,text:(dup.include?(id) && !st.empty? ? "#{st} · #{id}" : id),x:x,y:y,z:z}
+  {pile:p,text:(dup.include?(id) && !st.empty? ? "#{mst_structure_display(st,sn)} · #{id}" : id),x:x,y:y,z:z}
  end
  h=mst_label_height(plan);plan.each{|r|r[:h]=h}
  plan
@@ -158,7 +159,8 @@ def mst_find_ui
  if hit.empty?
   UI.messagebox("'#{@mst_last_find}' bulunamadı.\nNumarayı kontrol edin (ör. P-56, HB-YD-02-A1-BK-01).")
  elsif hit.length>1
-  UI.messagebox("#{hit.length} eleman seçildi ve gösterildi:\n"+hit.first(12).map{|e|"  #{element_visible_id(e)} (#{mst_label_structure(e).empty? ? e.get_attribute(DICT,'element_type','') : mst_label_structure(e)})"}.join("\n"))
+  sn=mst_structure_display_names(Sketchup.active_model)   # ADR-0515-I
+  UI.messagebox("#{hit.length} eleman seçildi ve gösterildi:\n"+hit.first(12).map{|e|"  #{element_visible_id(e)} (#{mst_label_structure(e).empty? ? e.get_attribute(DICT,'element_type','') : mst_structure_label(mst_label_structure(e),sn)})"}.join("\n"))
  end
  hit.length
 end

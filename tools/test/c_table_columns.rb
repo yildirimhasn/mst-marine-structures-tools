@@ -45,4 +45,12 @@ t('Detailed QTO grup satırı: 8 değer', grp.scan(/arr\.length|qto3_quantity|ty
 t('Detailed QTO grup satırı: +2 (Boru Çeliği / Donatı)', ex.include?("detail.last.concat(k[0]=='steel_pipe_pile' ? [detail.last[7],0.0] : [0.0,detail.last[7]])"), true)
 fb = ex[/detail<<\['Kazık İçi Beton',(.*?)\]\n/, 1].to_s
 t('Detailed QTO yedek satır (Kazık İçi Beton) değer sayısı', fb.split(',').size + 1, 10)
+# ADR-0515-I: Keşif "Poz Metrajları" 4 → 5, Hakediş "Onaylı Metraj" 9 → 10 sütun ("Yapı" görünen ad + "Yapı Kodu"); CSV değişmez
+boq = A1.src('boq_pro.rb')
+kes = A1.grab(boq, 'def boq2_kesif_xlsx_write(')
+hak = A1.grab(boq, 'def boq2_hakedis_xlsx_write(')
+t('Keşif Excel Poz Metrajları başlık sütunu', kes[/m << \[('Eleman'.*?)\]\.map/, 1].to_s.scan(/'[^']*'/).size, 5)
+t('Keşif Excel Poz Metrajları eleman satırı hücre sayısı', kes[/m << \[\{v:element_visible_id.*?\]\n/m].to_s.scan('{v:').size, 5)
+t('Hakediş Excel Onaylı Metraj başlık sütunu', hak[/mt << \[('Poz No'.*?)\]\.map/, 1].to_s.scan(/'[^']*'/).size, 10)
+t('Hakediş Excel Onaylı Metraj satırı hücre sayısı', hak[/mt << \[\{v:r\[:code\]\.to_s.*?\]\n/m].to_s.scan('{v:').size, 10)
 a1_finish

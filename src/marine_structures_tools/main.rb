@@ -1685,12 +1685,13 @@ def mst_bk_live_axes
   end
  end
  groups=piles.group_by{|p,tr| [p.get_attribute(DICT,'axis_no',0).to_i,p.get_attribute(DICT,'axis','').to_s]}
+ amap=mst_axis_display_names(model)   # ADR-0515-I: label / imza kod kalır; display_label yalnız gösterim
  axes=groups.keys.sort_by{|no,label|[no>0 ? no : 999999,label]}.each_with_index.map do |key,i|
   members=groups[key]
-  {'index'=>i+1,'axis_no'=>key[0],'label'=>key[1],'count'=>members.length,
+  {'index'=>i+1,'axis_no'=>key[0],'label'=>key[1],'display_label'=>mst_axis_display(active,active,'x',key[1],amap),'count'=>members.length,
    'pile_ids'=>members.map{|p,tr|p.get_attribute(DICT,'pile_id','').to_s}}
  end
- {'ano'=>active,'axes'=>axes,'pile_count'=>piles.length,'model_pile_count'=>all.length}
+ {'ano'=>active,'ano_label'=>mst_structure_label(active,nil,model),'axes'=>axes,'pile_count'=>piles.length,'model_pile_count'=>all.length}
 end
 
 # v0.37.0g: selected BK is edited inside its own module (first stage: width).
@@ -4178,12 +4179,13 @@ def takeoff(mode='all',want=nil)
   end
   out
  end
+ sn=mst_structure_display_names(Sketchup.active_model)   # ADR-0515-I: ara toplam etiketi görünen ad; gruplama kodla
  ps.group_by{|p|pile_report_system(p)}.sort.each do |system,sys_piles|
   pile_qto_detail_rows << pile_detail_line.call("#{system} — GENEL TOPLAM",sys_piles,:system)
   sys_piles.group_by{|p|pile_report_structure(p)}.sort.each do |structure,structure_piles|
-   pile_qto_detail_rows << pile_detail_line.call("↳ #{structure} — ARA TOPLAM",structure_piles,:structure)
+   pile_qto_detail_rows << pile_detail_line.call("↳ #{mst_structure_display(structure,sn)} — ARA TOPLAM",structure_piles,:structure)
    structure_piles.group_by{|p|[p.get_attribute(DICT,'diameter_mm',0).to_f.round(3),p.get_attribute(DICT,'thickness_mm',0).to_f.round(3)]}.sort.each do |sec,sp|
-    pile_qto_detail_rows << pile_detail_line.call("↳ #{structure} / Ø#{format('%.1f',sec[0])} × #{format('%.1f',sec[1])}",sp,:section)
+    pile_qto_detail_rows << pile_detail_line.call("↳ #{mst_structure_display(structure,sn)} / Ø#{format('%.1f',sec[0])} × #{format('%.1f',sec[1])}",sp,:section)
    end
   end
  end
@@ -4202,9 +4204,9 @@ def takeoff(mode='all',want=nil)
  pile_items.group_by{|x|x[:system].to_s.strip.empty? ? 'SİSTEM BELİRTİLMEMİŞ' : x[:system].to_s.upcase}.sort.each do |system,sys_items|
   section_rows << section_row.call("#{system} — GENEL TOPLAM",sys_items,:system)
   sys_items.group_by{|x|x[:structure].to_s.strip.empty? ? 'YAPI BELİRTİLMEMİŞ' : x[:structure].to_s}.sort.each do |structure,st_items|
-   section_rows << section_row.call("↳ #{structure} — ARA TOPLAM",st_items,:structure)
+   section_rows << section_row.call("↳ #{mst_structure_display(structure,sn)} — ARA TOPLAM",st_items,:structure)
    st_items.group_by{|x|[x[:diameter_mm].to_f.round(3),x[:thickness_mm].to_f.round(3)]}.sort.each do |sec,items|
-    section_rows << section_row.call("↳ #{structure} / Ø#{format('%.1f',sec[0])} × #{format('%.1f',sec[1])}",items,:section)
+    section_rows << section_row.call("↳ #{mst_structure_display(structure,sn)} / Ø#{format('%.1f',sec[0])} × #{format('%.1f',sec[1])}",items,:section)
    end
   end
  end
@@ -9185,7 +9187,7 @@ def export_professional_excel
   pile_rows=pile_qto_hierarchy(piles).map do |item|
     row=item[:values].dup
     row[0]=item[:level]=='system' ? "#{item[:zone]} — GENEL TOPLAM" :
-      (item[:level]=='structure' ? "  #{item[:structure]} — ARA TOPLAM" : "    #{item[:zone]} / #{item[:structure]} / #{item[:label]}")
+      (item[:level]=='structure' ? "  #{item[:structure_label] || item[:structure]} — ARA TOPLAM" : "    #{item[:zone]} / #{item[:structure_label] || item[:structure]} / #{item[:label]}")
     row[1]=item[:diameter_mm] || '—';row[2]=item[:thickness_mm] || '—'
     row
   end
@@ -10540,9 +10542,10 @@ def show_dialog
     ps_=pp.get_attribute(DICT,'structure','').to_s;ps_=pp.get_attribute(DICT,'ano','').to_s if ps_.empty?
     occ[[pp.get_attribute(DICT,'grid_x_axis','').to_s,pp.get_attribute(DICT,'grid_y_axis','').to_s]]=pid if ps_==structure.to_s
    end
-   axes=grid['x'].map{|xr| {'name'=>xr['name'].to_s,'x'=>xr['coord_m'].to_f*xsign,'points'=>ys.map{|yr| ex=occ[[xr['name'].to_s,yr['name'].to_s]];{'name'=>yr['name'].to_s,'y'=>yr['coord_m'].to_f*ysign,'selected'=>ex.nil?,'existing'=>ex.to_s,'dx'=>0.0,'dy'=>0.0}}} }
+   amap=mst_axis_display_names(model)   # ADR-0515-I: name = kod (kimlik / imza), display_label = görünen ad
+   axes=grid['x'].map{|xr| {'name'=>xr['name'].to_s,'display_label'=>mst_axis_display(structure,structure,'x',xr['name'],amap),'x'=>xr['coord_m'].to_f*xsign,'points'=>ys.map{|yr| ex=occ[[xr['name'].to_s,yr['name'].to_s]];{'name'=>yr['name'].to_s,'display_label'=>mst_axis_display(structure,structure,'y',yr['name'],amap),'y'=>yr['coord_m'].to_f*ysign,'selected'=>ex.nil?,'existing'=>ex.to_s,'dx'=>0.0,'dy'=>0.0}}} }
    origin=mst_structure_origin(system,structure,model)
-   payload={'system'=>system,'structure'=>structure,'origin_x_m'=>origin[0].to_f,'origin_y_m'=>origin[1].to_f,'next_start_no'=>maxno+1,'existing_count'=>occ.length}
+   payload={'system'=>system,'structure'=>structure,'structure_label'=>mst_structure_label(structure,nil,model),'origin_x_m'=>origin[0].to_f,'origin_y_m'=>origin[1].to_f,'next_start_no'=>maxno+1,'existing_count'=>occ.length}
    @d.execute_script("loadCentralGridIntoPile(#{JSON.generate(axes)},#{JSON.generate(system)},#{JSON.generate(structure)},#{JSON.generate(payload)})") if @d
   rescue=>e;UI.messagebox("Aktif Sistem / Yapı gridi yüklenemedi: #{e.message}");end}
  @d.add_action_callback('pile_open_override'){|_,raw|begin
@@ -10751,7 +10754,7 @@ def show_dialog
   model=Sketchup.active_model;sys=model.get_attribute(DICT,'project_system_type','ISKELE').to_s.upcase;sys='ISKELE' unless %w[DOLFEN ISKELE RIHTIM].include?(sys)
   systems={};active={};%w[DOLFEN ISKELE RIHTIM].each{|x|systems[x]=mst_structures_for_system(x,model);active[x]=mst_active_structure_for_system(x,model)}
   payload={'project'=>model.get_attribute(DICT,'project_name','').to_s,'system'=>sys,'structure'=>active[sys],'systems'=>systems,'active'=>active}
-  @d.execute_script("mstBKProjectLoaded(#{JSON.generate(payload)})")
+  @d.execute_script("mstBKProjectLoaded(#{JSON.generate(payload.merge(mst_structure_label_maps(systems,model)))})")
  rescue=>e;UI.messagebox("BK proje bilgisi: #{e.message}");end}
  @d.add_action_callback('mstBKSetProjectContext'){|_,raw|begin
   d=JSON.parse(raw);model=Sketchup.active_model;sys=d['system'].to_s.upcase;raise 'Geçersiz sistem' unless %w[DOLFEN ISKELE RIHTIM].include?(sys)
@@ -10759,7 +10762,7 @@ def show_dialog
   model.set_attribute(DICT,'project_name',d['project'].to_s.strip);model.set_attribute(DICT,'project_system_type',sys)
   mst_set_active_system_structure(sys,name,model)
   systems={};active={};%w[DOLFEN ISKELE RIHTIM].each{|x|systems[x]=mst_structures_for_system(x,model);active[x]=mst_active_structure_for_system(x,model)}
-  @d.execute_script("mstBKProjectSaved(#{JSON.generate({'project'=>d['project'].to_s.strip,'system'=>sys,'structure'=>name,'systems'=>systems,'active'=>active})})")
+  @d.execute_script("mstBKProjectSaved(#{JSON.generate({'project'=>d['project'].to_s.strip,'system'=>sys,'structure'=>name,'systems'=>systems,'active'=>active}.merge(mst_structure_label_maps(systems,model)))})")
  rescue=>e;UI.messagebox("BK yapı seçimi: #{e.message}");end}
  @d.add_action_callback('mstBKAddProjectStructure'){|_,raw|begin
   d=JSON.parse(raw);model=Sketchup.active_model;sys=d['system'].to_s.upcase;raise 'Geçersiz sistem' unless %w[DOLFEN ISKELE RIHTIM].include?(sys)
@@ -10775,7 +10778,7 @@ def show_dialog
   end
   model.set_attribute(DICT,'project_system_type',sys);mst_set_active_system_structure(sys,name,model)
   systems={};active={};%w[DOLFEN ISKELE RIHTIM].each{|x|systems[x]=mst_structures_for_system(x,model);active[x]=mst_active_structure_for_system(x,model)}
-  @d.execute_script("mstBKProjectSaved(#{JSON.generate({'project'=>model.get_attribute(DICT,'project_name','').to_s,'system'=>sys,'structure'=>name,'systems'=>systems,'active'=>active})})")
+  @d.execute_script("mstBKProjectSaved(#{JSON.generate({'project'=>model.get_attribute(DICT,'project_name','').to_s,'system'=>sys,'structure'=>name,'systems'=>systems,'active'=>active}.merge(mst_structure_label_maps(systems,model)))})")
  rescue=>e;UI.messagebox("BK yeni yapı: #{e.message}");end}
  @d.add_action_callback('mstBKDeleteProjectStructure'){|_,raw|begin
   d=JSON.parse(raw);model=Sketchup.active_model;sys=d['system'].to_s.upcase;name=d['name'].to_s.strip
@@ -10790,12 +10793,13 @@ def show_dialog
     mst_save_structures_for_system(sys,rows.reject{|x|x==name},model)
     mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı')
     grids=mst_axis_grids(model);grids.delete(mst_axis_grid_key(name,name));model.set_attribute(DICT,'axis_grids_json',JSON.generate(grids))
+    mst_display_names_forget!(model,name) unless mst_system_structures(model).any?{|_s,a|a.is_a?(Array) && a.map(&:to_s).include?(name)}   # ADR-0515-I
     mst_set_active_system_structure(sys,mst_structures_for_system(sys,model).first,model)
     model.set_attribute(DICT,'project_system_type',sys)
     model.commit_operation
   rescue=>e;model.abort_operation;raise e;end
   systems={};active={};%w[DOLFEN ISKELE RIHTIM].each{|x|systems[x]=mst_structures_for_system(x,model);active[x]=mst_active_structure_for_system(x,model)}
-  @d.execute_script("mstBKProjectSaved(#{JSON.generate({'project'=>model.get_attribute(DICT,'project_name','').to_s,'system'=>sys,'structure'=>active[sys],'systems'=>systems,'active'=>active})})")
+  @d.execute_script("mstBKProjectSaved(#{JSON.generate({'project'=>model.get_attribute(DICT,'project_name','').to_s,'system'=>sys,'structure'=>active[sys],'systems'=>systems,'active'=>active}.merge(mst_structure_label_maps(systems,model)))})")
  rescue=>e;UI.messagebox("BK yapı silme: #{e.message}");end}
  @d.add_action_callback('mstBKReadLiveAxes'){|_|mst_bk_send_live_axes}
  @d.add_action_callback('mstBKLoadSelectedEdit'){|_|begin;@d.execute_script("mstBKEditLoaded(#{JSON.generate(mst_bk_load_selected_edit)})");rescue=>e;UI.messagebox("BK okuma: #{e.message}");end}
@@ -11455,6 +11459,7 @@ def mst_show_grid_visual(ano=nil,model=Sketchup.active_model,zone=nil,own_op=tru
   xsgn=(grid['x_dir'].to_s=='-X' ? -1.0 : 1.0); ysgn=(grid['y_dir'].to_s=='-Y' ? -1.0 : 1.0)
   xvals=xs.map{|r|ox+xsgn*r['coord_m'].to_f}; yvals=ys.map{|r|oy+ysgn*r['coord_m'].to_f}
   margin=1.50; system_axis_x=''; system_axis_y='' # v0.34.48 legacy selectors retired
+  amap=mst_axis_display_names(model)   # ADR-0515-I: metinde görünen ad; axis_name / x_axis / y_axis kod kalır
   model.start_operation('MST Grid Görseli',true) if own_op
   mst_delete_grid_visual(ano,model,zone)
   g=model.entities.add_group;g.name="MST GRID — #{ano} — #{zone}";g.layer=mst_grid_tag(model)
@@ -11470,7 +11475,7 @@ def mst_show_grid_visual(ano=nil,model=Sketchup.active_model,zone=nil,own_op=tru
     p1=Geom::Point3d.new(m(x),m(y0),m(0.020)); p2=Geom::Point3d.new(m(x),m(y1),m(0.020))
     mst_draw_manual_axis(e,p1,p2,r,Geom::Point3d.new(m(x),m(yvals.min),0),Geom::Vector3d.new(0,1,0))
     stagger=(i%2)*0.55
-    t=mst_add_model_text(e,r['name'].to_s,Geom::Point3d.new(m(x),m(yvals.max+margin+0.72+stagger),m(0.03)),0.40,true)
+    t=mst_add_model_text(e,mst_axis_display(ano,zone,'x',r['name'],amap),Geom::Point3d.new(m(x),m(yvals.max+margin+0.72+stagger),m(0.03)),0.40,true)
     t.set_attribute(DICT,'axis_name',r['name'].to_s) if t
   end
 
@@ -11481,7 +11486,7 @@ def mst_show_grid_visual(ano=nil,model=Sketchup.active_model,zone=nil,own_op=tru
     x1=xvals.max+margin
     p1=Geom::Point3d.new(m(x0),m(y),m(0.020)); p2=Geom::Point3d.new(m(x1),m(y),m(0.020))
     mst_draw_manual_axis(e,p1,p2,r,Geom::Point3d.new(m(xvals.min),m(y),0),Geom::Vector3d.new(1,0,0))
-    t=mst_add_model_text(e,r['name'].to_s,Geom::Point3d.new(m(xvals.min-margin-0.55),m(y),m(0.03)),0.40,true)
+    t=mst_add_model_text(e,mst_axis_display(ano,zone,'y',r['name'],amap),Geom::Point3d.new(m(xvals.min-margin-0.55),m(y),m(0.03)),0.40,true)
     t.set_attribute(DICT,'axis_name',r['name'].to_s) if t
   end
 
@@ -11503,6 +11508,10 @@ def mst_show_grid_visual(ano=nil,model=Sketchup.active_model,zone=nil,own_op=tru
   end
   cx=(xvals.min+xvals.max)/2.0; base_y=yvals.min-margin-1.55
   code_text="(#{code})"
+  disp=mst_structure_display(code,nil,model)   # ADR-0515-I: görünen ad varsa üstte ad, altta (kod); tür satırı yazılmaz
+  if disp!=code
+    code_text=disp;kind="(#{code})"
+  end
   code_x=cx-[code_text.length*0.105,0.45].max
   st=mst_add_model_text(e,code_text,Geom::Point3d.new(m(cx),m(base_y),m(0.03)),0.42,true); st.set_attribute(DICT,'element_type','structure_label') if st
   unless kind.empty?
@@ -11525,7 +11534,7 @@ end
 def mst_grid_visual_signature(sys,name,model)
   g=mst_axis_grid_for(name,model,name)
   o=(mst_structure_origin(sys,name,model) rescue [0.0,0.0])
-  JSON.generate([g,o.map{|v|v.to_f.round(6)}])
+  JSON.generate([g,o.map{|v|v.to_f.round(6)},mst_structure_display(name,nil,model),mst_axis_display_names(model)[mst_axis_grid_key(name,name)]])   # ADR-0515-I: ad değişince görsel yenilenir
 rescue
   ''
 end
@@ -11576,6 +11585,324 @@ def mst_default_structure_name(system,index=1)
   return "BD-#{index.to_i.to_s.rjust(2,'0')}" if system=='DOLFEN'
   "ANO-#{index.to_i.to_s.rjust(2,'0')}"
 end
+
+# ===== ADR-0515-I — yapı / aks görünen adı (kimlik = teknik kod; eleman öznitelikleri değişmez) =====
+# Model DICT, yalnız eklenen iki anahtar: structure_display_names_json {kod: ad} (sistemsiz) ve
+# axis_display_names_json {"<ano>::<zone>": {"x":{kod:ad},"y":{kod:ad}}}. Boş ya da koda eşit ad kaydedilmez.
+# Eski model: anahtar yok / bozuk → boş harita, okumada yazım yok. Eski sürüm bu anahtarları yok sayar.
+MST_NAME_MAX_STRUCTURE=40
+MST_NAME_MAX_AXIS=20
+MST_NAME_CHAR=/[\p{L}\p{M}\p{N} \-_.()#+&]/
+MST_TURKIC_UPCASE=(('i'.upcase(:turkic)=="İ") rescue false)   # SketchUp 2020 Ruby 2.5.5: var; yoksa elle eşleme
+
+# NFC + çoklu boşluk teke + kırpma
+def mst_name_clean(s)
+  x=s.to_s.dup
+  x=x.force_encoding('UTF-8') unless x.encoding==Encoding::UTF_8
+  x=x.scrub('')
+  x=(x.unicode_normalize(:nfc) rescue x)
+  x.gsub(/[[:space:]]+/,' ').strip
+end
+
+# Türkçe karşılaştırma anahtarı: temizle + upcase(:turkic) + İ→I (i, ı, I, İ aynı sayılır)
+def mst_name_key(s)
+  x=mst_name_clean(s)
+  x=MST_TURKIC_UPCASE ? x.upcase(:turkic) : x.tr("iı","İI").upcase
+  x.tr("İ",'I')
+end
+
+# => temizlenmiş ad ('' = ad yok); kural dışı → Türkçe hata (çağıran işlem açmadan önce çağırır)
+def mst_name_validate(name,max,what)
+  n=mst_name_clean(name)
+  return '' if n.empty?
+  raise "#{what}: en fazla #{max} karakter olabilir (#{n.length} karakter)." if n.length>max
+  bad=n.each_char.reject{|c|c=~MST_NAME_CHAR}.uniq
+  unless bad.empty?
+    shown=bad.map{|c|c=~/[[:cntrl:]]/ ? 'denetim karakteri' : "'#{c}'"}.join(', ')
+    raise "#{what}: izin verilmeyen karakter (#{shown}). Kullanılabilir: harf, rakam, boşluk ve - _ . ( ) # + &"
+  end
+  n
+end
+
+def mst_structure_display_names(model=Sketchup.active_model)
+  raw=model.get_attribute(DICT,'structure_display_names_json','').to_s
+  h=raw.strip.empty? ? {} : (JSON.parse(raw) rescue {})
+  return {} unless h.is_a?(Hash)
+  h.each_with_object({}){|(k,v),o|o[k.to_s]=v if v.is_a?(String) && !v.strip.empty? && v!=k.to_s}
+end
+
+def mst_axis_display_names(model=Sketchup.active_model)
+  raw=model.get_attribute(DICT,'axis_display_names_json','').to_s
+  h=raw.strip.empty? ? {} : (JSON.parse(raw) rescue {})
+  return {} unless h.is_a?(Hash)
+  h.each_with_object({}) do |(k,v),o|
+    next unless v.is_a?(Hash)
+    e={}
+    %w[x y].each{|d|m_=v[d];e[d]=m_.is_a?(Hash) ? m_.each_with_object({}){|(c,n),q|q[c.to_s]=n if n.is_a?(String) && !n.strip.empty? && n!=c.to_s} : {}}
+    o[k.to_s]=e
+  end
+end
+
+def mst_structure_display(code,names=nil,model=Sketchup.active_model)
+  c=code.to_s;n=(names || mst_structure_display_names(model))[c].to_s
+  n.strip.empty? ? c : n
+end
+
+# Seçici etiketi: "Görünen Ad (kod)"; görünen ad koda eşitse yalnız kod
+def mst_structure_label(code,names=nil,model=Sketchup.active_model)
+  d=mst_structure_display(code,names,model)
+  d==code.to_s ? code.to_s : "#{d} (#{code})"
+end
+
+def mst_axis_display(ano,zone,dir,code,amap=nil,model=Sketchup.active_model)
+  z=zone.to_s.strip.empty? ? ano.to_s : zone.to_s
+  n=(((amap || mst_axis_display_names(model))[mst_axis_grid_key(ano,z)] || {})[dir.to_s.downcase] || {})[code.to_s].to_s
+  n.strip.empty? ? code.to_s : n
+end
+
+# Sonraki boş kod: aynı ön ekli kodların en büyük numarası + 1 (görünen adlar okunmaz). Aks Yöneticisi JS nextCode ile aynı kural.
+def mst_next_structure_code(system,codes)
+  pre=mst_default_structure_name(system,1).sub(/\d+\z/,'')
+  rx=/\A#{Regexp.escape(pre)}(\d+)\z/i
+  mx=Array(codes).map{|c|c.to_s.strip[rx,1].to_i}.max.to_i
+  mst_default_structure_name(system,mx+1)
+end
+
+# mst_structures_for_system süzgecinin (değiştirilmez) kabul ettiği kod biçimi; yeni / değişen kod için ön denetim
+def mst_code_allowed_in_system?(system,code)
+  n=code.to_s
+  case system.to_s.upcase
+  when 'DOLFEN' then !(n =~ /\AANO-\d+\z/i || n =~ /\ARIHTIM-\d+\z/i)
+  when 'RIHTIM' then !(n =~ /\AANO-\d+\z/i || n =~ /\A(?:BD|YD|YP|KY)-?\d*\z/i)
+  when 'ISKELE' then !(n =~ /\ARIHTIM-\d+\z/i || n =~ /\A(?:BD|YD|YP|KY)-?\d*\z/i)
+  else true
+  end
+end
+
+# Yerleşim bağlantıları: [['x'|'y', bağlantı], ...] (eski tek bağlantı biçimi dahil)
+def mst_placement_links(raw)
+  return [] unless raw.is_a?(Hash)
+  out=[]
+  out << ['x',raw['x_link']] if raw['x_link'].is_a?(Hash)
+  out << ['y',raw['y_link']] if raw['y_link'].is_a?(Hash)
+  if !raw.key?('x_link') && !raw.key?('y_link') && !raw['mode'].to_s.empty? && raw['mode'].to_s!='INDEPENDENT'
+    out << [(raw['axis_family'].to_s.upcase=='Y' ? 'y' : 'x'),raw]
+  end
+  out
+end
+
+# C seçeneği — kod kullanımı (salt okuma, tek tarama). elements: kod → eleman sayısı (structure / ano / zone),
+# visuals: kod → aks görseli, axes: [yapı, 'x'|'y', aks] → eleman sayısı (grid_x_axis / grid_y_axis; axis / first_axis / last_axis iki yönde sayılır, eleman başına bir kez)
+def mst_code_usage(model=Sketchup.active_model)
+  el=Hash.new(0);vis=Hash.new(0);ax=Hash.new(0)
+  list=[];collect_elements(model.entities,list)
+  (list+mst_find_pile_layouts(model.entities)).uniq.each do |e|
+    next unless e.valid?
+    s=e.get_attribute(DICT,'structure','').to_s.strip;a=e.get_attribute(DICT,'ano','').to_s.strip;z=e.get_attribute(DICT,'zone','').to_s.strip
+    [s,a,z].reject(&:empty?).uniq.each{|c|el[c]+=1}
+    own=s.empty? ? a : s
+    next if own.empty?
+    star=(e.get_attribute(DICT,'axis','').to_s.split(',')+[e.get_attribute(DICT,'first_axis','').to_s,e.get_attribute(DICT,'last_axis','').to_s])
+    ([e.get_attribute(DICT,'grid_x_axis','').to_s]+star).map(&:strip).reject(&:empty?).uniq.each{|v|ax[[own,'x',v]]+=1}
+    ([e.get_attribute(DICT,'grid_y_axis','').to_s]+star).map(&:strip).reject(&:empty?).uniq.each{|v|ax[[own,'y',v]]+=1}
+  end
+  model.entities.grep(Sketchup::Group).each{|g|vis[g.get_attribute(DICT,'ano','').to_s]+=1 if g.valid? && g.get_attribute(DICT,'element_type','').to_s=='axis_grid_visual'}
+  {'elements'=>el,'visuals'=>vis,'axes'=>ax}
+end
+
+# => nil (kod değiştirilebilir) / Türkçe kilit açıklaması
+def mst_structure_code_lock(sys,code,usage,model=Sketchup.active_model,placements=nil)
+  c=code.to_s;sys=sys.to_s.upcase;why=[]
+  n=usage['elements'][c].to_i;why << "#{n} eleman" if n>0
+  why << 'aks görseli' if usage['visuals'][c].to_i>0
+  zones=mst_structure_zones(model)[c]
+  why << 'bölge kaydı' if zones.is_a?(Array) && zones.map(&:to_s).any?{|z|z!=c && z!='ANA YAPI'}
+  grids=mst_axis_grids(model)
+  why << 'bölge aks ızgarası' if grids.key?(c) || grids.keys.any?{|k|k.to_s.start_with?("#{c}::") && k.to_s!=mst_axis_grid_key(c,c)}
+  legacy=(JSON.parse(model.get_attribute(DICT,'ano_layout_json','').to_s) rescue nil)
+  why << 'eski ANO kaydı' if legacy.is_a?(Array) && legacy.any?{|r|r.is_a?(Hash) && r['name'].to_s==c}
+  pl=placements || mst_structure_placements(model)
+  refs=pl.select{|k,v|k.to_s!=mst_placement_key(sys,c) && mst_placement_links(v).any?{|_f,l|l['mode'].to_s!='ABSOLUTE' && l['ref_structure'].to_s==c}}.keys.map{|k|k.to_s.split('::',2).last}
+  why << "yerleşim bağlantısı (#{refs.uniq.join(', ')})" unless refs.empty?
+  ss=mst_system_structures(model)
+  other=%w[DOLFEN ISKELE RIHTIM].reject{|s|s==sys}.select{|s|ss[s].is_a?(Array) && ss[s].map{|q|q.to_s.strip}.include?(c)}
+  why << "başka sistemde de kayıtlı (#{other.join(', ')})" unless other.empty?
+  why.empty? ? nil : "Kod değiştirilemez: #{why.join(', ')} bu koda bağlı."
+end
+
+# => {'x'=>{aks=>açıklama},'y'=>{...}} yalnız kullanılan akslar (kod salt okunur)
+def mst_axis_code_locks(sys,name,grid,usage,placements)
+  sys=sys.to_s.upcase;out={'x'=>{},'y'=>{}}
+  %w[x y].each do |d|
+    (grid.is_a?(Hash) ? Array(grid[d]) : []).each do |r|
+      a=r['name'].to_s;why=[]
+      n=usage['axes'][[name.to_s,d,a]].to_i
+      why << "#{n} eleman" if n>0
+      refs=[]
+      placements.each do |k,v|
+        ks,kn=k.to_s.split('::',2)
+        mst_placement_links(v).each do |fam,l|
+          next unless fam==d && l['mode'].to_s!='ABSOLUTE'
+          refs << kn.to_s if ks.to_s.upcase==sys && kn.to_s==name.to_s && l['target_axis'].to_s==a
+          refs << kn.to_s if l['ref_structure'].to_s==name.to_s && l['ref_axis'].to_s==a
+        end
+      end
+      why << "yerleşim bağlantısı (#{refs.uniq.join(', ')})" unless refs.empty?
+      out[d][a]="Aks kodu değiştirilemez: #{why.join(', ')} bu aksa bağlı." unless why.empty?
+    end
+  end
+  out
+end
+
+# Global üst bar / seçiciler için ek alanlar (mevcut alanlar değişmez)
+def mst_structure_label_maps(systems,model=Sketchup.active_model)
+  sn=mst_structure_display_names(model);labels={};names={}
+  systems.each_value{|rows|Array(rows).each{|c|labels[c.to_s]=mst_structure_label(c,sn);names[c.to_s]=mst_structure_display(c,sn)}}
+  {'structure_labels'=>labels,'structure_names'=>names}
+end
+
+# Silinen yapının görünen ad kayıtları (çağıranın işlemi içinde; bozuk kaydın üzerine yazılmaz)
+def mst_display_names_forget!(model,code)
+  c=code.to_s
+  unless mst_json_attr_bad?(model,'structure_display_names_json',Hash)
+    sn=mst_structure_display_names(model)
+    model.set_attribute(DICT,'structure_display_names_json',JSON.generate(sn.reject{|k,_|k==c})) if sn.key?(c)
+  end
+  unless mst_json_attr_bad?(model,'axis_display_names_json',Hash)
+    an=mst_axis_display_names(model);gk=mst_axis_grid_key(c,c)
+    model.set_attribute(DICT,'axis_display_names_json',JSON.generate(an.reject{|k,_|k==gk})) if an.key?(gk)
+  end
+end
+
+# Aks Yöneticisi kaydı — görünen adlar ve C seçeneği kod değişikliği. Yalnız okur ve doğrular (işlem açılmadan);
+# x['placements'] / x['active'] içinde eski kod kaldıysa yeni koda taşır (yük, model değil).
+# => {'writes'=>{anahtar=>JSON},'changes'=>[{'system','from','to'}]}
+def mst_axis_manager_names_plan(x,model)
+  sh=x['systems'].is_a?(Hash) ? x['systems'] : {}
+  clean={}
+  %w[DOLFEN ISKELE RIHTIM].each do |s|
+    rows=(sh[s].is_a?(Array) ? sh[s] : []).map{|n|n.to_s.strip}.reject(&:empty?).uniq
+    rows=[mst_default_structure_name(s,1)] if rows.empty?
+    clean[s]=rows
+  end
+  all_new=clean.values.flatten.uniq
+  ss=mst_system_structures(model)
+  old_by={};%w[DOLFEN ISKELE RIHTIM].each{|s|old_by[s]=ss[s].is_a?(Array) ? ss[s].map{|n|n.to_s.strip}.reject(&:empty?) : []}
+  old_codes=old_by.values.flatten.uniq
+  # C seçeneği: kod değişikliği
+  changes=[]
+  (x['code_changes'].is_a?(Array) ? x['code_changes'] : []).each do |c|
+    next unless c.is_a?(Hash)
+    s=c['system'].to_s.upcase;f=c['from'].to_s.strip;t=c['to'].to_s.strip
+    next if f.empty? || f==t
+    raise 'Kod değişikliği: geçersiz sistem.' unless %w[DOLFEN ISKELE RIHTIM].include?(s)
+    raise "Kod değişikliği: #{t} yapısı #{s} listesinde yok." unless clean[s].include?(t)
+    raise "Kod değişikliği: eski kod #{f} aynı kayıtta başka bir yapıda kullanılamaz." if all_new.include?(f)
+    changes << {'system'=>s,'from'=>f,'to'=>t}
+  end
+  raise 'Kod değişikliği: aynı yapı için birden fazla değişiklik var.' if changes.map{|c|c['from']}.uniq.length!=changes.length || changes.map{|c|c['to']}.uniq.length!=changes.length
+  pp=x['placements'].is_a?(Hash) ? x['placements'] : {}
+  unless changes.empty?
+    usage=mst_code_usage(model);pl_model=mst_structure_placements(model)
+    changes.each do |c|
+      lock=mst_structure_code_lock(c['system'],c['from'],usage,model,pl_model)
+      raise "#{c['from']}: #{lock}" if lock
+      refs=pp.select{|k,v|k.to_s!=mst_placement_key(c['system'],c['from']) && mst_placement_links(v).any?{|_f,l|l['mode'].to_s!='ABSOLUTE' && l['ref_structure'].to_s==c['from']}}.keys
+      raise "#{c['from']}: Kod değiştirilemez: yerleşim bağlantısı (#{refs.map{|k|k.to_s.split('::',2).last}.join(', ')}) bu koda bağlı." unless refs.empty?
+      ok=mst_placement_key(c['system'],c['from']);nk=mst_placement_key(c['system'],c['to'])
+      pp[nk]=pp.delete(ok) if pp.key?(ok) && !pp.key?(nk)
+      x['active'][c['system']]=c['to'] if x['active'].is_a?(Hash) && x['active'][c['system']].to_s==c['from']
+    end
+    mst_json_attr_guard!(model,'structure_zones_json',Hash,'Yapı / bölge listesi')
+  end
+  # yeni / değişen kodlar: karakter, uzunluk, sistem biçimi, benzersizlik (eski kodlara dokunulmaz)
+  fresh=clean.flat_map{|s,rows|(rows-old_by[s]).map{|c|[s,c]}}   # bu sistemde yeni olan kodlar
+  pairs=clean.flat_map{|s,rows|rows.map{|c|[s,c]}}
+  fresh.each do |s,c|
+    v=mst_name_validate(c,MST_NAME_MAX_STRUCTURE,"Yapı kodu #{c}")
+    raise "Yapı kodu '#{c}': baştaki / sondaki ya da çoklu boşlukları düzeltin." unless v==c
+    raise "Yapı kodu #{c} #{s == 'ISKELE' ? 'İSKELE' : s} sisteminde kullanılamaz (bu biçim başka sisteme ait). Önerilen: #{mst_next_structure_code(s,all_new+old_codes)}" unless mst_code_allowed_in_system?(s,c)
+    o=pairs.find{|s2,q|!(s2==s && q==c) && mst_name_key(q)==mst_name_key(c)}
+    raise "Yapı kodu #{c}, #{o[0] == 'ISKELE' ? 'İSKELE' : o[0]} / #{o[1]} koduyla çakışıyor (büyük / küçük harf ve I / İ ayrımı yapılmaz). Önerilen: #{mst_next_structure_code(s,all_new+old_codes)}" if o
+  end
+  # yapı görünen adları
+  old_sn=mst_structure_display_names(model)
+  src=x['structure_names'].is_a?(Hash) ? x['structure_names'] : old_sn
+  sn={}
+  all_new.each do |c|
+    chg=changes.find{|q|q['to']==c}
+    v=src.key?(c) ? src[c] : (chg ? src[chg['from']] : nil)
+    n=mst_name_validate(v,MST_NAME_MAX_STRUCTURE,"#{c} görünen adı")
+    next if n.empty? || mst_name_key(n)==mst_name_key(c)
+    sn[c]=n
+  end
+  owner={};all_new.each{|c|owner[mst_name_key(c)] ||= c}
+  sn.each do |c,n|
+    o=owner[mst_name_key(n)]
+    raise "#{c} görünen adı '#{n}' #{o} yapısının koduyla çakışıyor." if o && o!=c
+  end
+  sn.group_by{|_c,n|mst_name_key(n)}.each_value{|a|raise "'#{a.first[1]}' görünen adı birden fazla yapıda kullanılamaz (#{a.map(&:first).join(', ')})." if a.length>1}
+  fresh.each do |_s,c|
+    o=sn.find{|q,n|q!=c && mst_name_key(n)==mst_name_key(c)}
+    raise "Yapı kodu #{c}, #{o[0]} yapısının görünen adıyla ('#{o[1]}') çakışıyor." if o
+  end
+  # aks görünen adları (anahtar "<yapı>::<yapı>", aynı yapı + aynı yön içinde benzersiz)
+  old_an=mst_axis_display_names(model)
+  an=old_an.reject{|k,_|s_,z_=k.split('::',2);s_==z_ && !all_new.include?(s_)}
+  (x['grids'].is_a?(Hash) ? x['grids'] : {}).each do |k,g|
+    next unless k.to_s.include?('::') && g.is_a?(Hash)
+    s,name=k.to_s.split('::',2)
+    next unless clean[s] && clean[s].include?(name)
+    gk=mst_axis_grid_key(name,name)
+    chg=changes.find{|q|q['to']==name}
+    prev=old_an[gk] || (chg ? old_an[mst_axis_grid_key(chg['from'],chg['from'])] : nil) || {}
+    entry={'x'=>{},'y'=>{}}
+    %w[x y].each do |d|
+      rows=(g[d].is_a?(Array) ? g[d] : []).select{|r|r.is_a?(Hash)}
+      codes=rows.map{|r|r['name'].to_s.strip}
+      rows.each do |r|
+        c=r['name'].to_s.strip;next if c.empty?
+        v=r.key?('display') ? r['display'] : (prev[d] || {})[c]
+        n=mst_name_validate(v,MST_NAME_MAX_AXIS,"#{name} / #{c} aksı görünen adı")
+        next if n.empty? || mst_name_key(n)==mst_name_key(c)
+        o=codes.find{|q|q!=c && mst_name_key(q)==mst_name_key(n)}
+        raise "#{name} / #{c}: görünen ad '#{n}' aynı yöndeki #{o} aksının koduyla çakışıyor." if o
+        entry[d][c]=n
+      end
+      entry[d].group_by{|_c,n|mst_name_key(n)}.each_value{|a|raise "#{name}: '#{a.first[1]}' görünen adı aynı yönde birden fazla aksta kullanılamaz (#{a.map(&:first).join(', ')})." if a.length>1}
+    end
+    if entry['x'].empty? && entry['y'].empty? then an.delete(gk) else an[gk]=entry end
+  end
+  w={}
+  w['structure_display_names_json']=JSON.generate(sn) unless sn==old_sn
+  w['axis_display_names_json']=JSON.generate(an) unless an==old_an
+  w.each_key{|k|mst_json_attr_guard!(model,k,Hash,k=='structure_display_names_json' ? 'Yapı görünen adları' : 'Aks görünen adları')}
+  {'writes'=>w,'changes'=>changes}
+end
+
+# Çağıranın işlemi içinde (Aks Yöneticisi 'MST Aks Kaydı'); mst_axis_manager_save_payload'dan sonra çağrılır.
+def mst_axis_manager_apply_names!(plan,model)
+  plan['writes'].each{|k,v|model.set_attribute(DICT,k,v)}
+  plan['changes'].each do |c|
+    f=c['from'];t=c['to']
+    h=mst_structure_zones(model)
+    if h.key?(f)
+      h[t]=Array(h.delete(f)).map{|z|z.to_s==f ? t : z}
+      model.set_attribute(DICT,'structure_zones_json',JSON.generate(h))
+    end
+    g=mst_axis_grids(model)
+    if g.key?(mst_axis_grid_key(f,f))
+      g.delete(mst_axis_grid_key(f,f))
+      model.set_attribute(DICT,'axis_grids_json',JSON.generate(g))
+    end
+    z=model.get_attribute(DICT,"active_structure_zone__#{f}",nil)
+    model.set_attribute(DICT,"active_structure_zone__#{t}",(z.to_s==f ? t : z.to_s)) unless z.nil?
+    model.set_attribute(DICT,'active_ano',t) if model.get_attribute(DICT,'active_ano','').to_s==f
+    %w[DOLFEN ISKELE RIHTIM].each{|s|model.set_attribute(DICT,"active_structure__#{s}",t) if model.get_attribute(DICT,"active_structure__#{s}",'').to_s==f}
+  end
+  plan
+end
+# ===== end ADR-0515-I yardımcıları =====
 
 def mst_structures_for_system(system,model=Sketchup.active_model)
   system=system.to_s.upcase; h=mst_system_structures(model)
@@ -13012,13 +13339,13 @@ def mst_axis_move_confirm(plans,splans=[])
   return :axes_only unless affected
   lines=['Aks / yapı konumu değişikliği bağlı elemanları etkiliyor.','']
   splans.each do |sp|
-    lines << format('%s / %s: başlangıç X %.2f→%.2f, Y %.2f→%.2f m (ΔX %+.2f, ΔY %+.2f)',sp['system'],sp['structure'],sp['old'][0],sp['new'][0],sp['old'][1],sp['new'][1],sp['dx'],sp['dy'])
+    lines << format('%s / %s: başlangıç X %.2f→%.2f, Y %.2f→%.2f m (ΔX %+.2f, ΔY %+.2f)',sp['system'],mst_structure_label(sp['structure']),sp['old'][0],sp['new'][0],sp['old'][1],sp['new'][1],sp['dx'],sp['dy'])
     lines << "  Taşınacak: #{sp['layouts'].length} kazık grubu (#{sp['pile_count']} kazık)#{sp['element_kinds'].empty? ? '' : ', '+sp['element_kinds'].join(', ')}#{sp['visuals'].empty? ? '' : ', aks çizgileri'}"
   end
   lines << '' unless splans.empty?
   plans.each do |pl|
     ch=pl['changes'].map{|c|format('%s %+.3f m',c['axis'],c['delta'])}
-    lines << "#{pl['structure']}: #{mst_axis_fmt_list(ch,8)}"
+    lines << "#{mst_structure_label(pl['structure'])}: #{mst_axis_fmt_list(ch,8)}"
     lines << "  Taşınacak kazık: #{pl['moves'].length}#{pl['moves'].empty? ? '' : ' ('+mst_axis_fmt_list(pl['moves'].map{|m_|m_['id']})+')'}"
     lines << "  Taşınacak BK: #{pl['beams'].length}#{pl['beams'].empty? ? '' : ' ('+mst_axis_fmt_list(pl['beams'].map{|b|b['id']})+')'}"
     deps=pl['deps']||[]
@@ -13249,25 +13576,38 @@ def project_ano_axis_manager
   active[system]=systems[system].first unless systems[system].include?(active[system])
 
   placements=mst_structure_placements(model)
+  # ADR-0515-I: görünen adlar (aks satırında 'display'; kayıtta mst_normalize_axis_rows bu alanı atar) ve C seçeneği kilitleri
+  snames=mst_structure_display_names(model);anames=mst_axis_display_names(model);usage=mst_code_usage(model)
+  locks={'structures'=>{},'axes'=>{}}
+  systems.each do |sys,rows|
+    rows.each do |name|
+      k="#{sys}::#{name}";g=grids[k]
+      %w[x y].each{|dd|Array(g[dd]).each{|r|dv=mst_axis_display(name,name,dd,r['name'],anames);r['display']=(dv==r['name'].to_s ? '' : dv)}}
+      msg=mst_structure_code_lock(sys,name,usage,model,placements);locks['structures'][k]=msg if msg
+      locks['axes'][k]=mst_axis_code_locks(sys,name,g,usage,placements)
+    end
+  end
+  js_names=JSON.generate(snames).gsub('</','<\\/')
+  js_locks=JSON.generate(locks).gsub('</','<\\/')
   js_systems=JSON.generate(systems).gsub('</','<\\/')
   js_grids=JSON.generate(grids).gsub('</','<\\/')
   js_active=JSON.generate(active).gsub('</','<\\/')
   js_places=JSON.generate(placements).gsub('</','<\\/')
 
   html=%Q{<!doctype html><html><head><meta charset='utf-8'><style>
-*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f3f7fa;color:#17384d}.top{background:#fff;border-bottom:1px solid #cbdde8;padding:15px 20px;display:flex;justify-content:space-between;align-items:center}.top h2{margin:0;color:#073f73}.badge{padding:7px 12px;border-radius:18px;background:#e7f4ff;color:#0874c9;font-weight:700;font-size:11px}.wrap{padding:14px}.card{background:#fff;border:1px solid #cbdde8;border-radius:9px;padding:13px;margin-bottom:12px}.row{display:grid;grid-template-columns:1.4fr .8fr 1fr auto;gap:9px;align-items:end}.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.axisbox{border:1px solid #d7e5ed;border-radius:8px;padding:10px;background:#fbfdfe;overflow-x:auto}.axisbox table{min-width:790px}.axisbox th:nth-child(1){min-width:90px}.axisbox th:nth-child(2){min-width:145px}.axisbox th:nth-child(3){min-width:145px}.axisbox th:nth-child(4){min-width:112px}.axisbox th:nth-child(5){min-width:120px}.axisbox th:nth-child(6){min-width:105px}.axisbox th:nth-child(7){min-width:105px}.axisbox td:nth-child(4) select{min-width:105px}.axisbox td:nth-child(5) select{min-width:112px}.axisbox td:nth-child(6) select{min-width:98px}.axisbox td:nth-child(7) select{min-width:98px}label{font-size:11px;font-weight:700;color:#42677f}input,select{width:100%;padding:8px;border:1px solid #bfd2df;border-radius:6px;margin-top:5px;background:#fff}button{padding:9px 13px;border:0;border-radius:6px;background:#087fd1;color:#fff;font-weight:700;cursor:pointer}.secondary{background:#5c7485}.danger{background:#b94a48}.green{background:#16834f}.sm{padding:6px 8px;font-size:10px}.actions{display:flex;gap:6px;flex-wrap:wrap}table{width:100%;border-collapse:collapse}th,td{font-size:11px;padding:7px;border-bottom:1px solid #e3edf3;text-align:left}th{background:#eaf3f8;color:#42677f}.toolbar{display:grid;grid-template-columns:1fr 90px 110px auto;gap:6px;align-items:end;margin-top:10px}.readonly{background:#eef4f7;font-weight:700}.status{margin-top:8px;font-size:11px;color:#16834f;font-weight:700}.chain{font-weight:700;color:#075d91;padding:9px;background:#eef8fe;border-radius:7px}.placement{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 110px 90px;gap:7px;align-items:end;margin-top:9px}.muted{font-size:10px;color:#6c8494}.titleline{display:flex;justify-content:space-between;align-items:center}.titleline h3{margin:0}.warn{color:#a04a00}
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f3f7fa;color:#17384d}.top{background:#fff;border-bottom:1px solid #cbdde8;padding:15px 20px;display:flex;justify-content:space-between;align-items:center}.top h2{margin:0;color:#073f73}.badge{padding:7px 12px;border-radius:18px;background:#e7f4ff;color:#0874c9;font-weight:700;font-size:11px}.wrap{padding:14px}.card{background:#fff;border:1px solid #cbdde8;border-radius:9px;padding:13px;margin-bottom:12px}.row{display:grid;grid-template-columns:1.4fr .8fr 1fr auto;gap:9px;align-items:end}.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.axisbox{border:1px solid #d7e5ed;border-radius:8px;padding:10px;background:#fbfdfe;overflow-x:auto}.axisbox table{min-width:910px}.axisbox th:nth-child(1){min-width:90px}.axisbox th:nth-child(2){min-width:120px}.axisbox th:nth-child(3){min-width:145px}.axisbox th:nth-child(4){min-width:145px}.axisbox th:nth-child(5){min-width:112px}.axisbox th:nth-child(6){min-width:120px}.axisbox th:nth-child(7){min-width:105px}.axisbox th:nth-child(8){min-width:105px}.axisbox td:nth-child(5) select{min-width:105px}.axisbox td:nth-child(6) select{min-width:112px}.axisbox td:nth-child(7) select{min-width:98px}.axisbox td:nth-child(8) select{min-width:98px}label{font-size:11px;font-weight:700;color:#42677f}input,select{width:100%;padding:8px;border:1px solid #bfd2df;border-radius:6px;margin-top:5px;background:#fff}button{padding:9px 13px;border:0;border-radius:6px;background:#087fd1;color:#fff;font-weight:700;cursor:pointer}.secondary{background:#5c7485}.danger{background:#b94a48}.green{background:#16834f}.sm{padding:6px 8px;font-size:10px}.actions{display:flex;gap:6px;flex-wrap:wrap}table{width:100%;border-collapse:collapse}th,td{font-size:11px;padding:7px;border-bottom:1px solid #e3edf3;text-align:left}th{background:#eaf3f8;color:#42677f}.toolbar{display:grid;grid-template-columns:1fr 90px 110px auto;gap:6px;align-items:end;margin-top:10px}.readonly{background:#eef4f7;font-weight:700}.status{margin-top:8px;font-size:11px;color:#16834f;font-weight:700}.chain{font-weight:700;color:#075d91;padding:9px;background:#eef8fe;border-radius:7px}.placement{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 110px 90px;gap:7px;align-items:end;margin-top:9px}.muted{font-size:10px;color:#6c8494}.titleline{display:flex;justify-content:space-between;align-items:center}.titleline h3{margin:0}.warn{color:#a04a00}
 </style></head><body>
 <div class='top'><div><h2>Proje / Sistem / Yapı — Aks Yöneticisi</h2><div>Temiz aks motoru: Sistemler birbirinden bağımsızdır.</div></div><span class='badge'>v#{VERSION}</span></div>
 <div class='wrap'>
-<div class='card'><div class='row'><label>Proje Adı<input id='project' value='#{html_escape(project)}'></label><label>Sistem<select id='system'><option value='DOLFEN'>DOLFEN</option><option value='ISKELE'>İSKELE</option><option value='RIHTIM'>RIHTIM</option></select></label><label>Aktif Yapı<select id='structure'></select></label><button id='saveAll'>Projeyi Kaydet</button></div><div class='row' style='grid-template-columns:1.4fr 1fr auto auto;margin-top:9px'><label>Yeni Yapı<input id='newStructure'></label><div></div><button id='addStructure'>+ Yeni Yapı</button><div class='actions'><button id='copyStructure' class='secondary'>Yapıyı Kopyala</button><button id='deleteStructure' class='danger'>Yapıyı Sil</button></div></div><div id='status' class='status'></div></div>
+<div class='card'><div class='row'><label>Proje Adı<input id='project' value='#{html_escape(project)}'></label><label>Sistem<select id='system'><option value='DOLFEN'>DOLFEN</option><option value='ISKELE'>İSKELE</option><option value='RIHTIM'>RIHTIM</option></select></label><label>Aktif Yapı<select id='structure'></select></label><button id='saveAll'>Projeyi Kaydet</button></div><div class='row' style='grid-template-columns:1.4fr 1fr 2fr;margin-top:9px'><label>Görünen Ad (aktif yapı)<input id='structName' maxlength='40' placeholder='Boş bırakılırsa kod gösterilir'></label><label>Kod<input id='structCode' maxlength='40' class='readonly' readonly></label><div id='codeNote' class='muted' style='align-self:center'></div></div><div class='row' style='grid-template-columns:1fr 1.4fr auto auto;margin-top:9px'><label>Yeni Yapı Kodu<input id='newStructure' maxlength='40'></label><label>Yeni Yapı Görünen Ad<input id='newStructureName' maxlength='40' placeholder='İsteğe bağlı'></label><button id='addStructure'>+ Yeni Yapı</button><div class='actions'><button id='copyStructure' class='secondary'>Yapıyı Kopyala</button><button id='deleteStructure' class='danger'>Yapıyı Sil</button></div></div><div id='status' class='status'></div></div>
 <div class='card'><div class='titleline'><h3>Yapı Yerleşim Zinciri</h3></div><div id='chain' class='chain'></div><table><thead><tr><th>Sıra</th><th>Yapı</th><th>X Konumu</th><th>Y Konumu</th><th>Global Başlangıç</th><th>Düzenle</th></tr></thead><tbody id='chainbody'></tbody></table>
 <div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px'>
 <div class='axisbox'><h3>X KONUMU</h3><div class='placement' style='grid-template-columns:1fr 1fr 1fr 1fr 1fr 120px'><label>Konumlandırma<select id='xMode'><option value='INDEPENDENT'>Bağımsız (koordinat)</option><option value='SAME_SYSTEM'>Aynı sistemde bağla</option><option value='OTHER_SYSTEM'>Başka sisteme bağla</option></select></label><label>Referans Sistem<select id='xRefSystem'><option>DOLFEN</option><option value='ISKELE'>İSKELE</option><option>RIHTIM</option></select></label><label>Referans Yapı<select id='xRefStructure'></select></label><label>Referans X Aksı<select id='xRefAxis'></select></label><label>Bu Yapının X Aksı<select id='xTargetAxis'></select></label><label>Mesafe / Yön<div style='display:flex;gap:5px'><input id='xDistance' inputmode='decimal' value='0.00'><select id='xDirection' style='width:72px'><option>+X</option><option>-X</option></select></div></label></div><div class='muted' style='margin-top:6px'>Örnek: BD-01 / X-03 → +40.50 m → BD-02 / X-04</div></div>
 <div class='axisbox'><h3>Y KONUMU</h3><div class='placement' style='grid-template-columns:1fr 1fr 1fr 1fr 1fr 120px'><label>Konumlandırma<select id='yMode'><option value='INDEPENDENT'>Bağımsız (koordinat)</option><option value='SAME_SYSTEM'>Aynı sistemde bağla</option><option value='OTHER_SYSTEM'>Başka sisteme bağla</option></select></label><label>Referans Sistem<select id='yRefSystem'><option>DOLFEN</option><option value='ISKELE'>İSKELE</option><option>RIHTIM</option></select></label><label>Referans Yapı<select id='yRefStructure'></select></label><label>Referans Y Aksı<select id='yRefAxis'></select></label><label>Bu Yapının Y Aksı<select id='yTargetAxis'></select></label><label>Mesafe / Yön<div style='display:flex;gap:5px'><input id='yDistance' inputmode='decimal' value='0.00'><select id='yDirection' style='width:72px'><option>+Y</option><option>-Y</option></select></div></label></div><div class='muted' style='margin-top:6px'>Aynı hat için mesafe 0.00 olabilir: BD-02 / F → 0.00 m → YD-01 / F.</div></div>
 </div><div class='actions' style='margin-top:9px'><button id='savePlacement' class='green'>X + Y Konumunu Kaydet</button><button id='independent' class='secondary' title='Bağlantıyı kopar, yapı bulunduğu yerde kalır; sonra Mesafe ile yeni koordinatı girin'>X + Y Bağımsız Yap (yerinde)</button></div></div>
 <div class='card'><div class='titleline'><h3 id='axisTitle'>AKS SİSTEMİ</h3><div class='actions'><button id='showGrid' class='secondary'>Aksları Modelde Göster / Güncelle</button><button id='saveGrid'>Aks Sistemini Kaydet</button></div></div><div class='row2' style='margin-top:10px'>
-<div class='axisbox'><h3>X Aksları</h3><table><thead><tr><th>Aks</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Çizgi Tipi</th><th>Çizgi Kalınlığı</th><th>Uzanım</th><th></th></tr></thead><tbody id='xbody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addX' class='sm'>+ X Aksı Ekle</button><label>Yerel X Yönü<select id='xLocalDir'><option value='+X'>+X</option><option value='-X'>-X</option></select></label></div><div class='toolbar'><label>Önek<input id='xprefix' value='X-'></label><label>Adet<input id='xcount' value='6'></label><label>Aralık (m)<input id='xspacing' value='5.60'></label><button id='genX' class='sm secondary'>Düzenli Oluştur</button></div></div>
-<div class='axisbox'><h3>Y Aksları</h3><table><thead><tr><th>Aks</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Çizgi Tipi</th><th>Çizgi Kalınlığı</th><th>Uzanım</th><th></th></tr></thead><tbody id='ybody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addY' class='sm'>+ Y Aksı Ekle</button><label>Yerel Y Yönü<select id='yLocalDir'><option value='+Y'>+Y</option><option value='-Y'>-Y</option></select></label></div><div class='toolbar'><label>Önek<input id='yprefix' value=''></label><label>Adet<input id='ycount' value='3'></label><label>Aralık (m)<input id='yspacing' value='2.50'></label><button id='genY' class='sm secondary'>Düzenli Oluştur</button></div></div>
+<div class='axisbox'><h3>X Aksları</h3><table><thead><tr><th>Aks Kodu</th><th>Görünen Ad</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Çizgi Tipi</th><th>Çizgi Kalınlığı</th><th>Uzanım</th><th></th></tr></thead><tbody id='xbody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addX' class='sm'>+ X Aksı Ekle</button><label>Yerel X Yönü<select id='xLocalDir'><option value='+X'>+X</option><option value='-X'>-X</option></select></label></div><div class='toolbar'><label>Önek<input id='xprefix' value='X-'></label><label>Adet<input id='xcount' value='6'></label><label>Aralık (m)<input id='xspacing' value='5.60'></label><button id='genX' class='sm secondary'>Düzenli Oluştur</button></div></div>
+<div class='axisbox'><h3>Y Aksları</h3><table><thead><tr><th>Aks Kodu</th><th>Görünen Ad</th><th>Önceki Akstan Mesafe (m)</th><th>İlk Akstan Toplam (m)</th><th>Sınıf</th><th>Çizgi Tipi</th><th>Çizgi Kalınlığı</th><th>Uzanım</th><th></th></tr></thead><tbody id='ybody'></tbody></table><div style='display:grid;grid-template-columns:auto 170px;gap:8px;align-items:end;margin-top:7px'><button id='addY' class='sm'>+ Y Aksı Ekle</button><label>Yerel Y Yönü<select id='yLocalDir'><option value='+Y'>+Y</option><option value='-Y'>-Y</option></select></label></div><div class='toolbar'><label>Önek<input id='yprefix' value=''></label><label>Adet<input id='ycount' value='3'></label><label>Aralık (m)<input id='yspacing' value='2.50'></label><button id='genY' class='sm secondary'>Düzenli Oluştur</button></div></div>
 </div></div></div>
 <script>
 (function(){
@@ -13278,7 +13618,28 @@ var active=#{js_active};
 var placements=#{js_places};
 var currentSystem=#{JSON.generate(system)};
 var currentStructure=active[currentSystem]||systems[currentSystem][0];
+var names=#{js_names};
+var locks=#{js_locks};
+var codeChanges={};
+var origCodes={},snap=null;
 function el(id){return document.getElementById(id)}
+function clean(s){s=String(s==null?'':s);if(s.normalize)s=s.normalize('NFC');return s.replace(/\\s+/g,' ').trim()}
+function nkey(s){var u=clean(s);try{u=u.toLocaleUpperCase('tr-TR')}catch(e){u=u.toUpperCase()}return u.split(String.fromCharCode(304)).join('I')}
+var BADCH=String.fromCharCode(92)+'/:*?"<>|';
+function checkName(v,max,what){v=clean(v);if(!v)return '';if(v.length>max)throw new Error(what+': en fazla '+max+' karakter olabilir ('+v.length+' karakter).');for(var i=0;i<v.length;i++){var c=v.charCodeAt(i);if(c<32||c===127||BADCH.indexOf(v.charAt(i))>=0)throw new Error(what+': '+BADCH+' ve denetim karakterleri kullanılamaz. Kullanılabilir: harf, rakam, boşluk ve - _ . ( ) # + &')}return v}
+function disp(n){var v=names[n];return (v&&clean(v))?v:n}
+function label(n){var d=disp(n);return d===n?n:d+' ('+n+')'}
+function axLabel(r){return (r.display&&clean(r.display)&&r.display!==r.name)?r.display+' ('+r.name+')':r.name}
+function allCodes(){var a=[];Object.keys(systems).forEach(function(s){systems[s].forEach(function(c){a.push(c)})});return a}
+function nextCode(sys){var pre=defaultStructure(sys,1).replace(/\\d+$/,''),mx=0;allCodes().forEach(function(c){var t=String(c).trim();if(t.toUpperCase().indexOf(pre.toUpperCase())===0){var rest=t.slice(pre.length);if(/^\\d+$/.test(rest))mx=Math.max(mx,parseInt(rest,10))}});return defaultStructure(sys,mx+1)}
+function origOf(sys,code){var ks=Object.keys(codeChanges);for(var i=0;i<ks.length;i++){if(ks[i].indexOf(sys+'::')===0&&codeChanges[ks[i]]===code)return ks[i].slice(sys.length+2)}return code}
+function placementRefs(sys,code){var out=[];Object.keys(placements).forEach(function(k){if(k===key(sys,code))return;var p=placements[k]||{};[p.x_link,p.y_link].forEach(function(ln){if(ln&&ln.mode!=='ABSOLUTE'&&ln.ref_structure===code)out.push(k.split('::').slice(1).join('::'))})});return out}
+function structLock(sys,code){var m=locks.structures[key(sys,origOf(sys,code))];if(m)return m;var r=placementRefs(sys,code);return r.length?'Kod değiştirilemez: yerleşim bağlantısı ('+r.join(', ')+') bu koda bağlı.':''}
+function axisLock(d,code){var a=locks.axes[key(currentSystem,currentStructure)]||{},m=(a[d]||{})[code];if(m)return m;var F=d.toUpperCase(),refs=[];Object.keys(placements).forEach(function(k){var p=placements[k]||{},ln=F==='X'?p.x_link:p.y_link;if(!ln||ln.mode==='ABSOLUTE')return;if((k===key(currentSystem,currentStructure)&&ln.target_axis===code)||(ln.ref_structure===currentStructure&&ln.ref_axis===code))refs.push(k.split('::').slice(1).join('::'))});return refs.length?'Aks kodu değiştirilemez: yerleşim bağlantısı ('+refs.join(', ')+') bu aksa bağlı.':''}
+function nameClash(v,own){var k=nkey(v),hit='';allCodes().forEach(function(c){if(c!==own&&nkey(c)===k)hit=c+' kodu'});Object.keys(names).forEach(function(c){if(c!==own&&names[c]&&nkey(names[c])===k)hit=c+' yapısının görünen adı'});return hit}
+function axisDisplaySnap(){var o={};Object.keys(grids).forEach(function(k){var g=grids[k]||{};o[k]={x:{},y:{}};['x','y'].forEach(function(d){(g[d]||[]).forEach(function(r){if(r.display)o[k][d][r.name]=r.display})})});return o}
+function takeSnap(){snap={names:JSON.parse(JSON.stringify(names)),axes:axisDisplaySnap()};origCodes={};Object.keys(systems).forEach(function(s){origCodes[s]=systems[s].slice()})}
+window.mstNamesSaved=function(){codeChanges={};takeSnap();renderIdentity()};
 function dec(v){var n=parseFloat(String(v==null?'':v).replace(',','.'));return isFinite(n)?n:0}
 function z2(n){return String(n).padStart(2,'0')}
 function defaultStructure(sys,i){if(sys==='DOLFEN')return 'BD-'+z2(i);if(sys==='RIHTIM')return 'RIHTIM-'+z2(i);return 'ANO-'+z2(i)}
@@ -13289,46 +13650,62 @@ function axisName(d,i){if(d==='x')return 'X-'+z2(i+1);var n=i+1,s='';while(n){n-
 function normalize(d){var a=grid()[d],t=0;a.forEach(function(r,i){r.gap_m=i?Math.max(0,dec(r.gap_m)):0;t+=r.gap_m;r.coord_m=t})}
 function renderAxis(d){normalize(d);var b=el(d+'body');b.innerHTML='';grid()[d].forEach(function(r,i){
 if(!r.line_type)r.line_type='AXIS';if(!r.pattern)r.pattern='DASHED';if(!r.lineweight)r.lineweight=(r.weight==='THICK'?'0.20':'0.005');if(!r.extent)r.extent='FINITE';
-var tr=document.createElement('tr'),cells=[];for(var k=0;k<8;k++){cells[k]=document.createElement('td')}
-var n=document.createElement('input');n.value=r.name;n.addEventListener('input',function(){r.name=this.value});cells[0].appendChild(n);
-var gap=document.createElement('input');if(i===0){gap.value='—';gap.disabled=true;gap.className='readonly'}else{gap.value=Number(r.gap_m).toFixed(2);gap.inputMode='decimal';gap.addEventListener('change',function(){r.gap_m=Math.max(0,dec(this.value));renderAxis(d);renderPlacementSelectors()})}cells[1].appendChild(gap);
-var c=document.createElement('input');c.value=Number(r.coord_m).toFixed(2);c.disabled=true;c.className='readonly';cells[2].appendChild(c);
+var tr=document.createElement('tr'),cells=[];for(var k=0;k<9;k++){cells[k]=document.createElement('td')}
+var n=document.createElement('input'),lk=axisLock(d,r.name);n.value=r.name;if(lk){n.readOnly=true;n.className='readonly';n.title=lk}else{n.title='Kullanılmayan aks: kod değiştirilebilir.';n.addEventListener('change',function(){var v=clean(this.value),self=this;try{var l2=axisLock(d,r.name);if(l2)throw new Error(l2);v=checkName(v,20,'Aks kodu');if(!v)throw new Error('Aks kodu boş olamaz.');grid()[d].forEach(function(q){if(q!==r&&(nkey(q.name)===nkey(v)||(q.display&&nkey(q.display)===nkey(v))))throw new Error(v+': aynı yönde başka bir aksın kodu / görünen adıyla çakışıyor.')})}catch(e){alert(e.message);self.value=r.name;return}r.name=v;if(r.display&&nkey(r.display)===nkey(v))r.display='';renderAxis(d);renderPlacementSelectors()})}cells[0].appendChild(n);
+var dn=document.createElement('input');dn.maxLength=20;dn.value=r.display||'';dn.placeholder=r.name;dn.addEventListener('change',function(){var v,self=this;try{v=checkName(this.value,20,r.name+' aksı görünen adı');if(v)grid()[d].forEach(function(q){if(q!==r&&(nkey(q.name)===nkey(v)||(q.display&&nkey(q.display)===nkey(v))))throw new Error(r.name+': görünen ad aynı yöndeki '+q.name+' aksıyla çakışıyor.')})}catch(e){alert(e.message);self.value=r.display||'';return}if(v&&nkey(v)===nkey(r.name))v='';r.display=v;self.value=v;renderPlacementSelectors()});cells[1].appendChild(dn);
+var gap=document.createElement('input');if(i===0){gap.value='—';gap.disabled=true;gap.className='readonly'}else{gap.value=Number(r.gap_m).toFixed(2);gap.inputMode='decimal';gap.addEventListener('change',function(){r.gap_m=Math.max(0,dec(this.value));renderAxis(d);renderPlacementSelectors()})}cells[2].appendChild(gap);
+var c=document.createElement('input');c.value=Number(r.coord_m).toFixed(2);c.disabled=true;c.className='readonly';cells[3].appendChild(c);
 function sel(opts,val,cb){var q=document.createElement('select');q.innerHTML=opts;q.value=val;q.addEventListener('change',cb);return q}
-cells[3].appendChild(sel('<option value="AXIS">Aks</option><option value="SYSTEM">Sistem Aksı</option>',r.line_type,function(){r.line_type=this.value}));
-cells[4].appendChild(sel('<option value="CONTINUOUS">Sürekli</option><option value="DASHED">Kesikli</option><option value="CENTER">Eksen</option><option value="DASHDOT">Kesik-Nokta</option><option value="SHORTDASH">Kısa Kesikli</option>',r.pattern,function(){r.pattern=this.value}));
-cells[5].appendChild(sel('<option value="0.005">0.005 mm</option><option value="0.01">0.01 mm</option><option value="0.02">0.02 mm</option><option value="0.03">0.03 mm</option><option value="0.05">0.05 mm</option><option value="0.07">0.07 mm</option><option value="0.10">0.10 mm</option><option value="0.13">0.13 mm</option><option value="0.15">0.15 mm</option><option value="0.18">0.18 mm</option><option value="0.20">0.20 mm</option><option value="0.25">0.25 mm</option><option value="0.30">0.30 mm</option><option value="0.35">0.35 mm</option><option value="0.50">0.50 mm</option>',r.lineweight,function(){r.lineweight=this.value}));
-cells[6].appendChild(sel('<option value="FINITE">Sonlu</option><option value="INFINITE">Sonsuz</option>',r.extent,function(){r.extent=this.value}));
-if(i>0){var rm=document.createElement('button');rm.textContent='Sil';rm.className='sm danger';rm.addEventListener('click',function(){grid()[d].splice(i,1);renderAxis(d);renderPlacementSelectors()});cells[7].appendChild(rm)}
+cells[4].appendChild(sel('<option value="AXIS">Aks</option><option value="SYSTEM">Sistem Aksı</option>',r.line_type,function(){r.line_type=this.value}));
+cells[5].appendChild(sel('<option value="CONTINUOUS">Sürekli</option><option value="DASHED">Kesikli</option><option value="CENTER">Eksen</option><option value="DASHDOT">Kesik-Nokta</option><option value="SHORTDASH">Kısa Kesikli</option>',r.pattern,function(){r.pattern=this.value}));
+cells[6].appendChild(sel('<option value="0.005">0.005 mm</option><option value="0.01">0.01 mm</option><option value="0.02">0.02 mm</option><option value="0.03">0.03 mm</option><option value="0.05">0.05 mm</option><option value="0.07">0.07 mm</option><option value="0.10">0.10 mm</option><option value="0.13">0.13 mm</option><option value="0.15">0.15 mm</option><option value="0.18">0.18 mm</option><option value="0.20">0.20 mm</option><option value="0.25">0.25 mm</option><option value="0.30">0.30 mm</option><option value="0.35">0.35 mm</option><option value="0.50">0.50 mm</option>',r.lineweight,function(){r.lineweight=this.value}));
+cells[7].appendChild(sel('<option value="FINITE">Sonlu</option><option value="INFINITE">Sonsuz</option>',r.extent,function(){r.extent=this.value}));
+if(i>0){var rm=document.createElement('button');rm.textContent='Sil';rm.className='sm danger';rm.addEventListener('click',function(){if(lk&&!confirm(lk+'\\n\\n'+r.name+' aksı yine de silinsin mi? Bağlı elemanların aks bağlantısı kopar (eleman verisi değişmez).'))return;grid()[d].splice(i,1);renderAxis(d);renderPlacementSelectors()});cells[8].appendChild(rm)}
 cells.forEach(function(td){tr.appendChild(td)});b.appendChild(tr)})}
-function renderAxes(){el('axisTitle').textContent='AKS SİSTEMİ — '+currentStructure;renderAxis('x');renderAxis('y');el('xLocalDir').value=grid().x_dir||'+X';el('yLocalDir').value=grid().y_dir||'+Y'}
-function addAxis(d){grid()[d].push({name:axisName(d,grid()[d].length),gap_m:0,coord_m:0,line_type:'AXIS',pattern:'DASHED',lineweight:'0.005',extent:'FINITE'});renderAxis(d);renderPlacementSelectors();status('+ '+d.toUpperCase()+' aksı eklendi.')}
-function generate(d){var count=Math.max(1,parseInt(el(d+'count').value,10)||1),sp=Math.max(0,dec(el(d+'spacing').value)),pre=el(d+'prefix').value,a=[];for(var i=0;i<count;i++){a.push({name:(d==='y'&&!pre)?axisName('y',i):pre+z2(i+1),gap_m:i?sp:0,coord_m:i*sp,line_type:'AXIS',pattern:'DASHED',lineweight:'0.005',extent:'FINITE'})}grid()[d]=a;renderAxis(d);renderPlacementSelectors()}
-function renderStructureSelect(){var s=el('structure');s.innerHTML='';systems[currentSystem].forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o)});if(!systems[currentSystem].includes(currentStructure))currentStructure=systems[currentSystem][0];s.value=currentStructure;active[currentSystem]=currentStructure;el('newStructure').value=defaultStructure(currentSystem,systems[currentSystem].length+1);renderAxes();renderChain();loadPlacement()}
+function renderPlacementSelectors(){renderAxisSelectors('X');renderAxisSelectors('Y');renderChain()}
+function renderAxes(){el('axisTitle').textContent='AKS SİSTEMİ — '+label(currentStructure);renderAxis('x');renderAxis('y');el('xLocalDir').value=grid().x_dir||'+X';el('yLocalDir').value=grid().y_dir||'+Y'}
+function axisTaken(d,v){return grid()[d].some(function(q){return nkey(q.name)===nkey(v)||(q.display&&nkey(q.display)===nkey(v))})}
+function addAxis(d){var i=grid()[d].length;while(axisTaken(d,axisName(d,i)))i++;grid()[d].push({name:axisName(d,i),display:'',gap_m:0,coord_m:0,line_type:'AXIS',pattern:'DASHED',lineweight:'0.005',extent:'FINITE'});renderAxis(d);renderPlacementSelectors();status('+ '+d.toUpperCase()+' aksı eklendi: '+axisName(d,i))}
+function generate(d){var count=Math.max(1,parseInt(el(d+'count').value,10)||1),sp=Math.max(0,dec(el(d+'spacing').value)),pre=el(d+'prefix').value,a=[],old=grid()[d];for(var i=0;i<count;i++){var nm=(d==='y'&&!pre)?axisName('y',i):pre+z2(i+1),prev=old.filter(function(q){return q.name===nm})[0];a.push({name:nm,display:prev?(prev.display||''):'',gap_m:i?sp:0,coord_m:i*sp,line_type:'AXIS',pattern:'DASHED',lineweight:'0.005',extent:'FINITE'})}
+var used=old.filter(function(q){return axisLock(d,q.name)}),lost=used.filter(function(q){return !a.some(function(z){return z.name===q.name})});
+if(used.length){var t='Düzenli Oluştur — önizleme\\n\\n'+label(currentStructure)+' / '+d.toUpperCase()+' aksları: '+old.length+' aks → '+a.length+' aks ('+a.map(function(q){return q.name}).join(', ')+').\\nKullanılan akslar: '+used.map(function(q){return q.name}).join(', ')+'.\\n'+(lost.length?'Kaldırılacak kullanılan akslar: '+lost.map(function(q){return q.name}).join(', ')+' — bağlı elemanların aks bağlantısı kopar (eleman verisi değişmez).\\n':'Kullanılan aks kodları korunur; koordinat değişirse kayıtta bağlı elemanlar için ayrıca önizleme gösterilir.\\n')+'Aynı koddaki görünen adlar korunur.\\n\\nDevam edilsin mi?';if(!confirm(t)){status('Düzenli Oluştur iptal edildi.');return}}
+grid()[d]=a;renderAxis(d);renderPlacementSelectors()}
+function renderIdentity(){var c=currentStructure,isNew=(origCodes[currentSystem]||[]).indexOf(origOf(currentSystem,c))<0,lk=structLock(currentSystem,c),code=el('structCode');el('structName').value=names[c]||'';code.value=c;code.readOnly=!!lk;code.className=lk?'readonly':'';code.title=lk||'';el('codeNote').textContent=lk?lk:(isNew?'Yeni yapı: kod kayıttan önce değiştirilebilir.':'Kod değiştirilebilir: bu yapıya bağlı eleman, aks görseli, bölge verisi veya yerleşim bağlantısı yok.')}
+function renderStructureSelect(){var s=el('structure');s.innerHTML='';systems[currentSystem].forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=label(n);s.appendChild(o)});if(!systems[currentSystem].includes(currentStructure))currentStructure=systems[currentSystem][0];s.value=currentStructure;active[currentSystem]=currentStructure;el('newStructure').value=nextCode(currentSystem);el('newStructureName').value='';renderIdentity();renderAxes();renderChain();loadPlacement()}
 function switchSystem(){currentSystem=el('system').value;currentStructure=active[currentSystem]||systems[currentSystem][0];renderStructureSelect();status(currentSystem+' sistemi aktif.')}
-function switchStructure(){currentStructure=el('structure').value;active[currentSystem]=currentStructure;renderAxes();renderChain();loadPlacement()}
-function addStructure(copy){var n=el('newStructure').value.trim();if(!n){alert('Yeni yapı adını girin.');return}if(systems[currentSystem].some(function(x){return x.toUpperCase()===n.toUpperCase()})){alert('Bu yapı zaten mevcut.');return}systems[currentSystem].push(n);grids[key(currentSystem,n)]=copy?JSON.parse(JSON.stringify(grid())):emptyGrid();currentStructure=n;active[currentSystem]=n;renderStructureSelect();status(n+' oluşturuldu.')}
-function deleteStructure(){if(systems[currentSystem].length<=1){alert('En az bir yapı kalmalıdır.');return}if(!confirm(currentStructure+' silinsin mi?'))return;var i=systems[currentSystem].indexOf(currentStructure);systems[currentSystem].splice(i,1);delete grids[key(currentSystem,currentStructure)];delete placements[key(currentSystem,currentStructure)];currentStructure=systems[currentSystem][Math.max(0,i-1)];active[currentSystem]=currentStructure;renderStructureSelect()}
+function switchStructure(){currentStructure=el('structure').value;active[currentSystem]=currentStructure;renderIdentity();renderAxes();renderChain();loadPlacement()}
+function setStructName(){var c=currentStructure,v;try{v=checkName(el('structName').value,40,'Görünen ad');var h=v?nameClash(v,c):'';if(h)throw new Error('"'+v+'" görünen adı '+h+' ile çakışıyor (büyük / küçük harf ve I / İ ayrımı yapılmaz).')}catch(e){alert(e.message);el('structName').value=names[c]||'';return}if(!v||nkey(v)===nkey(c))delete names[c];else names[c]=v;renderStructureSelect();status(names[c]?c+' görünen adı: '+v+' (Projeyi Kaydet ile modele yazılır).':c+' görünen adı temizlendi; kod gösterilir.')}
+function setStructCode(){var o=currentStructure,v,sys=currentSystem;if(el('structCode').readOnly)return;try{v=checkName(el('structCode').value,40,'Yapı kodu');if(!v)throw new Error('Yapı kodu boş olamaz.');if(v===o)return;var h=nameClash(v,o);if(h)throw new Error(v+': '+h+' ile çakışıyor (büyük / küçük harf ve I / İ ayrımı yapılmaz).');var lk=structLock(sys,o);if(lk)throw new Error(lk)}catch(e){alert(e.message);el('structCode').value=o;return}
+var a=systems[sys];a[a.indexOf(o)]=v;grids[key(sys,v)]=grids[key(sys,o)];delete grids[key(sys,o)];if(placements[key(sys,o)]){placements[key(sys,v)]=placements[key(sys,o)];delete placements[key(sys,o)]}if(locks.axes[key(sys,o)]){locks.axes[key(sys,v)]=locks.axes[key(sys,o)];delete locks.axes[key(sys,o)]}if(names[o]){names[v]=names[o];delete names[o]}if(names[v]&&nkey(names[v])===nkey(v))delete names[v];
+var org=origOf(sys,o);if((origCodes[sys]||[]).indexOf(org)>=0){if(v===org)delete codeChanges[key(sys,org)];else codeChanges[key(sys,org)]=v}currentStructure=v;active[sys]=v;renderStructureSelect();status('Kod '+o+' → '+v+' (Projeyi Kaydet ile modele yazılır; eleman verisi değişmez).')}
+function addStructure(copy){var n,nm,h;try{n=checkName(el('newStructure').value,40,'Yeni yapı kodu');if(!n)throw new Error('Yeni yapı kodunu girin.');h=nameClash(n,null);if(h)throw new Error(n+': '+h+' ile çakışıyor (büyük / küçük harf ve I / İ ayrımı yapılmaz).');nm=checkName(el('newStructureName').value,40,'Yeni yapı görünen adı');h=nm?nameClash(nm,null):'';if(h)throw new Error('"'+nm+'" görünen adı '+h+' ile çakışıyor.')}catch(e){alert(e.message);return}systems[currentSystem].push(n);if(nm&&nkey(nm)!==nkey(n))names[n]=nm;grids[key(currentSystem,n)]=copy?JSON.parse(JSON.stringify(grid())):emptyGrid();currentStructure=n;active[currentSystem]=n;renderStructureSelect();status(label(n)+' oluşturuldu.')}
+function deleteStructure(){if(systems[currentSystem].length<=1){alert('En az bir yapı kalmalıdır.');return}var lk=locks.structures[key(currentSystem,origOf(currentSystem,currentStructure))];if(!confirm(label(currentStructure)+' silinsin mi?'+(lk?'\\n\\nUyarı — '+lk:'')))return;var i=systems[currentSystem].indexOf(currentStructure);systems[currentSystem].splice(i,1);delete grids[key(currentSystem,currentStructure)];delete placements[key(currentSystem,currentStructure)];delete names[currentStructure];delete codeChanges[key(currentSystem,origOf(currentSystem,currentStructure))];currentStructure=systems[currentSystem][Math.max(0,i-1)];active[currentSystem]=currentStructure;renderStructureSelect()}
 function placement(){var k=key(currentSystem,currentStructure),p=placements[k];if(!p)p={};if(!('x_link' in p)&&!('y_link' in p)&&p.mode&&p.mode!=='INDEPENDENT'){var fam=(p.axis_family||'X').toUpperCase(),ln={mode:p.mode,ref_system:p.ref_system||'',ref_structure:p.ref_structure||'',ref_axis:p.ref_axis||'',target_axis:p.target_axis||'',distance_m:Number(p.distance_m||0),direction:p.direction||(fam==='X'?'+X':'+Y')};p={x_link:fam==='X'?ln:null,y_link:fam==='Y'?ln:null};placements[k]=p}if(!('x_link' in p))p.x_link=null;if(!('y_link' in p))p.y_link=null;return p}
 function localAxisCoord(sys,name,fam,axis){var g=grids[key(sys,name)]||emptyGrid(),a=g[String(fam||'X').toLowerCase()]||[];for(var i=0;i<a.length;i++){if(a[i].name===axis){var sg=fam==='X'?(g.x_dir==='-X'?-1:1):(g.y_dir==='-Y'?-1:1);return sg*Number(a[i].coord_m||0)}}throw new Error(name+' / '+axis+' aksı bulunamadı.')}
 function originComponent(sys,name,fam,trail){trail=trail||[];var token=key(sys,name)+'::'+fam;if(trail.indexOf(token)>=0)throw new Error('Yapı bağlantı döngüsü: '+name+' / '+fam);var p=placements[key(sys,name)]||{},ln=fam==='X'?p.x_link:p.y_link;if(!ln)return 0;if(ln.mode==='ABSOLUTE')return Number(ln.coord_m||0);var rs=ln.mode==='SAME_SYSTEM'?sys:(ln.ref_system||sys),rn=ln.ref_structure;if(!rn)throw new Error(name+' / '+fam+' için referans yapı seçilmedi.');var ro=originComponent(rs,rn,fam,trail.concat([token])),rc=localAxisCoord(rs,rn,fam,ln.ref_axis),tc=localAxisCoord(sys,name,fam,ln.target_axis),dist=Number(ln.distance_m||0),sgn=ln.direction==='-'+fam?-1:1;return ro+rc+sgn*dist-tc}
 function structureOrigin(sys,name){return [originComponent(sys,name,'X',[]),originComponent(sys,name,'Y',[])]}
 function moveStructure(i,delta){var a=systems[currentSystem],j=i+delta;if(j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;renderChain();status('Görünüm sırası değiştirildi. Geometrik bağlantı değişmedi.')}
-function editStructure(n){currentStructure=n;active[currentSystem]=n;el('structure').value=n;renderAxes();loadPlacement();status(n+' düzenleniyor.')}
-function linkText(ln,fam){if(!ln)return 'Bağımsız '+fam+'=0';if(ln.mode==='ABSOLUTE')return 'Bağımsız '+fam+'='+Number(ln.coord_m||0).toFixed(2);var rs=ln.mode==='SAME_SYSTEM'?currentSystem:(ln.ref_system||currentSystem);return rs+' / '+(ln.ref_structure||'')+' / '+(ln.ref_axis||'')+' → '+Number(ln.distance_m||0).toFixed(2)+' m '+(ln.direction||'')+' → '+(ln.target_axis||'')}
-function renderChain(){el('chain').textContent=systems[currentSystem].join('  →  ');var b=el('chainbody');b.innerHTML='';systems[currentSystem].forEach(function(n,i){var p=placements[key(currentSystem,n)]||{},tr=document.createElement('tr'),origin='—';try{var o=structureOrigin(currentSystem,n);origin='X='+o[0].toFixed(2)+' / Y='+o[1].toFixed(2)+' m'}catch(e){origin='HATA: '+e.message}tr.innerHTML='<td>'+(i+1)+'</td><td><b>'+n+'</b></td><td>'+linkText(p.x_link,'X')+'</td><td>'+linkText(p.y_link,'Y')+'</td><td>'+origin+'</td><td><button class="sm secondary" data-act="up">↑</button> <button class="sm secondary" data-act="down">↓</button> <button class="sm" data-act="edit">⚙</button></td>';tr.querySelector('[data-act=up]').onclick=function(){moveStructure(i,-1)};tr.querySelector('[data-act=down]').onclick=function(){moveStructure(i,1)};tr.querySelector('[data-act=edit]').onclick=function(){editStructure(n)};b.appendChild(tr)})}
+function editStructure(n){currentStructure=n;active[currentSystem]=n;el('structure').value=n;renderIdentity();renderAxes();loadPlacement();status(n+' düzenleniyor.')}
+function linkText(ln,fam){if(!ln)return 'Bağımsız '+fam+'=0';if(ln.mode==='ABSOLUTE')return 'Bağımsız '+fam+'='+Number(ln.coord_m||0).toFixed(2);var rs=ln.mode==='SAME_SYSTEM'?currentSystem:(ln.ref_system||currentSystem);return rs+' / '+label(ln.ref_structure||'')+' / '+(ln.ref_axis||'')+' → '+Number(ln.distance_m||0).toFixed(2)+' m '+(ln.direction||'')+' → '+(ln.target_axis||'')}
+function renderChain(){el('chain').textContent=systems[currentSystem].map(label).join('  →  ');var b=el('chainbody');b.innerHTML='';systems[currentSystem].forEach(function(n,i){var p=placements[key(currentSystem,n)]||{},tr=document.createElement('tr'),origin='—';try{var o=structureOrigin(currentSystem,n);origin='X='+o[0].toFixed(2)+' / Y='+o[1].toFixed(2)+' m'}catch(e){origin='HATA: '+e.message}tr.innerHTML='<td>'+(i+1)+'</td><td><b></b></td><td>'+linkText(p.x_link,'X')+'</td><td>'+linkText(p.y_link,'Y')+'</td><td>'+origin+'</td><td><button class="sm secondary" data-act="up">↑</button> <button class="sm secondary" data-act="down">↓</button> <button class="sm" data-act="edit">⚙</button></td>';tr.querySelector('b').textContent=label(n);tr.querySelector('[data-act=up]').onclick=function(){moveStructure(i,-1)};tr.querySelector('[data-act=down]').onclick=function(){moveStructure(i,1)};tr.querySelector('[data-act=edit]').onclick=function(){editStructure(n)};b.appendChild(tr)})}
 function mstIndependentAtCurrent(fam){var f=fam.toLowerCase(),o=[0,0];try{o=structureOrigin(currentSystem,currentStructure)}catch(e){}var v=fam==='X'?o[0]:o[1];el(f+'Distance').value=Math.abs(v).toFixed(2);el(f+'Direction').value=(v<0?'-':'+')+fam}
 function mstIndependentUi(fam){var f=fam.toLowerCase(),ind=el(f+'Mode').value==='INDEPENDENT';[f+'RefStructure',f+'RefAxis',f+'TargetAxis'].forEach(function(id){var e=el(id);if(e)e.disabled=ind});var d=el(f+'Distance');if(d)d.title=ind?'Bağımsız: yapının global başlangıç '+fam+' koordinatı (m); yön işareti uygulanır':'Referans akstan mesafe (m)'}
-function renderLinkSelectors(fam){var f=fam.toLowerCase(),mode=el(f+'Mode').value,rs=mode==='SAME_SYSTEM'?currentSystem:el(f+'RefSystem').value;el(f+'RefSystem').disabled=mode!=='OTHER_SYSTEM';if(mode==='SAME_SYSTEM')el(f+'RefSystem').value=currentSystem;var s=el(f+'RefStructure'),old=s.value;s.innerHTML='';(systems[rs]||[]).forEach(function(n){if(!(rs===currentSystem&&n===currentStructure)){var o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o)}});if([].some.call(s.options,function(o){return o.value===old}))s.value=old;renderAxisSelectors(fam);mstIndependentUi(fam)}
-function renderAxisSelectors(fam){var f=fam.toLowerCase(),mode=el(f+'Mode').value,rs=mode==='SAME_SYSTEM'?currentSystem:el(f+'RefSystem').value,rn=el(f+'RefStructure').value,rg=grids[key(rs,rn)]||emptyGrid(),tg=grid(),ra=el(f+'RefAxis'),ta=el(f+'TargetAxis'),oldr=ra.value,oldt=ta.value;ra.innerHTML='';ta.innerHTML='';(rg[f]||[]).forEach(function(r){var o=document.createElement('option');o.value=r.name;o.textContent=r.name;ra.appendChild(o)});(tg[f]||[]).forEach(function(r){var o=document.createElement('option');o.value=r.name;o.textContent=r.name;ta.appendChild(o)});if([].some.call(ra.options,function(o){return o.value===oldr}))ra.value=oldr;if([].some.call(ta.options,function(o){return o.value===oldt}))ta.value=oldt}
+function renderLinkSelectors(fam){var f=fam.toLowerCase(),mode=el(f+'Mode').value,rs=mode==='SAME_SYSTEM'?currentSystem:el(f+'RefSystem').value;el(f+'RefSystem').disabled=mode!=='OTHER_SYSTEM';if(mode==='SAME_SYSTEM')el(f+'RefSystem').value=currentSystem;var s=el(f+'RefStructure'),old=s.value;s.innerHTML='';(systems[rs]||[]).forEach(function(n){if(!(rs===currentSystem&&n===currentStructure)){var o=document.createElement('option');o.value=n;o.textContent=label(n);s.appendChild(o)}});if([].some.call(s.options,function(o){return o.value===old}))s.value=old;renderAxisSelectors(fam);mstIndependentUi(fam)}
+function renderAxisSelectors(fam){var f=fam.toLowerCase(),mode=el(f+'Mode').value,rs=mode==='SAME_SYSTEM'?currentSystem:el(f+'RefSystem').value,rn=el(f+'RefStructure').value,rg=grids[key(rs,rn)]||emptyGrid(),tg=grid(),ra=el(f+'RefAxis'),ta=el(f+'TargetAxis'),oldr=ra.value,oldt=ta.value;ra.innerHTML='';ta.innerHTML='';(rg[f]||[]).forEach(function(r){var o=document.createElement('option');o.value=r.name;o.textContent=axLabel(r);ra.appendChild(o)});(tg[f]||[]).forEach(function(r){var o=document.createElement('option');o.value=r.name;o.textContent=axLabel(r);ta.appendChild(o)});if([].some.call(ra.options,function(o){return o.value===oldr}))ra.value=oldr;if([].some.call(ta.options,function(o){return o.value===oldt}))ta.value=oldt}
 function loadOneLink(fam,ln){var f=fam.toLowerCase(),abs=!!(ln&&ln.mode==='ABSOLUTE');el(f+'Mode').value=(ln&&!abs)?ln.mode:'INDEPENDENT';el(f+'RefSystem').value=(ln&&!abs)?(ln.ref_system||currentSystem):currentSystem;el(f+'Distance').value=abs?Math.abs(Number(ln.coord_m||0)).toFixed(2):(ln?Number(ln.distance_m||0).toFixed(2):'0.00');el(f+'Direction').value=abs?(Number(ln.coord_m)<0?'-'+fam:'+'+fam):(ln?(ln.direction||('+'+fam)):('+'+fam));renderLinkSelectors(fam);if(ln&&ln.ref_structure)el(f+'RefStructure').value=ln.ref_structure;renderAxisSelectors(fam);if(ln&&ln.ref_axis)el(f+'RefAxis').value=ln.ref_axis;if(ln&&ln.target_axis)el(f+'TargetAxis').value=ln.target_axis}
 function loadPlacement(){var p=placement();loadOneLink('X',p.x_link);loadOneLink('Y',p.y_link)}
 function readLink(fam){var f=fam.toLowerCase(),mode=el(f+'Mode').value;if(mode==='INDEPENDENT'){var cv=dec(el(f+'Distance').value)*(el(f+'Direction').value==='-'+fam?-1:1);return Math.abs(cv)<1e-9?null:{mode:'ABSOLUTE',coord_m:cv};}var rs=mode==='SAME_SYSTEM'?currentSystem:el(f+'RefSystem').value,ln={mode:mode,ref_system:rs,ref_structure:el(f+'RefStructure').value,ref_axis:el(f+'RefAxis').value,target_axis:el(f+'TargetAxis').value,distance_m:Math.max(0,dec(el(f+'Distance').value)),direction:el(f+'Direction').value};if(!ln.ref_structure||!ln.ref_axis||!ln.target_axis)throw new Error(fam+' konumu için referans yapı ve aksları seçin.');return ln}
 function savePlacement(){var old=placements[key(currentSystem,currentStructure)];try{placements[key(currentSystem,currentStructure)]={x_link:readLink('X'),y_link:readLink('Y')};structureOrigin(currentSystem,currentStructure);renderChain();status('X + Y konumu kaydedildi. Projeyi Kaydet ile modele yazın.')}catch(e){if(old)placements[key(currentSystem,currentStructure)]=old;else delete placements[key(currentSystem,currentStructure)];alert(e.message)}}
-function payload(){return {project:el('project').value,system:currentSystem,systems:systems,active:active,grids:grids,placements:placements}}
-function saveAll(show){sketchup.axis_manager_v2_save(JSON.stringify(payload()));if(show)status('Kaydediliyor...')}
-function showGrid(){saveAll(false);sketchup.axis_manager_v2_show(JSON.stringify({system:currentSystem,structure:currentStructure}))}
+function codeChangeList(){return Object.keys(codeChanges).map(function(k){var p=k.split('::');return {system:p[0],from:p.slice(1).join('::'),to:codeChanges[k]}})}
+function payload(){return {project:el('project').value,system:currentSystem,systems:systems,active:active,grids:grids,placements:placements,structure_names:names,code_changes:codeChangeList()}}
+function previewText(){var L=[],cur=axisDisplaySnap(),seen={},sh=function(v){return v?'"'+v+'"':'(ad yok)'};codeChangeList().forEach(function(c){L.push('Kod: '+c.from+' → '+c.to+' ('+c.system+'; bağlı eleman yok)')});
+Object.keys(systems).forEach(function(s){systems[s].forEach(function(c){var o=origOf(s,c),b=snap.names[o]||'',a=names[c]||'';seen[o]=true;if(b!==a)L.push('Yapı '+c+': '+sh(b)+' → '+sh(a));var bk=snap.axes[key(s,o)]||{x:{},y:{}},ak=cur[key(s,c)]||{x:{},y:{}};['x','y'].forEach(function(d){var u={};Object.keys(bk[d]||{}).concat(Object.keys(ak[d]||{})).forEach(function(q){if(u[q])return;u[q]=true;var x1=(bk[d]||{})[q]||'',x2=(ak[d]||{})[q]||'';if(x1!==x2)L.push('Aks '+c+' / '+q+': '+sh(x1)+' → '+sh(x2))})});var la=locks.axes[key(s,c)]||{},g=grids[key(s,c)]||{};['x','y'].forEach(function(d){Object.keys(la[d]||{}).forEach(function(q){if(!(g[d]||[]).some(function(r){return r.name===q}))L.push('Kaldırılan kullanılan aks: '+c+' / '+q+' — '+la[d][q])})})})});
+Object.keys(snap.names).forEach(function(o){if(!seen[o])L.push('Yapı '+o+' silindi: görünen ad kaydı '+sh(snap.names[o])+' de silinir.')});
+if(!L.length)return '';var more=L.length>25?'\\n… '+(L.length-25)+' satır daha':'';return 'Kayıt önizlemesi — görünen ad / kod\\n\\n'+L.slice(0,25).join('\\n')+more+'\\n\\nEleman verisi değişmez: kod, ano, aks ve kimlik öznitelikleri aynı kalır; görünen ad değişikliği revizyon kaydı oluşturmaz.\\n\\nKaydedilsin mi?'}
+function saveAll(show){var t=previewText();if(t&&!confirm(t)){status('Kaydetme iptal edildi; hiçbir şey değişmedi.');return false}sketchup.axis_manager_v2_save(JSON.stringify(payload()));if(show)status('Kaydediliyor...');return true}
+function showGrid(){if(saveAll(false)===false)return;sketchup.axis_manager_v2_show(JSON.stringify({system:currentSystem,structure:currentStructure}))}
 function status(t){el('status').textContent=t}
-function bind(){el('system').value=currentSystem;el('system').addEventListener('change',switchSystem);el('structure').addEventListener('change',switchStructure);el('addStructure').addEventListener('click',function(){addStructure(false)});el('copyStructure').addEventListener('click',function(){addStructure(true)});el('deleteStructure').addEventListener('click',deleteStructure);el('addX').addEventListener('click',function(){addAxis('x')});el('addY').addEventListener('click',function(){addAxis('y')});el('xLocalDir').addEventListener('change',function(){grid().x_dir=this.value;renderChain();status('Yerel X yönü: '+this.value)});el('yLocalDir').addEventListener('change',function(){grid().y_dir=this.value;renderChain();status('Yerel Y yönü: '+this.value)});el('genX').addEventListener('click',function(){generate('x')});el('genY').addEventListener('click',function(){generate('y')});el('saveGrid').addEventListener('click',function(){saveAll(true)});el('saveAll').addEventListener('click',function(){saveAll(true)});el('showGrid').addEventListener('click',showGrid);['X','Y'].forEach(function(fam){var f=fam.toLowerCase();el(f+'Mode').addEventListener('change',function(){if(this.value==='INDEPENDENT')mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});el(f+'RefSystem').addEventListener('change',function(){renderLinkSelectors(fam)});el(f+'RefStructure').addEventListener('change',function(){renderAxisSelectors(fam)})});el('savePlacement').addEventListener('click',savePlacement);el('independent').addEventListener('click',function(){['X','Y'].forEach(function(fam){el(fam.toLowerCase()+'Mode').value='INDEPENDENT';mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});savePlacement()});renderStructureSelect();status('Hazır — '+currentSystem+' / '+currentStructure)}
+function bind(){takeSnap();el('system').value=currentSystem;el('system').addEventListener('change',switchSystem);el('structName').addEventListener('change',setStructName);el('structCode').addEventListener('change',setStructCode);el('structure').addEventListener('change',switchStructure);el('addStructure').addEventListener('click',function(){addStructure(false)});el('copyStructure').addEventListener('click',function(){addStructure(true)});el('deleteStructure').addEventListener('click',deleteStructure);el('addX').addEventListener('click',function(){addAxis('x')});el('addY').addEventListener('click',function(){addAxis('y')});el('xLocalDir').addEventListener('change',function(){grid().x_dir=this.value;renderChain();status('Yerel X yönü: '+this.value)});el('yLocalDir').addEventListener('change',function(){grid().y_dir=this.value;renderChain();status('Yerel Y yönü: '+this.value)});el('genX').addEventListener('click',function(){generate('x')});el('genY').addEventListener('click',function(){generate('y')});el('saveGrid').addEventListener('click',function(){saveAll(true)});el('saveAll').addEventListener('click',function(){saveAll(true)});el('showGrid').addEventListener('click',showGrid);['X','Y'].forEach(function(fam){var f=fam.toLowerCase();el(f+'Mode').addEventListener('change',function(){if(this.value==='INDEPENDENT')mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});el(f+'RefSystem').addEventListener('change',function(){renderLinkSelectors(fam)});el(f+'RefStructure').addEventListener('change',function(){renderAxisSelectors(fam)})});el('savePlacement').addEventListener('click',savePlacement);el('independent').addEventListener('click',function(){['X','Y'].forEach(function(fam){el(fam.toLowerCase()+'Mode').value='INDEPENDENT';mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});savePlacement()});renderStructureSelect();status('Hazır — '+currentSystem+' / '+label(currentStructure))}
 window.addEventListener('error',function(e){status('JS HATASI: '+e.message)});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
@@ -13339,6 +13716,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   d.add_action_callback('axis_manager_v2_save') do |_ctx,json|
     begin
       x=JSON.parse(json)
+      nplan=mst_axis_manager_names_plan(x,model)   # ADR-0515-I: görünen ad / kod doğrulaması işlem açılmadan
       # v0.38 R7: preview elements on moved axes before anything is saved.
       plans=mst_axis_move_plan_for_payload(x,model)
       splans=mst_structure_move_plans(x,model)   # v0.38 R8
@@ -13353,6 +13731,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         model.start_operation('MST Aks Değişikliği + Bağlı Kazık/BK',true)
         begin
           sys,cur=mst_axis_manager_save_payload(x,model)
+          mst_axis_manager_apply_names!(nplan,model)
           moved=mst_apply_axis_move_plans(plans)
           moved_struct=mst_apply_structure_move_plans(splans)
           redrawn=mst_refresh_changed_grid_visuals(before,model)
@@ -13365,6 +13744,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         model.start_operation('MST Aks Kaydı',true)
         begin
           sys,cur=mst_axis_manager_save_payload(x,model)
+          mst_axis_manager_apply_names!(nplan,model)
           redrawn=mst_refresh_changed_grid_visuals(before,model)
           model.commit_operation;model.active_view.invalidate
         rescue Exception
@@ -13377,7 +13757,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       nrz=decision==:move ? plans.sum{|pl|(pl['resizes']||[]).length} : 0
       note+=" • #{nrz} prekast yeni açıklığa göre boyutlandı." if nrz>0
       note+=" • Aks çizgileri güncellendi: #{redrawn.join(', ')}." unless redrawn.empty?
-      d.execute_script("document.getElementById('status').textContent=#{JSON.generate("Kaydedildi — #{sys} / #{cur}#{note}")}") rescue nil
+      d.execute_script("document.getElementById('status').textContent=#{JSON.generate("Kaydedildi — #{sys} / #{mst_structure_label(cur,nil,model)}#{note}")};if(window.mstNamesSaved)mstNamesSaved();") rescue nil
     rescue=>e
       UI.messagebox("Aks Yöneticisi kayıt hatası: #{e.message}")
     end
