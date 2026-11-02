@@ -373,7 +373,12 @@ def send_boq(dialog=@d)
  send_boq_base(dialog)
  dialog.execute_script("boq2Loaded(#{JSON.generate(boq2_payload)})") if dialog
 rescue => e
- puts "MST BOQ2: #{e.message}"
+ # v0.51.5 H3b: hata görünür — konsola uyarı + oturumda bir kez kullanıcı iletisi (her yenilemede tekrarlanmaz)
+ warn("MST BOQ2: #{e.message}")
+ unless @mst_send_boq_warned
+  @mst_send_boq_warned=true
+  UI.messagebox("Keşif ekranı güncellenemedi: #{e.message}") rescue nil
+ end
 end
 def boq2_payload
  {items:boq2_items_effective,custom:!boq2_get('items_json',nil).to_s.empty?,sources:boq2_source_labels,settings:boq2_settings,
@@ -1147,7 +1152,6 @@ def boq2_register_callbacks(d)
  wrap.('prog2_isolate'){|on|n=prog2_isolate(on.to_s=='1');d.execute_script("prog2Isolated(#{JSON.generate({on:on.to_s=='1',count:n})})")}
  wrap.('prog2_save'){|j|progress_save(j,d)}
  wrap.('prog2_view'){|j|boq2_set_view(j);progress_send(d)}
- wrap.('prog2_view_date'){|dt|boq2_set_view({'date'=>dt.to_s});progress_send(d)}
 end
 
 end

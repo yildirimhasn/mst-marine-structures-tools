@@ -10,6 +10,16 @@ require File.expand_path(File.join(dir, 'main.rb'))
 require_relative 'fixture'
 M = MAG::MarineStructuresTools
 golden_build_fixture
+# Parti H (H4b) eylemi — iki kaynağa AYNI: P3 seçilip yönelimi 1:6 eğik olarak (yeniden) uygulanır. 0.51.5 Parti H öncesi BK1 açıklığı
+# kayıtlı 2 daire kalır; Parti H sonrası daire (P1) + elips (P3) olur → kalıp farkı (compare.rb kural seti H).
+begin
+  $model.selection = Sketchup::Entities.new([$all_ents[1003]])
+  M.apply_selected_pile_orientations('orientation_mode' => 'BATTERED', 'batter_ratio' => '1/6', 'azimuth_deg' => 0)
+  $model.selection = Sketchup::Entities.new
+  $golden_action = 'H4b P3 yönelim: tamam'
+rescue StandardError => e
+  $golden_action = "HATA: #{e.class}: #{e.message[0, 160]}"
+end
 $writes = []   # fikstur yazimlari sayilmaz; asagidaki sayi okuyucularin yazimidir
 
 rows = []
@@ -166,6 +176,7 @@ rescue StandardError => e
   put.('HAKEDIS', '*', "HATA: #{e.class}: #{e.message[0, 160]}")
 end
 
+put.('ACTION', 'h4b_orientation', $golden_action)
 File.open(out, 'w:UTF-8') do |f|
   f.puts 'bolum;anahtar;deger'
   rows.each { |r| f.puts r.join(';') }

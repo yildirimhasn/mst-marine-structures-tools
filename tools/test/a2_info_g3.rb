@@ -30,6 +30,8 @@ a2_const(Host, main, 'MST_AUDIT_ERROR_FLAGS') if NEW
 A1.load_opt(Host, A1.src('mst_rebar_tools.rb'), 'def mst_rt_world_tr(')
 %w[mst_collect_toppings mst_topping_parent_deck mst_uid_owner].each { |f| A1.load_opt(Host, A1.src('dependency_rebuild.rb'), "def #{f}(") }
 A1.load_opt(Host, bm, 'def mst_vk_support_state(')
+%w[mst_cv_embed_overlap? mst_curb_corner_overlap].each { |f| A1.load_opt(Host, main, "def #{f}(") }   # Parti H H7 / H8 yardımcıları
+A1.load_opt(Host, bm, 'def mst_hb_culvert_groups('); A1.load_opt(Host, main, 'def mst_hb_ents(')
 class Host; def pile_bim_qto_item(_p); {}; end; end
 obs('bilgi satırı / G3 işlevleri tanımlı', NEW)
 h = Host.new

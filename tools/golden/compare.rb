@@ -87,7 +87,23 @@ RULES_GB = [
   [/\AEXCEL_SUMMARY;Beton Kaplama \(C35\/45\)\z/, "#{M21} G6 (Beton Kaplama satırı, D2 sınıfsız → C35/45)", GB_TOP - 6.0],
   [/\ACSV(_TOTAL)?;/, "#{M21} G5 (CSV = Keşif; g5_csv_boq ile sayısal kabul)", :text]
 ].freeze
-rules = profile == 'Gb' ? RULES_GB : RULES
+# Parti H (taban 8d7d431 / 50e5936): yalnız H4b — kazık yönelimi değişince BK1 kayıtlı açıklığı P3 için daire → elips
+# (π/4·1,016²·(√(1+1/36) − 1) = +0,011183 m²); BK1 alt yüzü kalıpta → net kalıp aynı miktar azalır. Diğer her şey fark 0.
+H4B = Math::PI / 4 * 1.016**2 * (Math.sqrt(1 + 1.0 / 36) - 1)
+RULES_H = [
+  [/\AELEM;head_beam\|BK1\|pile_opening_m2\z/, "#{M21} H4b (BK1 açıklığı: P3 elips)", H4B],
+  [/\AELEM;head_beam\|BK1\|formwork_m2\z/, "#{M21} H4b (BK1 net kalıp)", -H4B],
+  [/\AQTO3_ROW;head_beam\|formwork_m2\z/, "#{M21} H4b", -H4B],
+  [/\AQTO3_TOTAL;formwork_m2\z/, "#{M21} H4b", -H4B],
+  [/\AQTO_SUMMARY;total_formwork\z/, "#{M21} H4b", -H4B],
+  [/\ABOQ_(QTY|ROW);(ÖBF-\d+\|)?FORMWORK_CAST/, "#{M21} H4b", -H4B],
+  [/\AQTO_SUMMARY_ROW;Betonarme\|Başlık Kirişi\z/, "#{M21} H4b (pano satırı, 2 ondalık)", :text],
+  [/\AEXCEL_SUMMARY;Toplam Kalıp\z/, "#{M21} H4b (Excel Özet, 2 ondalık)", :text],
+  [/\AEXCEL_DETAIL;Başlık Kirişi\|head_beam\|/, "#{M21} H4b (Excel Ayrıntılı Metraj BK satırı, 2 ondalık)", :text],
+  [/\ACSV;\d+\|head_beam\|/, "#{M21} H4b (CSV BK satırı = Keşif, 2 ondalık)", :text],
+  [/\ACSV_TOTAL;Kalip_m2\z/, "#{M21} H4b (CSV kalıp toplamı, 2 ondalık)", :text]
+].freeze
+rules = { 'Gb' => RULES_GB, 'H' => RULES_H }[profile] || RULES
 
 out = []
 bad = 0

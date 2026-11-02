@@ -74,7 +74,8 @@ class Host
   def mst_kd_apply_grid!(*_a); $log << [:grid]; raise 'ızgara hatası'; end
 end
 snip = b_slice(piles, ' if use_ax && made>0', "\n made\nrescue")
-Host.class_eval("def k12_run(model,ax,tg,use_ax,made)\n#{snip}\nend")
+Host.class_eval("def k12_run(model,ax,tg,use_ax,made,save={},path='p.dxf')\n#{snip}\nend")   # Parti H H3d: dilim son girdi kaydını da içerir
+class Host; def mst_kz_save_last!(*_a); end; end   # H3d kaydını h_h3_writes.rb sınar; burada yalnız K12 ızgara işlemi
 a1_reset!
 Host.new.k12_run($model, {}, {}, true, 3)
 t('K12 aks ızgarası hatası: saydam işlem abort edilmez, commit ile kapanır', ops, [:start, :commit])

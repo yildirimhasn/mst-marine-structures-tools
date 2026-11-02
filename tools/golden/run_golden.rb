@@ -1,7 +1,7 @@
 # Golden-master turu (yeniden calistirilabilir): taban commit kaynagini gecici klasore `git archive` ile acar,
 # iki kaynak icin golden_qto.rb, sonra compare.rb calistirir. Ciktilar: docs/duzeltme/golden/
 #   golden_<taban>.csv, golden_HEAD-<kisa>.csv (calisma agaci src/), fark_<taban>_<kisa>.csv
-# Kullanim (depo kokunden): ruby tools/golden/run_golden.rb [taban=872d3a3] [kural seti: 0514 | Gb]
+# Kullanim (depo kokunden): ruby tools/golden/run_golden.rb [taban=872d3a3] [kural seti: 0514 | Gb | H]
 # Calisma agacindaki src/ kullanilir (commit edilmemis degisiklikler dahil); kisa ad HEAD commit'i + "-dirty" (src kirliyse).
 require 'tmpdir'
 require 'fileutils'
@@ -29,7 +29,8 @@ Dir.mktmpdir('mst_golden') do |tmp|
   end
 end
 # esleme kural seti: 872d3a3 (0.51.4) tabaninda 0514, diger tabanlarda Parti G-b (Gb); ikinci arguman ile secilebilir
-profile = ARGV[1] || (base.start_with?('872d3a3') ? '0514' : 'Gb')
+# Parti H: taban 50e5936 / 8d7d431 (Parti H öncesi) → H kural seti (yalnız H4b farkı beklenir)
+profile = ARGV[1] || (base.start_with?('872d3a3') ? '0514' : (%w[50e5936 8d7d431].any? { |b| base.start_with?(b) } ? 'H' : 'Gb'))
 out, st = Open3.capture2e('ruby', File.join(__dir__, 'compare.rb'), old_csv, new_csv, diff_csv, profile)
 puts out
 puts "eski=#{old_csv}\nyeni=#{new_csv}\nfark=#{diff_csv}"

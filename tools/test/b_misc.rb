@@ -79,6 +79,7 @@ end
 A1.load(Host, bm, 'def mst_cv_specs(', 'def mst_cv_redraw!(', 'def mst_hb_culvert_groups(', 'def mst_cv_ui', 'def mst_cv_plan(', 'def mst_cv_bk_dims(',
         'def mst_v50_after_bk_change!(', 'def mst_v50_num(')
 A1.load_opt(Host, bm, 'def mst_cv_specs_bad?(')
+A1.load_opt(Host, bm, 'def mst_bk_set_net_formwork!(')   # Parti H H3a: ortak net kalıp yardımcısı (0.51.5 öncesinde yok)
 a2_const(Host, bm, 'MST_CV_FIELDS')
 h = Host.new
 mk_hb = lambda do |cj|
@@ -139,6 +140,9 @@ t('K45 kapatılmış (TB_HIDDEN) araç çubuğu açılışta gösterilmez; gör�
 # ------------------------------------------------------------------ DXF birim
 A1.load(Host, dxr, 'def mst_dxr_parse_l(', 'def mst_dxr_parse_cd(', 'def mst_dxr_scan(')
 A1.load(Host, dxf, 'def mst_dxf_unit_name(')
+if dxf.include?('def mst_dxf_ask_unit(')   # Parti H H6: ön seçimsiz birim sorusu yardımcısı
+  a2_const(Host, dxf, 'MST_DXF_UNIT_PICK'); A1.load(Host, dxf, 'def mst_dxf_ask_unit(')
+end
 DXU = A1.load_opt(Host, dxr, 'def mst_dxr_l_unit(') & A1.load_opt(Host, dxr, 'def mst_dxr_unitless_l?(')
 a2_const(Host, dxf, 'MST_DXF_INSUNITS')
 fl = [{ 't' => 'TEXT', 'text' => '1', 'x' => 0.0, 'y' => 0.0, 'h' => 2.5 }, { 't' => 'TEXT', 'text' => '10Ø16', 'x' => 5.0, 'y' => 0.0, 'h' => 2.5 },

@@ -63,6 +63,8 @@ A1.load(Host, main, 'def mst_audit_v0515(')
 A1.load_opt(Host, A1.src('mst_rebar_tools.rb'), 'def mst_rt_world_tr(')
 %w[mst_collect_toppings mst_topping_parent_deck].each { |f| A1.load_opt(Host, A1.src('dependency_rebuild.rb'), "def #{f}(") }
 A1.load_opt(Host, bm, 'def mst_vk_support_state(')
+%w[mst_cv_embed_overlap? mst_curb_corner_overlap].each { |f| A1.load_opt(Host, main, "def #{f}(") }   # Parti H H7 / H8 yardımcıları
+A1.load_opt(Host, bm, 'def mst_hb_culvert_groups('); A1.load_opt(Host, main, 'def mst_hb_ents(')
 class Host; def pile_bim_qto_item(_p); {}; end; def mst_boq_info_rows(_a = nil); []; end; end
 bg = bk; bg.transformation = nil   # K23 ölçek denetimi bu testte dışarıda (sahte dönüşüm 16 değer değil)
 bc = Sketchup::ComponentInstance.new(101, 'element_type' => 'head_beam', 'id' => 'BK-C')

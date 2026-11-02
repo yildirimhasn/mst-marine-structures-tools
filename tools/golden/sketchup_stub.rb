@@ -88,6 +88,7 @@ module Geom
     def dot(o); x * o.x + y * o.y + z * o.z; end
     def %(o); dot(o); end
     def *(o); Vector3d.new(y * o.z - z * o.y, z * o.x - x * o.z, x * o.y - y * o.x); end
+    def cross(o); self * o; end   # Parti H H4b eylemi (pile_rotation_transform)
     def angle_between(o); Math.acos([[dot(o) / (length * o.length), 1.0].min, -1.0].max); end
     def reverse; Vector3d.new(-x, -y, -z); end
     def valid?; length > 0; end

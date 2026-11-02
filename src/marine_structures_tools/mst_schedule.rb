@@ -271,7 +271,17 @@ def mst_sp_report(model=Sketchup.active_model,prm=nil,dir=nil)
    "<h2>Aylık hakediş tahmini (#{mst_rt_h(cur)})</h2><table><tr><th class='l'>Ay</th><th>Tutar</th><th>Kümülatif</th><th>%</th></tr>"+mon.map{|r|"<tr><td class='l'>#{r['month']}</td><td>#{format('%.0f',r['amount'])}</td><td>#{format('%.0f',r['cum'])}</td><td>#{format('%.1f',r['pct'])}</td></tr>"}.join+'</table>')+
   "<h2>Parametreler</h2><table><tr><th class='l'>Parametre</th><th>Değer</th><th class='l'>Kaynak</th></tr>"+MST_SP_RATES.map{|k,l,_,src|"<tr><td class='l'>#{mst_rt_h(l)}</td><td>#{prm[k]}</td><td class='l'>#{mst_rt_h(src)}</td></tr>"}.join+'</table>')
  File.write("#{base}.html",html)
- model.set_attribute(DICT,'sp_last_json',JSON.generate(sch[:acts].map{|a|[a[:item] ? (a[:item][:e].persistent_id rescue 0) : 0,a[:kind],a[:sd].to_s,a[:fd].to_s]}))
+ # v0.51.5 H3c: yalnız değer farklıysa, kendi normal işlemiyle (rapor yeniden üretimi Geri Al geçmişini doldurmaz)
+ sp_last=JSON.generate(sch[:acts].map{|a|[a[:item] ? (a[:item][:e].persistent_id rescue 0) : 0,a[:kind],a[:sd].to_s,a[:fd].to_s]})
+ if model.get_attribute(DICT,'sp_last_json',nil).to_s!=sp_last
+  model.start_operation('MST İş Programı Kaydı',true)
+  begin
+   model.set_attribute(DICT,'sp_last_json',sp_last)
+   model.commit_operation
+  rescue
+   model.abort_operation;raise
+  end
+ end
  {xlsx:"#{base}.xlsx",html:"#{base}.html",sch:sch,weekly:wk,monthly:mon,peak:peak}
 end
 

@@ -28,6 +28,7 @@
 #  C3  Ayri bordur (parent_deck_id D3) C30/37, beton 0.3 m³, kalip 1.5 m² (Model Kontrolu G4 uyarisi: cift sayim olasi)
 #  D1K D1'in kopyasinin kopyasi, BIM Kimlik Onarimi sonrasi durum: yeni UID, copied_from_uid, devralinmis ilerleme +
 #      progress_inherited_history_json (1 kayit), progress_items_json YOK, durum Planlandi; kaplama yok, beton 15 m³, kalip 20 m²
+# Parti H eylemi (golden_qto.rb, fikstür kurulduktan sonra): P3 seçili, Seçili Kazıklara Yönlendirme Uygula (BATTERED 1/6, azimut 0).
 # Model: pile_boq_mode_PILE_STEEL = separate (K35 kod-NN atamasi gorunur), hakedis gecmisi yok.
 D = 'MAG_MarineStructures'.freeze unless defined?(D)
 V_INFILL = Math::PI / 4 * 0.984**2 * 12.0

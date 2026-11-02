@@ -38,9 +38,9 @@ def mst_dxr_l_unit(dx,fl)
  return [1.0,'yok (bütün L yazıları birimli)'] unless mst_dxr_unitless_l?(fl)
  u=MST_DXF_INSUNITS[dx['insunits'].to_i]
  return [u,"#{mst_dxf_unit_name(u)} ($INSUNITS #{dx['insunits'].to_i})"] if u
- r=UI.inputbox(['Birimsiz "L = …" boyları hangi birimde?'],['m'],['mm|cm|m'],"Paftadan Donatı — birim ($INSUNITS #{dx['insunits'].to_i}: tanımsız)")
- return nil unless r
- u={'mm'=>0.001,'cm'=>0.01,'m'=>1.0}[r[0].to_s] || 1.0
+ # v0.51.5 H6: ön seçim yok (önceden m); seçilmezse nil (iptal)
+ u=mst_dxf_ask_unit('Birimsiz "L = …" boyları hangi birimde?',"Paftadan Donatı — birim ($INSUNITS #{dx['insunits'].to_i}: tanımsız)")
+ return nil unless u
  [u,"#{mst_dxf_unit_name(u)} (kullanıcı seçimi; $INSUNITS tanımsız)"]
 end
 

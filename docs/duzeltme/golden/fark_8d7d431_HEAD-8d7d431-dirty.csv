@@ -1,0 +1,13 @@
+bolum;anahtar;eski_0514;yeni_0515;esleme;kontrol
+BOQ_QTY;FORMWORK_CAST;117.678536067;117.667353029;METRAJ §2.1 H4b;fark -0.011183 = beklenen -0.011183
+BOQ_ROW;ÖBF-002|FORMWORK_CAST|m²;117.678536067;117.667353029;METRAJ §2.1 H4b;fark -0.011183 = beklenen -0.011183
+CSV;9|head_beam|head_beam|10.0|1.2|1.0|C30/37|end-dis:1.5/0.5/0.3|[["start_tooth",false,[]],["end_tooth",true,[1.5,0.5,0.3]],["start_seat",false,[]],["end_seat",false,[]]]|C30/37;2|20.0|22.968|55.18|0.0|4.134258832044254;2|20.0|22.968|55.17|0.0|4.134258832044254;METRAJ §2.1 H4b (CSV BK satırı = Keşif, 2 ondalık);
+CSV_TOTAL;Kalip_m2;193.680000000;193.670000000;METRAJ §2.1 H4b (CSV kalıp toplamı, 2 ondalık);
+ELEM;head_beam|BK1|formwork_m2;32.778536067;32.767353029;METRAJ §2.1 H4b (BK1 net kalıp);fark -0.011183 = beklenen -0.011183
+ELEM;head_beam|BK1|pile_opening_m2;1.621463933;1.632646971;METRAJ §2.1 H4b (BK1 açıklığı: P3 elips);fark +0.011183 = beklenen +0.011183
+EXCEL_DETAIL;Başlık Kirişi|head_beam|10.0|1.2|1.0|C30/37|end-dis:1.5/0.5/0.3|[["start_tooth",false,[]],["end_tooth",true,[1.5,0.5,0.3]],["start_seat",false,[]],["end_seat",false,[]]]|C30/37;2.000000000|20.000000000|22.968000000|55.180000000|4.134000000|0.000000000|4.134000000;2.000000000|20.000000000|22.968000000|55.170000000|4.134000000|0.000000000|4.134000000;METRAJ §2.1 H4b (Excel Ayrıntılı Metraj BK satırı, 2 ondalık);
+EXCEL_SUMMARY;Toplam Kalıp;193.680000000;193.670000000;METRAJ §2.1 H4b (Excel Özet, 2 ondalık);
+QTO3_ROW;head_beam|formwork_m2;55.178536067;55.167353029;METRAJ §2.1 H4b;fark -0.011183 = beklenen -0.011183
+QTO3_TOTAL;formwork_m2;193.678536067;193.667353029;METRAJ §2.1 H4b;fark -0.011183 = beklenen -0.011183
+QTO_SUMMARY;total_formwork;193.678536067;193.667353029;METRAJ §2.1 H4b;fark -0.011183 = beklenen -0.011183
+QTO_SUMMARY_ROW;Betonarme|Başlık Kirişi;2 | - | 22.968 m³ | 55.18 m² | 4.134 t;2 | - | 22.968 m³ | 55.17 m² | 4.134 t;METRAJ §2.1 H4b (pano satırı, 2 ondalık);

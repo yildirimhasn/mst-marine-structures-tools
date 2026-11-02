@@ -213,15 +213,20 @@ rescue => ex
  UI.messagebox("Menfez: #{ex.message}")
  0
 end
+# v0.51.5 K18 / H3a: net kalıp yazımı — hata yutulmaz; formwork_net_error (Model Kontrolü okur), eski net kalıp kalmış olabilir.
+# Çağıranın işlemi içinde çalışır (kendi start/commit/abort yok). Başarıda true.
+def mst_bk_set_net_formwork!(hb)
+ hb.set_attribute(DICT,'formwork_net_area_m2',head_beam_net_formwork_area(hb))
+ hb.delete_attribute(DICT,'formwork_net_error') if hb.get_attribute(DICT,'formwork_net_error',nil)
+ true
+rescue => ex
+ hb.set_attribute(DICT,'formwork_net_error',ex.message) rescue nil
+ false
+end
 # BK'da geometri / boşluk değişince: kalıp özeti, donatı (BIM ise) yeniden
 def mst_v50_after_bk_change!(hb)
  gross=head_beam_formwork_area(hb) rescue 0.0
- begin   # v0.51.5 K18: yazım hatası yutulmaz; formwork_net_error (Model Kontrolü), eski net kalıp kalmış olabilir
-  hb.set_attribute(DICT,'formwork_net_area_m2',head_beam_net_formwork_area(hb))
-  hb.delete_attribute(DICT,'formwork_net_error') if hb.get_attribute(DICT,'formwork_net_error',nil)
- rescue => ex
-  hb.set_attribute(DICT,'formwork_net_error',ex.message) rescue nil
- end
+ mst_bk_set_net_formwork!(hb)
  if hb.get_attribute(DICT,'rebar_mode','').to_s=='bim_detail' && !hb.get_attribute(DICT,'hb_rebar_json','').to_s.empty?
   mst_hb_rebar_build!(hb,JSON.parse(hb.get_attribute(DICT,'hb_rebar_json','{}').to_s))
  end
@@ -480,12 +485,12 @@ def mst_vk_ui
   pl['span']*(pl['width']+2*pl['height']),pl['contact'].map{|pid,a|format('%.2f m²',a)}.join(' + '),
   (role=='VK' && p['rail_type'].upcase!='YOK') ? "Ray #{p['rail_type']} (#{MST_VK_RAILS[p['rail_type'].upcase] || p['rail_kg_m']} kg/m)#{p['clip_spacing_m']>0 ? ", klips #{p['clip_spacing_m']} m aralıkla" : ''}\n" : '',mst_rs_lap_d.round)
  return 0 unless UI.messagebox(msg,MB_YESNO)==IDYES
- model.set_attribute(DICT,'mst_vk_last_json',JSON.generate(p))
  model.start_operation("MST #{MST_VK_ROLES[role]}",true)
  begin
+  model.set_attribute(DICT,'mst_vk_last_json',JSON.generate(p))   # v0.51.5 H3d: son girdi aynı işlemde (hata → geri alınır)
   g=mst_vk_create!(b1,b2,p,model)
   @mst_vk_idx=nil
-  [b1,b2].each{|b|b.set_attribute(DICT,'formwork_net_area_m2',head_beam_net_formwork_area(b)) rescue nil}
+  [b1,b2].each{|b|mst_bk_set_net_formwork!(b)}   # v0.51.5 H3a: hata yutulmaz (formwork_net_error)
   commit_with_dependencies(model)
   model.selection.clear;model.selection.add(g)
  rescue

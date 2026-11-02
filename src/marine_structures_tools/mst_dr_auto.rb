@@ -600,12 +600,13 @@ def mst_dra_ui(path=nil)
  t0=Time.now
  dx=mst_dxf_read(path)
  fl=mst_dxf_flatten(dx)
- # v0.51.5 DXF birim: zincir toleransı 6 mm'nin çizim birimi karşılığı ($INSUNITS; tanımsızsa kullanıcıya sorulur, varsayılan cm = eski 0.6)
+ # v0.51.5 DXF birim: zincir toleransı 6 mm'nin çizim birimi karşılığı ($INSUNITS; tanımsızsa kullanıcıya sorulur)
  u=MST_DXF_INSUNITS[dx['insunits'].to_i];unote=u ? "#{mst_dxf_unit_name(u)} ($INSUNITS #{dx['insunits'].to_i})" : nil
  unless u
-  r=UI.inputbox(['Paftanın çizim birimi'],['cm'],['mm|cm|m'],"Paftadan 3B Donatı — birim ($INSUNITS #{dx['insunits'].to_i}: tanımsız)")
-  return 0 unless r
-  u={'mm'=>0.001,'cm'=>0.01,'m'=>1.0}[r[0].to_s] || 0.01;unote="#{mst_dxf_unit_name(u)} (kullanıcı seçimi; $INSUNITS tanımsız)"
+  # v0.51.5 H6: ön seçim yok (önceden cm); seçilmezse iptal
+  u=mst_dxf_ask_unit('Paftanın çizim birimi',"Paftadan 3B Donatı — birim ($INSUNITS #{dx['insunits'].to_i}: tanımsız)")
+  return 0 unless u
+  unote="#{mst_dxf_unit_name(u)} (kullanıcı seçimi; $INSUNITS tanımsız)"
  end
  ftol=0.006/u
  ds=mst_dra_details(fl)

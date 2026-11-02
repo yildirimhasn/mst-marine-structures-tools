@@ -126,6 +126,18 @@ def mst_kz_ask_pile(base,title)
  h
 end
 
+# v0.51.5 H3d: son girdi (mst_af_last_json / mst_kd_last_json) yalnız kazık üretildikten sonra yazılır; saydam işlem
+# önceki (kazık üretimi) işlemine birleşir → tek Geri Al. Saydam işlem hata olsa da commit ile kapanır (abort önceki işlemi de geri alabilir).
+def mst_kz_save_last!(model,key,json)
+ model.start_operation('MST Son Girdi Kaydı',true,false,true)
+ begin
+  model.set_attribute(DICT,key,json)
+ rescue => ex
+  warn("MST son girdi kaydı (#{key}): #{ex.message}")
+ end
+ model.commit_operation
+end
+
 def mst_af_text(pl,base)
  d=base['diameter_mm'].to_f/1000.0;l=base['length_m'].to_f;top=base['top_elevation_m'].to_f
  c=mst_kz_clashes(pl,d,l,top);c=[c['min'],c['count']]
@@ -151,10 +163,11 @@ def mst_af_ui
  pl.each_with_index{|q,i|q['id']="#{pre}#{(no+i).to_s.rjust(3,'0')}"}
  txt=mst_af_text(pl,b.merge('diameter_mm'=>b['diameter_mm'].to_f,'thickness_mm'=>b['thickness_mm'].to_f));puts txt
  return 0 unless UI.messagebox("#{txt}\n\nKazıklar bu şekilde oluşturulsun mu? (tek Geri Al)",MB_YESNO)==IDYES
- model.set_attribute(DICT,'mst_af_last_json',JSON.generate(p))
  data=mst_kz_layout_data(b,pl,'AF')
  data['prefix']=pre;data['start_no']=no
+ n0=ids.length
  generate_layout(data)
+ mst_kz_save_last!(model,'mst_af_last_json',JSON.generate(p)) if mst_kz_existing_ids(model).length-n0>0   # v0.51.5 H3d
  pl.length
 rescue => ex
  UI.messagebox("A-çerçeve: #{ex.message}")
@@ -168,7 +181,7 @@ MST_KD_NO_LAYER=/kaz[ıi]k.?no|pile.?no|kaz[ıi]k.?numara/i
 MST_KD_ANG_LAYER=/a[çc][ıi]|angle|y[öo]n|direction/i
 
 # dx: mst_dxf_read; fl: mst_dxf_flatten. Kazık daireleri (katman), çap, birim, no, eğik açı.
-def mst_kd_scan(dx,fl,layer_hint=nil)
+def mst_kd_scan(dx,fl,layer_hint=nil,unit_pick=nil)
  cs=fl.select{|e|e['t']=='CIRCLE' && e['r'].to_f>0}
  by=cs.group_by{|e|e['l'].to_s}
  cand=by.keys.select{|l|layer_hint.to_s.strip.empty? ? (l=~MST_KD_PILE_LAYER && !(l=~MST_KD_NOT_PILE)) : l.downcase.include?(layer_hint.to_s.strip.downcase)}
@@ -189,6 +202,8 @@ def mst_kd_scan(dx,fl,layer_hint=nil)
   u2=[0.001,0.01,0.1,1.0].find{|u|(2*r0*u).between?(0.3,3.0)}
   (unit=u2;src='kazık dairesi boyutundan') if u2 && !MST_DXF_INSUNITS.key?(dx['insunits'].to_i)
  end
+ # v0.51.5 H6: son çare sessiz "varsayılan (m)" değil; çağıran kullanıcıya sorar (unit_pick) ve yeniden tarar
+ (unit=unit_pick;src='kullanıcı seçimi; $INSUNITS tanımsız') if unit_pick && src=='varsayılan (m)'
  dia_mm=(2*r0*unit*1000.0).round(1) if dia_mm<=0
  nos=fl.select{|e|%w[TEXT MTEXT].include?(e['t']) && e['l'].to_s=~MST_KD_NO_LAYER && e['text'].to_s=~/\S/}
  angs=fl.select{|e|%w[TEXT MTEXT].include?(e['t']) && e['text'].to_s=~/\A\s*-?\d+(?:[.,]\d+)?\s*°\s*\z/}
@@ -430,6 +445,11 @@ def mst_kd_ui(path=nil)
  use_ax=mst_kd_yes?(o['axes'])
  %w[ox oy].each{|k|o[k]=Float(o[k].tr(',','.')) rescue raise("#{k}: sayı olmalı.")}
  sc=mst_kd_scan(dx,fl,o['layer'])
+ if sc['unit_src']=='varsayılan (m)'   # v0.51.5 H6: birim ne ölçüden ne $INSUNITS'ten bulundu → ön seçimsiz soru; seçilmezse iptal
+  up=mst_dxf_ask_unit('Paftanın çizim birimi (kazık çapı ve $INSUNITS ile belirlenemedi)',"Kazık Dispozisyonu — birim ($INSUNITS #{dx['insunits'].to_i}: tanımsız)")
+  return 0 unless up
+  sc=mst_kd_scan(dx,fl,o['layer'],up)
+ end
  if o['rot_deg'].upcase=='AUTO'
   o['rot_deg']=mst_kd_auto_rot(mst_kd_axes(fl,sc['unit'].to_f,{'rot_deg'=>0}))
  else
@@ -456,7 +476,6 @@ def mst_kd_ui(path=nil)
  txt+=format("\n(okuma %.1f s)",Time.now-t0);puts txt
  q=use_ax ? 'Aks ızgarası kurulsun ve kazıklar akslara bağlanarak oluşturulsun mu? (tek Geri Al)' : 'Kazıklar oluşturulsun mu? (tek Geri Al)'
  return 0 unless UI.messagebox("#{txt[0,3000]}\n\n#{q}",MB_YESNO)==IDYES
- model.set_attribute(DICT,'mst_kd_last_json',JSON.generate(save.merge('file'=>File.basename(path))))
  data=use_ax ? mst_kz_layout_grid(b,pl,ax) : mst_kz_layout_data(b,pl,'D')
  data['prefix']=pre.empty? ? 'P-' : pre
  data.merge!('placement_system'=>tg['sys'],'placement_structure'=>tg['ano'],'structure_zone'=>tg['ano']) if use_ax
@@ -475,6 +494,7 @@ def mst_kd_ui(path=nil)
    UI.messagebox("Kazıklar oluşturuldu, ancak aks ızgarası kurulamadı: #{ge.message}\nIzgara kısmen yazılmış olabilir; Geri Al kazıklarla birlikte geri alır.")
   end
  end
+ mst_kz_save_last!(model,'mst_kd_last_json',JSON.generate(save.merge('file'=>File.basename(path)))) if made>0   # v0.51.5 H3d
  made
 rescue => ex
  UI.messagebox("Kazık dispozisyonu (DXF): #{ex.message}")

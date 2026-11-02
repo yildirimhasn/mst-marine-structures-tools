@@ -185,6 +185,16 @@ end
 def mst_dxf_unit_name(u)
  {0.001=>'mm',0.01=>'cm',0.1=>'dm',1.0=>'m',0.0254=>'inç',0.3048=>'ft'}[u] || format('%.4g m',u)
 end
+# v0.51.5 H6 (kullanıcı kararı C): $INSUNITS tanımsızken birim sorusu — ön seçim yok. Seçilmezse / vazgeçilirse nil (işlem iptal).
+# Soru işlemden önce sorulur. "L =" yazı birimi ↔ $INSUNITS kuralı değişmez (belge gerekli).
+MST_DXF_UNIT_PICK='— seçin —'.freeze
+def mst_dxf_ask_unit(prompt,title)
+ r=UI.inputbox([prompt],[MST_DXF_UNIT_PICK],["#{MST_DXF_UNIT_PICK}|mm|cm|m"],title)
+ return nil unless r
+ u={'mm'=>0.001,'cm'=>0.01,'m'=>1.0}[r[0].to_s]
+ UI.messagebox('Çizim birimi seçilmedi; işlem iptal edildi (model değişmedi).') unless u
+ u
+end
 
 end
 end
