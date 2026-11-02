@@ -910,7 +910,7 @@ def revision_create_snapshot(dialog=@d)
   df=revision_diff(prev['elements'],curr)
   if df[:added].empty? && df[:deleted].empty? && df[:changed].empty? && (prev['boq'].nil? || boq2_boq_diff(prev['boq'],boq).empty?)
    UI.messagebox("Son revizyondan (#{prev['revision']}) bu yana modelde ve keşif miktarlarında değişiklik yok; yeni revizyon oluşturulmadı.")
-   revision_send(dialog)
+   revision_send_reuse(dialog,curr)   # v0.51.5 P5: aynı anlık kayıt yeniden hesaplanmaz
    return nil
   end
  end
@@ -922,12 +922,20 @@ def revision_create_snapshot(dialog=@d)
  model.commit_operation;op=false
  mb=model.get_attribute(REVISION_DICT,'snapshots','').to_s.bytesize/1048576.0
  UI.messagebox(format("Revizyon arşivi büyüdü (%d kayıt, %.1f MB); eski kayıtlar otomatik silinmez.",snaps.length,mb)) if snaps.length>20 || mb>5.0
- revision_send(dialog)
+ revision_send_reuse(dialog,curr)   # v0.51.5 P5: kayıttan sonra öğe yazımı yok; curr aynı
  snap['revision']
 rescue => ex
  model.abort_operation if op
  UI.messagebox("Revizyon kaydedilemedi: #{ex.message}")
  nil
+end
+# v0.51.5 P5: revision_create_snapshot sonrası ekran yenilemesi az önce hesaplanan anlık kaydı kullanır (revision_current_snapshot
+# yeniden çalışmaz). Arada yalnız revizyon arşivi / last_revision yazılır; öğe ve geometri değişmez → çıktı aynı.
+def revision_send_reuse(dialog,curr)
+ @mst_revision_curr_reuse=curr
+ revision_send(dialog)
+ensure
+ @mst_revision_curr_reuse=nil
 end
 def boq2_boq_diff(prev_boq,curr_boq)
  pm=Hash[Array(prev_boq).map{|r|[r['source'],r]}];cm=Hash[Array(curr_boq).map{|r|[r['source'],r]}]

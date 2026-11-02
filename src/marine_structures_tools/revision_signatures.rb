@@ -28,10 +28,31 @@ module MAG
    walk.call(entities,Geom::Transformation.new,[])
    paths.transform_values{|v|revision_digest(v.map{|r|r[1]}.sort)}
   end
+  # v0.51.5 P5: bir anlık kayıt hesabı (revision_current_snapshot) süresince alt ağaç şekli varlık başına (persistent_id),
+  # Component örneğinin iç kısmı ([yüz/kenar, çocuklar]) tanım başına bir kez hesaplanır. Örneğin kendi dönüşümü ve occurrences
+  # her öğede eskisi gibi alınır; sonuç birebir aynıdır. Kapsam dışında (onarım/düzenleyici karşılaştırmaları) önbellek yok.
+  def revision_shape_memo
+   return yield if @mst_rev_shape_memo
+   @mst_rev_shape_memo={s:{},d:{}}
+   begin
+    yield
+   ensure
+    @mst_rev_shape_memo=nil
+   end
+  end
   def revision_geometry_signature(e,occurrences={})
+   memo=@mst_rev_shape_memo
    shape=nil
    shape=lambda do |node|
+    sk=memo ? (node.persistent_id.to_i rescue 0) : 0
+    next memo[:s][sk] if sk>0 && memo[:s].key?(sk)
     transform=node.respond_to?(:transformation) ? node.transformation.to_a.map{|v|v.round(9)} : []
+    dk=0;inner=nil
+    if memo && !node.respond_to?(:entities) && node.respond_to?(:definition)
+     dk=(node.definition.persistent_id.to_i rescue 0)
+     inner=memo[:d][dk] if dk>0
+    end
+    unless inner
     ents=node.respond_to?(:entities) ? node.entities : (node.respond_to?(:definition) ? node.definition.entities : [])
     shapes=[];children=[]
     ents.each do |part|
@@ -43,7 +64,12 @@ module MAG
       shapes<<['edge',part.vertices.map{|v|v.position.to_a.map{|n|n.round(6)}}.sort]
      end
     end
-    [transform,shapes.sort_by{|v|JSON.generate(v)},children.sort_by{|v|JSON.generate(v)}]
+    inner=[shapes.sort_by{|v|JSON.generate(v)},children.sort_by{|v|JSON.generate(v)}]
+    memo[:d][dk]=inner if dk>0
+    end
+    r=[transform,inner[0],inner[1]]
+    memo[:s][sk]=r if sk>0
+    r
    end
    revision_digest([occurrences[e.persistent_id],shape.call(e)])
   end

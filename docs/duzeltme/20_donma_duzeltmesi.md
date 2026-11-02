@@ -9,3 +9,6 @@ SketchUp kabul: aynı model kopyasında aynı profil ölçümü (önce/sonra); s
 
 ## D4 (02.11.2026)
 pile_qto_infill_children okuma batch önbelleği (Group: persistent_id, Component: definition); revision_send, send_boq_mapping, bp_send mst_read_batch ile sarıldı. p3 74/74 (eski kodda 14 kaldı); 44 test 0 kalan; golden 58f9747 433/433 aynı. Sahte n=600: send_boq ham tarama 3000 → 180, qto_summary 3060 → 180, progress_send 1230 → 180. Revizyon imzası ve jg_walk analizi: seçenek (a) tanım başına iç imza, jg (1)(2) birebir aynı sonuç.
+
+## D5 (02.11.2026)
+revision_shape_memo (iç imza tanım başına, alt ağaç varlık başına; örnek dönüşümü her öğede), revision_create_snapshot anlık kaydı bir kez; jg_walk dünya dönüşümü yalnız jet grout öğesinde, jg_elements okuma batch önbelleği. p4 73/73 (eski kodda 11 kaldı); 45 test 0 kalan; golden b751978 433/433. Sahte: revision_create 3,50 → 1,97 s; revision_send kazancı Component sayısına bağlı (her kazık ayrı Group ise küçük). Yapılmayan: parametre imzası, revizyonu düğmeye bağlama, jg gezintisini kesme.

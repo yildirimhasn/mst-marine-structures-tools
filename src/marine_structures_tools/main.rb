@@ -2205,7 +2205,7 @@ def mst_scan_batch(model=Sketchup.active_model)
   r
  ensure
   @mst_scan_batch_on=false;@mst_scan_cache=nil;@mst_scan_cache_ids={};@mst_type_sync_state=nil;@mst_def_cache=nil
-  @mst_infill_children_cache=nil   # v0.51.5 P4: kazık iç beton çocukları önbelleği (yalnız okuma batch'inde kurulur)
+  @mst_infill_children_cache=nil;@mst_jg_elements_cache=nil   # P5: jg_elements; v0.51.5 P4: kazık iç beton çocukları önbelleği (yalnız okuma batch'inde kurulur)
  end
 end
 
@@ -2223,7 +2223,7 @@ def mst_read_batch(model=Sketchup.active_model)
    yield
   ensure
    @mst_read_batch_on=nil
-   @mst_infill_children_cache=nil   # v0.51.5 P4
+   @mst_infill_children_cache=nil;@mst_jg_elements_cache=nil   # v0.51.5 P4, P5
   end
  end
 end
@@ -9933,12 +9933,15 @@ def revision_element_record(e,occurrences={})
 end
 
 def revision_current_snapshot
+  return @mst_revision_curr_reuse if @mst_revision_curr_reuse   # v0.51.5 P5: revision_create_snapshot az önce hesapladığı kaydı yeniden kullanır
+revision_shape_memo do   # v0.51.5 P5: imza alt ağaçları bu hesap süresince bir kez
   a=[]; collect_elements(Sketchup.active_model.entities,a)
   elems=a.select{|e| e.respond_to?(:get_attribute) && !e.get_attribute(DICT,'element_type','').to_s.empty? }
   # Child/internal geometry without BIM identity is not a revision item.
   elems=elems.select{|e| !e.get_attribute(DICT,'element_uid','').to_s.empty? || %w[steel_pipe_pile bored_pile head_beam flat_precast channel_precast crane_precast deck_slab curb pile_infill_concrete deck_topping crown_wall accessory].include?(e.get_attribute(DICT,'element_type','').to_s)}
   occurrences=revision_occurrence_signatures(Sketchup.active_model.entities)
   elems.map{|e|revision_element_record(e,occurrences)}
+end # revision_shape_memo
 end
 
 def revision_snapshots

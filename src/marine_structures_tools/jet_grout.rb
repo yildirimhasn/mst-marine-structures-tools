@@ -29,12 +29,20 @@ def jg_metrics(d)
  raise 'Jet grout miktarı sayısal sınırı aşıyor.' unless result.values.compact.all?{|v|v.finite?}
  result
 end
-def jg_walk(entities,out=[],parent=nil)
+# v0.51.5 P5: dünya dönüşümü yalnız jet grout öğesinde hesaplanır: parent (başlangıç dünyası) üzerine ata kapsayıcılar ve öğe
+# kökten aynı sırayla, aynı formülle çarpılır → eski düğüm düğüm hesapla bit düzeyinde aynı. Gezinti kapsamı değişmedi.
+def jg_world(parent,nodes)
+ nodes.each do |n|
+  tr=n.transformation.to_a if n.respond_to?(:transformation)
+  parent=parent && tr ? (0...16).map{|i|r=i%4;c=i/4;4.times.sum{|k|parent[k*4+r]*tr[c*4+k]}} : tr
+ end
+ parent
+end
+def jg_walk(entities,out=[],parent=nil,chain=[])
  entities.each do |e|
   next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
-  tr=e.transformation.to_a if e.respond_to?(:transformation)
-  world=parent && tr ? (0...16).map{|i|r=i%4;c=i/4;4.times.sum{|k|parent[k*4+r]*tr[c*4+k]}} : tr
   if e.get_attribute(DICT,'element_type')=='jet_grout'
+   world=jg_world(parent,chain+[e])
    if world
     a=world
     axes=[a[0,3],a[4,3],a[8,3]]
@@ -45,13 +53,20 @@ def jg_walk(entities,out=[],parent=nil)
    end
    out<<e
   else
-   jg_walk(e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities,out,world)
+   jg_walk(e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities,out,parent,chain+[e])
   end
  end
  out
 end
+# v0.51.5 P5: okuma batch'inde (mst_read_batch) sonuç batch boyunca bir kez hesaplanır; hata önbelleğe alınmaz (sonraki çağrı yeniden
+# gezer ve aynı hatayı verir). Yazma batch'inde ve batch dışında eskisi gibi. Her çağrı yeni dizi alır; geçersiz öğe süzülür.
 def jg_elements
- jg_walk(Sketchup.active_model.entities)
+ rb=@mst_read_batch_on
+ c=@mst_jg_elements_cache
+ return c[:list].select(&:valid?) if rb && c && c[:rb]==rb
+ list=jg_walk(Sketchup.active_model.entities)
+ @mst_jg_elements_cache={rb:rb,list:list.dup.freeze} if rb
+ list
 end
 def jg_rows
  jg_elements.group_by{|e|e.get_attribute(DICT,'jet_grout_data','{}')}.map do |raw,els|
