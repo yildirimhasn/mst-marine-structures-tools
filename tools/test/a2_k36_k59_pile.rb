@@ -72,4 +72,21 @@ t('K59: mst_pile_rebar_active değişmedi (parametreler korunur)', [h.mst_pile_r
 h.define_singleton_method(:mst_pile_rebar_calc) { |_g, _p, _o = nil| { 'kg' => 1400.0, 'n' => 16 } }
 h.mst_pile_rebar_qto!(p)
 t('K59: başarılı hesapta bayrak silinir, BIM tonajı kullanılır', [p.a('pile_rebar_error'), h.mst_pile_rebar_t(p)], [nil, 1.4])
+
+# ---- Parti G-a / kod inceleme #3: K59 hata yolunda iç betonun rebar_t'si = iç beton oluşturma yolundaki durum.
+# Oluşturma yolları (add_pile_infill, pile_manufacturing yeniden kurma) iç betona rebar_t / rebar_mode YAZMAZ;
+# hata yolundaki silme bu durumla birebir aynıdır. Metraj: iç beton hacim × oran (QuantityService), rebar_t okunmaz.
+ap = A1.grab(main, 'def add_pile_infill(')
+t('#3: add_pile_infill iç betona rebar_t / rebar_mode yazmaz', [ap.include?("'rebar_t'"), ap.include?("'rebar_mode'")], [false, false])
+t('#3: pile_manufacturing iç beton öznitelikleri rebar_t içermez', pm[/attrs=\{'element_type'=>'pile_infill_concrete'[^\n]*/].to_s.include?('rebar_t'), false)
+A1.load(Host, main, 'def mst_pile_rebar_refresh!(')
+a1_reset!
+inf = Sketchup::Group.new(9100, 'element_type' => 'pile_infill_concrete', 'concrete_volume_m3' => V, 'rebar_mode' => 'bim_detail', 'rebar_t' => 1.4)
+gp = Sketchup::Group.new(100, 'element_type' => 'steel_pipe_pile', 'pile_id' => 'P-G', 'pile_rebar_mode' => 'bim_detail', 'pile_rebar_json' => '{"long_dia_mm":25}')
+gp.entities = [inf]
+h.define_singleton_method(:mst_pile_rebar_calc) { |_g, _p, _o = nil| raise 'Donatı kafesi kazığa sığmıyor.' }
+h.mst_pile_rebar_refresh!(gp)
+fresh = Sketchup::Group.new(9101, 'element_type' => 'pile_infill_concrete', 'concrete_volume_m3' => V)
+t('#3: hata sonrası iç beton anahtarları = yeni oluşturulmuş iç beton (rebar_t / rebar_mode yok)', inf.raw_attrs.keys.map(&:last).sort, fresh.raw_attrs.keys.map(&:last).sort)
+t('#3: hata nedeni kazıkta', gp.a('pile_rebar_error').to_s.include?('sığmıyor'), true)
 a1_finish

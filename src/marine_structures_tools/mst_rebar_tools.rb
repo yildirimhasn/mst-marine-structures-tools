@@ -207,9 +207,20 @@ def mst_rt_upgrade_ui
  return 0 unless UI.messagebox("#{es.length} BK'nın donatısı eski kurallarla çizilmiş (#{es.first(10).map{|x|element_visible_id(x)}.join(', ')}).
 "+
   "Kayıtlı çap / aralık / çizim paketiyle yeni kurallarla (oval büküm, 50Ø şaşırtmalı bindirme, parapet) yeniden çizilsin mi? (tek Geri Al)",MB_YESNO)==IDYES
+ # ADR-0515 G3-#11 (ayrı öneri): paylaşılan Component tanımında yeniden çizim tüm örneklere yansır; tanımın tüm
+ # örnekleri listede değilse işlem açılmadan sorulur (Evet: yalnız bu parça ayrılır, Hayır: iptal)
+ uniq=[]
+ es.each do |x|
+  next unless x.is_a?(Sketchup::ComponentInstance) && x.definition.count_instances>1
+  next if (x.definition.instances.to_a-es).empty?
+  ch=mst_shared_def_prompt(x,'Donatıyı yeni kurallarla yeniden çizme')
+  return 0 if ch==:cancel
+  uniq << x if ch==:unique
+ end
  res=[]
  model.start_operation('MST Donatıyı Yeni Kurallarla Yeniden Çiz',true)
  begin
+  uniq.each{|x|mst_make_unique_keep_data!(x)}
   es.each{|e|res << mst_rt_upgrade!(e)}
   model.commit_operation
  rescue

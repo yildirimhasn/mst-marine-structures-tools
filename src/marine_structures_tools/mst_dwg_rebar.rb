@@ -380,7 +380,8 @@ def mst_dr_stash_prev!(e)
  %w[rebar_mode rebar_kg rebar_cover_mm rebar_bar_count rebar_kind rebar_pocket_count rebar_schedule_json hb_rebar_json].each{|k|e.delete_attribute(DICT,k)}
 end
 def mst_dr_clear!(e)
- mst_rt_history_push!(e) if respond_to?(:mst_rt_history_push!) && mst_dr_set_of(e).any?
+ # G3-#11: aynı tanımı paylaşan önceki örnekte set silinmiş olabilir; çizimden / otomatik kayıt da geçmişe alınır
+ mst_rt_history_push!(e) if respond_to?(:mst_rt_history_push!) && (mst_dr_set_of(e).any? || %w[drawing_detail auto_detail].include?(e.get_attribute(DICT,'rebar_mode','').to_s))
  mst_dr_set_of(e).each{|g|mst_dr_erase_set!(g)}
  %w[rebar_mode rebar_kg rebar_bar_count rebar_kind rebar_schedule_json rebar_drawing rebar_drawing_batches rebar_drawing_orient rebar_source rebar_auto_json].each{|k|e.delete_attribute(DICT,k)}
  e.set_attribute(DICT,'rebar_t',qto3_quantity(e,:concrete_m3)*rebar_rate('head_beam')/1000.0)
@@ -578,8 +579,19 @@ def mst_dr_remove_ui
  note=cand>sel.length ? "\n\nPaftadan metrajı olan #{cand-sel.length} BK ve prekast donatısı bu işlemle silinmez (Paftadan Donatı / Prekast Donatısı → SİL)." : ''
  return UI.messagebox("Çizimden / otomatik donatısı olan BK yok.#{note}") if sel.empty?
  return 0 unless UI.messagebox("#{sel.length} BK'nın çizimden donatısı silinsin mi? Donatı pursantaja döner. (tek Geri Al)\n#{sel.first(12).map{|x|element_visible_id(x)}.join(', ')}#{note}",MB_YESNO)==IDYES
+ # ADR-0515 G3-#11: paylaşılan Component tanımında donatı seti tanımdan (tüm örneklerden) silinir; tanımın tüm
+ # örnekleri silinecekler arasında değilse işlem açılmadan sorulur (Evet: yalnız bu parça ayrılır, Hayır: iptal)
+ uniq=[]
+ sel.each do |x|
+  next unless x.is_a?(Sketchup::ComponentInstance) && x.definition.count_instances>1
+  next if (x.definition.instances.to_a-sel).empty?
+  ch=mst_shared_def_prompt(x,'Çizimden donatı silme')
+  return 0 if ch==:cancel
+  uniq << x if ch==:unique
+ end
  model.start_operation('MST Çizimden Donatıyı Sil',true)
  begin
+  uniq.each{|x|mst_make_unique_keep_data!(x)}
   sel.each{|x|mst_dr_clear!(x)}
   model.commit_operation
  rescue
@@ -587,6 +599,9 @@ def mst_dr_remove_ui
  end
  send_boq(@d) if @d rescue nil
  sel.length
+rescue => ex
+ UI.messagebox("Donatı silinemedi: #{ex.message}")
+ 0
 end
 
 end

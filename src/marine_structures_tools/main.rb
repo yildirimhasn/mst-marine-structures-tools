@@ -2565,20 +2565,32 @@ def mst_bk_pile_embed(b)
  end
  mst_bk_connected_piles(b).each do |p|
   pt=p.get_attribute(DICT,'top_elevation_m',nil);next if pt.nil? || pt.to_s.strip.empty?
-  dep=0.0;ax=nil
-  if zh && zlen>0 && p.parent==b.parent
-   ax=p.transformation.origin.transform(b.transformation.inverse).x.to_m
-   dep=mst_hb_bottom_depth(zh,zlen,ax)
+  dep=0.0;ax=nil;ay=nil;oz=nil;derr=nil
+  # ADR-0515 G3-#13: eklenti dışı (tanıtılmış) kazıkta orijin kazık başı merkezi sayılmaz → derinlik 0 (eski kural)
+  ext=p.get_attribute(DICT,'registered_external',false);ext=(ext==true || ext.to_s=='true')
+  if zh && zlen>0 && p.parent==b.parent && !ext
+   begin   # derinlik hatası yalnız bu kazığı etkiler (dep=0, depth_error); BK'nın tüm düşümü sıfırlanmaz
+    lp=p.transformation.origin.transform(b.transformation.inverse)
+    ax=lp.x.to_m;ay=lp.y.to_m;oz=p.transformation.origin.z.to_m
+    dep=mst_hb_bottom_depth(zh,zlen,ax)
+   rescue => dex
+    dep=0.0;derr=dex.message.to_s
+   end
   end
   emb=[pt.to_f,top].min-(bot-dep);next if emb<=1e-6
   d=p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0;next if d<=0
   r=p.get_attribute(DICT,'orientation_mode','').to_s.upcase=='BATTERED' ? pile_batter_ratio(p.get_attribute(DICT,'batter_ratio',0)) : 0.0
   v=Math::PI*d*d/4.0*emb*Math.sqrt(1.0+r*r)
-  items << {pile_id:p.get_attribute(DICT,'pile_id','').to_s,pid:p.persistent_id,embed_m:emb,diameter_mm:d*1000.0,batter:r,volume_m3:v,bottom_depth_m:dep,axis_a_m:ax}
+  it={pile_id:p.get_attribute(DICT,'pile_id','').to_s,pid:p.persistent_id,embed_m:emb,diameter_mm:d*1000.0,batter:r,volume_m3:v,bottom_depth_m:dep,axis_a_m:(derr ? nil : ax)}
+  it[:depth_error]=derr if derr
+  if ay && !derr
+   it[:axis_y_m]=ay;it[:origin_z_m]=oz;it[:width_m]=zh['width_m'].to_f;it[:pile_top_m]=pt.to_f
+  end
+  items << it
  end
  {volume_m3:items.sum{|x|x[:volume_m3]},items:items}
-rescue
- {volume_m3:0.0,items:[]}
+rescue => ex   # G3-#13: hata görünür (Model Kontrolü ERROR); BK betonu brüt alınır
+ {volume_m3:0.0,items:[],error:ex.message.to_s}
 end
 def head_beam_gross_concrete(b)
  b.get_attribute(DICT,'concrete_volume_m3',b.get_attribute(DICT,'volume_m3',0)).to_f
@@ -3682,14 +3694,13 @@ def pile_boq_codes_for(key,groups,stored=pile_boq_codes_stored)
 end
 # Kalıcı yazım yalnız açık kullanıcı işlemlerinin içinde (çağıranın işlemi); değişiklik yoksa yazmaz.
 def pile_boq_codes_persist!(model=Sketchup.active_model)
- mst_json_attr_guard!(model,PILE_BOQ_CODES_KEY,Hash,'Kazık ayrı poz numaraları')
+ # kod inceleme #7: kayıt yalnız AYRI POZ modunda kazık grubu varken okunur / yazılır; bozuksa düzeltme yolu söylenir
+ sep=PILE_BOQ_GROUP_KEYS.select{|key|pile_boq_mode(key)=='separate'}.map{|key|[key,pile_boq_group_quantities(key)]}.reject{|_,groups|groups.empty?}
+ return false if sep.empty?
+ raise "Kazık ayrı poz numaraları kaydı (#{PILE_BOQ_CODES_KEY}) okunamadı; mevcut kaydın üzerine yazılmadı, değişiklik kaydedilmedi. Ayrı poz gerekmiyorsa Keşif → Kazık Keşif Pozu Birleştirme / Ayrıştırma bölümünde AYRI POZ seçili imalatları TEK POZ yapıp kaydedin; ayrı poz gerekiyorsa önce bu kayıt düzeltilmelidir." if mst_json_attr_bad?(model,PILE_BOQ_CODES_KEY,Hash)
  stored=pile_boq_codes_stored(model)
  out=JSON.parse(JSON.generate(stored))
- PILE_BOQ_GROUP_KEYS.each do |key|
-  next unless pile_boq_mode(key)=='separate'
-  groups=pile_boq_group_quantities(key)
-  out[key]=pile_boq_codes_for(key,groups,stored) unless groups.empty?
- end
+ sep.each{|key,groups|out[key]=pile_boq_codes_for(key,groups,stored)}
  return false if out==stored
  model.set_attribute(DICT,PILE_BOQ_CODES_KEY,JSON.generate(out))
  true
@@ -4432,13 +4443,15 @@ def create_flat_precast(data=nil)
    @precast_batch_mode=true
    ordered.each_cons(2){|a,b|model.selection.clear;model.selection.add(a);model.selection.add(b);break unless create_flat_precast(data)==true;completed+=1}
    ok=completed==ordered.length-1
+  rescue => bex   # kod inceleme #10: aralık işlevinden kaçan istisna Türkçe iletiyle bildirilir (işlem ensure'da geri alınır)
+   ok=false;berr=bex.message.to_s
   ensure
    @precast_batch_mode=false
    ok ? commit_with_dependencies(model) : model.abort_operation
    model.selection.clear;original.each{|g|model.selection.add(g) if g&&g.valid?}
   end
   UI.messagebox(ok ? "Toplu prekast yerleşimi tamamlandı.\nOluşturulan BK aralığı: #{completed} / #{ordered.length-1}" :
-   "Toplu prekast yerleşimi durduruldu (#{completed+1}. BK aralığı oluşturulamadı).\nÖnceki #{completed} aralık da geri alındı; model değişmedi.")
+   "Toplu prekast yerleşimi durduruldu (#{completed+1}. BK aralığı oluşturulamadı#{berr ? ": #{berr}" : ''}).\nÖnceki #{completed} aralık da geri alındı; model değişmedi.")
   return ok
  end
  lb,rb=sel.sort_by{|g|g.bounds.center.x}
@@ -7682,8 +7695,18 @@ def repair_bim_identity
  unless pairs.empty?
   msg+="\n\nAsıl → kopya (karar yolu):\n"+pairs.first(10).join("\n")+(pairs.length>10 ? "\n… #{pairs.length-10} kopya daha" : '')
   msg+="\nKopyaya yeni UID verilir; asıl UID copied_from_uid olarak saklanır. Kopyanın ilerleme kaydı devralınmış (onaysız) olarak saklanır, durumu 'Planlandı' olur."
+  msg+="\nÖnceki devralma kaydı olan kopyada yeni devralma geçmişe eklenir; eski kayıt değişmez."
   msg+="\n#{curb_moves.length} kopya tretuvar kopya döşemeye bağlanacak." unless curb_moves.empty?
   msg+="\nDoğrulanmalı (tretuvar bağı değiştirilmez): "+curb_check.first(10).map{|c|element_visible_id(c)}.join(', ') unless curb_check.empty?
+ end
+ # ADR-0515 G1: devralınmış ilerleme geçmişi (JSON dizisi) işlem açılmadan doğrulanır; bozuk kayıt ezilmez
+ uid_plan.each do |u,own,cps,why|
+  cps.each do |c|
+   hraw=c.get_attribute(DICT,'progress_inherited_history_json',nil)
+   next if hraw.nil? || hraw.to_s.strip.empty?
+   hv=(JSON.parse(hraw.to_s) rescue nil)
+   return UI.messagebox("#{element_visible_id(c)}: devralınmış ilerleme geçmişi (progress_inherited_history_json) okunamadı; üzerine yazılmadı, onarım yapılmadı.") unless hv.is_a?(Array)
+  end
  end
  msg+="\n\nDevam edilsin mi?"
  return unless UI.messagebox(msg,MB_YESNO)==IDYES
@@ -7696,15 +7719,29 @@ def repair_bim_identity
  # Repair duplicate UIDs: the owner keeps the UID; copies get a stable unique UID and keep the source UID.
  uid_plan.each do |u,own,cps,why|
   cps.each do |e|
-   e.set_attribute(DICT,'element_uid',"MST-#{e.persistent_id}-#{Time.now.to_i}-R")
+   prev_cf=e.get_attribute(DICT,'copied_from_uid',nil);prev_own=e.get_attribute(DICT,'uid_owner_pid',nil)
+   nu="MST-#{e.persistent_id}-#{Time.now.to_i}-R"
+   e.set_attribute(DICT,'element_uid',nu)
    e.set_attribute(DICT,'copied_from_uid',u);e.set_attribute(DICT,'uid_owner_pid',e.persistent_id)
    pj=e.get_attribute(DICT,'progress_items_json','').to_s
-   if !pj.empty? && e.get_attribute(DICT,'progress_inherited_json',nil).nil?
-    e.set_attribute(DICT,'progress_inherited_json',pj);e.delete_attribute(DICT,'progress_items_json')
-   end
    ps=e.get_attribute(DICT,'progress_status','').to_s
-   if !ps.empty? && ps!='Planlandı' && e.get_attribute(DICT,'progress_inherited_status',nil).nil?
-    e.set_attribute(DICT,'progress_inherited_status',ps);e.set_attribute(DICT,'progress_status','Planlandı')
+   ps='' if ps=='Planlandı'
+   # ADR-0515 G1: önceki devralma kaydı doluysa olayın tamamı geçmişe tek kayıt olarak eklenir; eski tekil alanlar değişmez
+   if (!pj.empty? && !e.get_attribute(DICT,'progress_inherited_json',nil).nil?) || (!ps.empty? && !e.get_attribute(DICT,'progress_inherited_status',nil).nil?)
+    hraw=e.get_attribute(DICT,'progress_inherited_history_json',nil)
+    hist=(hraw.nil? || hraw.to_s.strip.empty?) ? [] : JSON.parse(hraw.to_s)   # ön doğrulamada dizi olduğu denetlendi
+    hist << {'v'=>1,'at'=>Time.now.strftime('%Y-%m-%dT%H:%M:%S%z'),'source'=>'repair_bim_identity','from_uid'=>u,'new_uid'=>nu,
+             'items_json'=>(pj.empty? ? nil : pj),'status'=>(ps.empty? ? nil : ps),'prev_copied_from_uid'=>prev_cf,'prev_uid_owner_pid'=>prev_own}
+    e.set_attribute(DICT,'progress_inherited_history_json',JSON.generate(hist))
+    e.delete_attribute(DICT,'progress_items_json') unless pj.empty?
+    e.set_attribute(DICT,'progress_status','Planlandı') unless ps.empty?
+   else
+    if !pj.empty? && e.get_attribute(DICT,'progress_inherited_json',nil).nil?
+     e.set_attribute(DICT,'progress_inherited_json',pj);e.delete_attribute(DICT,'progress_items_json')
+    end
+    if !ps.empty? && e.get_attribute(DICT,'progress_inherited_status',nil).nil?
+     e.set_attribute(DICT,'progress_inherited_status',ps);e.set_attribute(DICT,'progress_status','Planlandı')
+    end
    end
    uid_fixed+=1
   end
@@ -8217,9 +8254,19 @@ def mst_audit_v0515(elems,all=elems)
   end
  end
  # K50: kazık ayak izi taban derinliği değişimini kesiyorsa (diş / bölge sınırı ya da eğimli geçiş)
- elems.select{|b|b.get_attribute(DICT,'element_type','').to_s=='head_beam' && b.is_a?(Sketchup::Group)}.each do |b|
+ elems.select{|b|b.get_attribute(DICT,'element_type','').to_s=='head_beam'}.each do |b|
   h=nil
-  mst_bk_pile_embed(b)[:items].each do |it|
+  emb=mst_bk_pile_embed(b)
+  # ADR-0515 G3-#13: hesap hatası sessiz 0 değil; derinlik hatası ve kazık orijini kuşkusu uyarı
+  out << ['ERROR',b,'Hesap Hatası',"#{element_visible_id(b)}: BK gömülme düşümü hesaplanamadı (#{emb[:error]}); BK betonu brüt alındı.",'BK ve bağlı kazıkların kot / çap / konum bilgisini kontrol edip Model Kontrolü\'nü yeniden çalıştırın.',[b.persistent_id]] if emb[:error]
+  next unless b.is_a?(Sketchup::Group)
+  emb[:items].each do |it|
+   if it[:depth_error]
+    out << ['WARNING',b,'Hesap Hatası',"#{element_visible_id(b)}: #{it[:pile_id]} kazığında taban derinliği hesaplanamadı (#{it[:depth_error]}); gömülme ana taban kotundan alındı.",'Diş / taban bölgesi kaydını kontrol edin; gerekirse gömülme düşümünü elle doğrulayın.',[b.persistent_id,it[:pid]]]
+   end
+   if it[:axis_y_m] && (it[:axis_y_m]< -1e-6 || it[:axis_y_m]>it[:width_m].to_f+1e-6 || (it[:origin_z_m].to_f-it[:pile_top_m].to_f).abs>0.01)
+    out << ['WARNING',b,'Hesap Hatası',"#{element_visible_id(b)}: #{it[:pile_id]} kazık orijini kazık başı merkezi olmayabilir; gömülme derinliği doğrulanmalı.",'Kazığın konumunu ve üst kotunu kontrol edin; gerekirse gömülme düşümünü elle doğrulayın.',[b.persistent_id,it[:pid]]]
+   end
    a=it[:axis_a_m];next if a.nil?
    h||=mst_attr_hash(b);len=h['length_m'].to_f;rad=it[:diameter_mm].to_f/2000.0
    pts=[a-rad,a,a+rad]+mst_hb_zone_segments(h,len).flat_map{|q|[q['a0'],q['f0'],q['f1'],q['a1']]}.select{|x|x>a-rad && x<a+rad}
@@ -8483,8 +8530,10 @@ def model_audit
   'BIM Kimliği'=>['BIM Kimliği','Fiziksel Kimlik'],
   'Organizasyon'=>['Proje Organizasyonu'],
   'Tip Kütüphanesi'=>['Tip Kütüphanesi'],
-  'Bağımlılık'=>['Bağımlılık Ağı','Kazık → BK','PD/Kanal → BK','Döşeme → BK/PD','Tretuvar → Döşeme'],
-  'Metraj'=>['Kazık Geometrisi','BK Metrajı','Prekast Metrajı','Kanal Geometrisi','Döşeme Metrajı','Tretuvar Metrajı','Malzeme','Metraj Malzeme','Metraj Donatı','Hesap Hatası'],
+  'Bağımlılık'=>['Bağımlılık Ağı','Kazık → BK','PD/Kanal → BK','Döşeme → BK/PD','Tretuvar → Döşeme','BK ↔ Kazık'],
+  # kod inceleme #8: bağlı olmayan kontrol adları (Fiziksel Boru / Detay, BK Donatı BIM, Kanal Cebi) eklendi
+  'Metraj'=>['Fiziksel Boru / BIM / Metraj','Fiziksel Detay / Metraj','BK Donatı BIM','Kanal Cebi',
+             'Kazık Geometrisi','BK Metrajı','Prekast Metrajı','Kanal Geometrisi','Döşeme Metrajı','Tretuvar Metrajı','Malzeme','Metraj Malzeme','Metraj Donatı','Hesap Hatası'],
   'Metraj → Keşif'=>['Metraj → Keşif'],
   'Hakediş'=>['Keşif → Hakediş','Mühendislik Kalite Kontrolü']
  }
@@ -9549,6 +9598,7 @@ end
 def rockfill_save_project(json,dialog)
  d=JSON.parse(json); alt=(d['alternative']||'01').to_s; sections=d['sections']; raise 'En az iki kesit gereklidir.' unless sections.is_a?(Array)&&sections.length>=2
  stations=sections.map{|x|x['station'].to_f}; raise 'Kesit istasyonları aynı olamaz.' unless stations.uniq.length==stations.length
+ mst_json_attr_guard!(Sketchup.active_model,rockfill_project_key(alt),Hash,'Dolgu kesit zinciri')   # kod inceleme #1 (R-4)
  mst_rf_write!('MST Dolgu Kesit Zinciri',[[ROCKFILL_ACTIVE_ALT_KEY,alt],[rockfill_project_key(alt),JSON.generate({'sections'=>sections})]])   # K14
  dialog.execute_script("rockfillProjectLoaded(#{JSON.generate({'sections'=>sections,'alternative'=>alt})})")
 rescue=>e; UI.messagebox("Dolgu kesit zinciri hatası: #{e.message}"); end
@@ -9565,6 +9615,7 @@ end
 
 def rockfill_autosave_project(json)
  d=JSON.parse(json); alt=(d['alternative']||'01').to_s; sections=d['sections']; return unless sections.is_a?(Array) && sections.length>=2
+ mst_json_attr_guard!(Sketchup.active_model,rockfill_project_key(alt),Hash,'Dolgu kesit zinciri')   # kod inceleme #1 (R-4)
  mst_rf_write!('MST Dolgu Kesit Zinciri (otomatik kayıt)',[[ROCKFILL_ACTIVE_ALT_KEY,alt],[rockfill_project_key(alt),JSON.generate({'sections'=>sections})]])   # K14
 rescue=>e
  puts "Marine Structures rockfill project autosave: #{e.message}"
@@ -9576,7 +9627,12 @@ def rockfill_load_project(dialog,alt=nil)
  # v0.51.5 K14: salt yüklemede yazma yok; yalnız kullanıcı başka alternatifi seçtiyse etkin alternatif işlem içinde değişir
  mst_rf_write!('MST Dolgu Alternatifi',[[ROCKFILL_ACTIVE_ALT_KEY,alt]]) unless alt==Sketchup.active_model.get_attribute(DICT,ROCKFILL_ACTIVE_ALT_KEY,'01').to_s
  raw=Sketchup.active_model.get_attribute(DICT,rockfill_project_key(alt),'').to_s
- d=raw.empty? ? {'sections'=>[]} : (JSON.parse(raw) rescue {'sections'=>[]})
+ d=raw.strip.empty? ? {'sections'=>[]} : (JSON.parse(raw) rescue nil)
+ # kod inceleme #1 (R-4): bozuk kayıt boş liste sayılmaz; kayıt korunur, JS'e bozuk durumu bildirilir (otomatik kayıt yapılmaz)
+ unless d.is_a?(Hash)
+  UI.messagebox("Dolgu kesit zinciri kaydı (#{rockfill_project_key(alt)}) okunamadı; kesitler gösterilemiyor. Mevcut kayıt korundu, üzerine yazılmaz; bu alternatifte otomatik kayıt yapılmaz.")
+  d={'sections'=>[],'bad'=>true}
+ end
  d['alternative']=alt
  dialog.execute_script("rockfillProjectLoaded(#{JSON.generate(d)})")
 end
@@ -9689,9 +9745,27 @@ end
 def revision_diff(prev,curr)
   pl=Array(prev);cl=Array(curr);pg=pl.group_by{|x|x['uid'].to_s};cg=cl.group_by{|x|x[:uid].to_s}
   # ADR-0515 §1 / K06: tekrarlanan UID'de (kopya) eşleşme PID ile; iki tarafta ortak en küçük PID UID'yi taşır, öbürleri "UID~PID-n"
-  anchor={};(pg.keys|cg.keys).each{|u|next if Array(pg[u]).length<=1 && Array(cg[u]).length<=1;anchor[u]=(Array(pg[u]).map{|x|x['pid'].to_i}&Array(cg[u]).map{|x|x[:pid].to_i}).min}
+  anchor={};one_prev={}
+  (pg.keys|cg.keys).each do |u|
+    next if Array(pg[u]).length<=1 && Array(cg[u]).length<=1
+    anchor[u]=(Array(pg[u]).map{|x|x['pid'].to_i}&Array(cg[u]).map{|x|x[:pid].to_i}).min
+    # ADR-0515 G3-#12: ortak PID yok (PID'siz eski kayıt) ve önceki tarafta tek kayıt → o kayıt UID'ye eşlenir;
+    # güncelde UID içindeki PID'e eşit tek kayıt, yoksa en küçük PID UID'yi taşır
+    next unless anchor[u].nil? && Array(pg[u]).length==1 && Array(cg[u]).any?
+    up=u[/\AMST-(\d+)-/,1];hit=up ? cg[u].select{|x|x[:pid].to_i==up.to_i} : []
+    anchor[u]=(hit.length==1 ? hit.first : cg[u].min_by{|x|x[:pid].to_i})[:pid].to_i;one_prev[u]=true
+  end
   dk=lambda{|u,pid|!anchor.key?(u) || anchor[u]==pid.to_i ? u : "#{u}~PID-#{pid}"}
-  pm=Hash[pl.map{|x|[dk.call(x['uid'].to_s,x['pid']),x]}]; cm=Hash[cl.map{|x|[dk.call(x[:uid].to_s,x[:pid]),x]}]
+  # önceki tarafta çok kayıt: PID'li kayıt "UID~PID-n", PID'siz kayıt "UID~REC-sıra" (anahtar çakışması olmaz)
+  seq=Hash.new(0)
+  pk=lambda do |x|
+    u=x['uid'].to_s;seq[u]+=1
+    if one_prev[u] then u
+    elsif anchor.key?(u) && x['pid'].to_i<=0 then "#{u}~REC-#{seq[u]}"
+    else dk.call(u,x['pid'])
+    end
+  end
+  pm=Hash[pl.map{|x|[pk.call(x),x]}]; cm=Hash[cl.map{|x|[dk.call(x[:uid].to_s,x[:pid]),x]}]
   added=[];deleted=[];changed=[];same=[]
   cm.each do |uid,n|
     o=pm[uid]
@@ -11793,9 +11867,10 @@ end
 
 def mst_copy_dicts!(from,to)
  (from.attribute_dictionaries || []).each{|dict|dict.each_pair{|k,v|to.set_attribute(dict.name,k,v)}}
- # ADR-0515 §1: öğe yeni varlıkla değiştirildi; kaynak asıl sahipse (veya kayıt yoksa) sahiplik yeni varlığa geçer
- own=from.get_attribute(DICT,'uid_owner_pid',nil)
- to.set_attribute(DICT,'uid_owner_pid',to.persistent_id) if !from.get_attribute(DICT,'element_uid','').to_s.empty? && (own.nil? || own.to_i==from.persistent_id)
+ # ADR-0515 §1 / G2: öğe yeni varlıkla değiştirildi; sahiplik yalnız kaynak asıl sahipse yeni varlığa geçer
+ # (kayıt varsa kayıtlı PID = kaynak PID; kayıt yoksa UID içindeki PID = kaynak PID; ayrıştırılamıyorsa yazılmaz)
+ own=from.get_attribute(DICT,'uid_owner_pid',nil);fu=from.get_attribute(DICT,'element_uid','').to_s
+ to.set_attribute(DICT,'uid_owner_pid',to.persistent_id) if !fu.empty? && (own.nil? ? (fu[/\AMST-(\d+)-/,1] || -1).to_i==from.persistent_id : own.to_i==from.persistent_id)
  to.name=from.name if to.respond_to?(:name=)
  to.layer=from.layer if from.layer
  to.material=from.material if from.material

@@ -40,7 +40,9 @@ Değerler sahte örneklerdir (elle beklenen = test sonucu, SketchUp dışı). Sa
 | 08-R3 | Hakediş (yedek yol) | Miktar ağırlıklı | 7,6 t → 0 | A2 |
 | K35 | Kazık ayrı poz hakedişi | NN kesit etiketine kalıcı bağlanır (`pile_boq_group_codes_json`) | sayısal örnek raporda yok; geçiş öncesi kaymış dönemler geri hesaplanmaz | A2, ADR §4 |
 | K06 | Hakediş ilerlemesi (kopya öğe) | BIM kimlik onarımı kopyanın ilerlemesini `progress_inherited_json`'a taşır (onaysız) | kopyanın onaylı miktarı düşer; `previous_*` değişmez | A1 |
+| G1 (kod inceleme #2) | Hakediş ilerlemesi (kopyanın kopyası) | Önceki devralma kaydı olan kopya yeniden onarılınca `progress_items_json` silinir, durum 'Planlandı' olur; olay `progress_inherited_history_json`'a tek kayıt olarak eklenir, eski devralma alanları değişmez | ikinci kuşak kopyanın onaylı miktarı düşer (sahte nesne testinde onaylı oran 1 → 0); `previous_*` değişmez | G-a, g1_inherited_history |
 | F1 | Ayrıntılı Metraj (Excel) sayfası — kazık içi beton | ad uyuşmazlığı ("Kazık İçi Betonu" ↔ "Kazık İçi Beton") yüzünden fiziksel iç beton satırı silinmiyor, yedek satır aynı hacmi tekrar ekliyordu (0.51.4'ten beri); ad tek yerden alınır | fikstür: 35,377 → 26,251 m³, donatı 8,344 → 6,063 t; yalnız bu Excel sayfası, Keşif/Özet değişmez (golden 321/321 aynı) | F, f1_infill_excel |
+| G3-#13 | BK gömülme düşümü (özel durumlar) | kazık başına derinlik hatasında düşüm 0 yerine düz taban kuralıyla hesaplanır (depth_error UYARI); `registered_external` (Mevcut Elemanı Tanıt) kazıkta diş/bölge derinliği 0 alınır | yalnız hata durumu ve tanıtılmış kazık; golden fikstür değişmedi | G-a, g3_embed_errors |
 
 Plan G2'de metraj etkili sayılıp parti raporunda metraj etkisi yazılmayan: K42 (kazık formunda kot silinince çakım alanı temizlenir; C). K22 ADR'de "metraj: hayır" (prekast oluşturulmaz, aşama 1). Doğrulanmalı.
 
@@ -77,6 +79,9 @@ Hepsi yalnız eklenir; mevcut anahtar adı/tipi değişmez (G4). Eski modelde an
 | `link_support_state_json` | String | VK/BBK | K10 uyarısı yalnız kayıt varsa |
 | `formwork_net_error` | String | öğe | Uyarı yok |
 | `pile_boq_group_codes_json` | String | model | İlk açık kayıt işleminde (hakediş, fiyat, BOQ kalem, kazık poz modu) hakediş geçmişinden tohumlanır |
+| `progress_inherited_history_json` | String (JSON dizisi) | öğe (kopya) | Yok = boş geçmiş. Yalnız BIM Kimlik Onarımı'nda, önceki devralma kaydı (`progress_inherited_json` / `progress_inherited_status`) dolu kopyaya yazılır; kayıt: `v, at, source, from_uid, new_uid, items_json, status, prev_copied_from_uid, prev_uid_owner_pid`. Bozuksa onarım yapılmaz (G1) |
+
+Kaplama bağımlılık ağı (G8, kod inceleme #4): 0.51.5'te kaplama grupları (deck_topping) bağımlılık ağına girer. Kaplaması olan eski modelde, ilk MST işleminden veya modeldeki ilk değişiklikten sonra kaplama gruplarına dependency_parent_uids/ids ve dependency_schema='2.2', döşemelere dependency_child_uids/ids yazılır. Geometri ve metraj değişmez. Yazım o MST işleminin içinde ya da kullanıcının işlemine birleşen otomatik yenilemede (dependency_rebuild.rb:217-226) yapılır; Ctrl+Z ile o işlemle birlikte geri alınır. Model değişmiş görünür. Bu anahtarlar türetilmiş veridir; kimlik veya metraj kaynağı değildir. 0.51.4 ile açılınca davranış doğrulanmadı.
 Ayrıca donatılı prekast tanım anahtarına `rebar` parametresi (`pc-v1:` + `pc_rebar_json`) eklenir; donatısız parçaların anahtarı değişmez. Konumlu kalıp yüz anahtarı (`eski@i/n`) eski anahtarın yanında kullanılır.
 
 ## 4. Bilinen sınırlar / açık kalanlar
