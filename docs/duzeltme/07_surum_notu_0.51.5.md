@@ -1,23 +1,24 @@
-# 07 Sürüm notu — MST 0.51.5 TB1 FIX1 (mst-dokumantasyon, 02.11.2026)
+# 07 Sürüm notu — MST 0.51.5 TB1 FIX1 (mst-dokumantasyon, 02.11.2026; son durum güncellemesi 02.11.2026, kaynak `eaaa858`)
 
-Kaynaklar: `01_plan_proje_yonetici.md`, `02_adr_mimar.md`, `03`–`06` parti raporları, `docs\denetim\00_BIRLESIK_DENETIM_RAPORU.md`, `docs\denetim\Ajan_Raporlari\10_dokumantasyon.md`. Bu notta yazan her madde bu raporlardan alınmıştır; raporda olmayan sayı veya sonuç eklenmemiştir.
+Kaynaklar: `01_plan_proje_yonetici.md`, `02_adr_mimar.md`, `03`–`06` parti raporları, `09_parti_E_turkce.md`, `10_parti_F_uygulayici.md`, `11_metraj_kontrol.md`, `12_kod_inceleme.md`, `13_adr_parti_G.md`, `14_parti_G-a_uygulayici.md`, `15_parti_G-b_uygulayici.md`, `16_kabul_denetim.md`, `docs\denetim\00_BIRLESIK_DENETIM_RAPORU.md`, `docs\denetim\Ajan_Raporlari\10_dokumantasyon.md` ve ana oturumun 02.11.2026 son komut çıktıları (kaynak `eaaa858`). Bu notta yazan her madde bu kaynaklardan alınmıştır; kaynakta olmayan sayı veya sonuç eklenmemiştir. Bu belge yazılırken mst-dokumantasyon komut çalıştırmadı.
 
 ## 1. Sürüm kaydı
 
 | Sürüm | Kaynak | Tarih | Kurulu mu |
 |---|---|---|---|
 | 0.51.4 TB1 RUBY25 (temel) | Kullanıcı paketi `MST_v0.51.4_TB1_Ruby25_TEST.rbz`, SHA-256 `5684bec3375e57403c13b4c0476d8daa3547659a6b376a40274b53a303f2ac42` (02.11.2026 çalışma kopyasındaki kaynak RBZ'den). Çalışma kopyasında `docs\kaynak_MST_v0.51.4_TB1_Ruby25_TEST.rbz` | 28.10.2026 | 29.10.2026 denetiminde SketchUp 2020'de kurulu, 201/201 dosya aynı. Bugün yeniden doğrulanmadı |
-| 0.51.5 TB1 FIX1 | Çalışma kopyası `mst_tb1` (git), parti commit'leri: A1 `25da577`, A2 `7244973`, B `38a7946`, C `6e48ee8`, D `8da4ec1`, E `f7046b5`, F `a31e168`, satır sonu `98222c5`, G arayüz `c39c52c`, G-a `7e2e9c7`, G-b `eaaa858` | 02.11.2026 | Hayır. RBZ `distMST_v0.51.5_TB1_FIX1_TEST.rbz`, 201 dosya, 1.177.336 bayt, SHA-256 `454daf8ed3d5298e694d55689268f451bd950e17111188b040dbaf1842167bbe`; src ile 201/201 aynı; iki üretimde aynı SHA |
-| mst_tb1_integration_runner 1.1.0 | Kullanıcı test eklentisi (ayrı paket) | — | 29.10.2026'da kurulu; 0.51.4'ü bekler |
+| 0.51.5 TB1 FIX1 | Çalışma kopyası `mst_tb1` (git), parti commit'leri: A1 `25da577`, A2 `7244973`, B `38a7946`, C `6e48ee8`, D `8da4ec1`, E `f7046b5`, F `a31e168`, satır sonu `98222c5`, G arayüz `c39c52c`, G-a `7e2e9c7`, G-b `eaaa858` (son kaynak) | 02.11.2026 | Hayır (SketchUp'ta kurulmadı, denenmedi). RBZ `dist\MST_v0.51.5_TB1_FIX1_TEST.rbz`, 201 dosya, 1.177.336 bayt, SHA-256 `454daf8ed3d5298e694d55689268f451bd950e17111188b040dbaf1842167bbe`; src ile 201/201 aynı; iki üretimde aynı SHA; 0.51.4 paketine göre eklenen/çıkan dosya 0; `unzip -t` hatasız (ana oturum çıktısı) |
+| 0.51.5 önceki paket (geçersiz) | `dist\gecersiz_e1ad035f\` | 02.11.2026 | Hayır. Geçersiz; kurulmamalı, kabulde kullanılmamalı (yerine geçti: yukarıdaki `454daf8e…` paketi) |
+| mst_tb1_integration_runner 1.1.0 | Kullanıcı test eklentisi (ayrı paket) | — | 29.10.2026'da kurulu; 0.51.4'ü bekler (§5) |
 
 Yerel `mst` deposu (0.52.0-dev1) ayrı sürüm hattıdır; bu düzeltmeler orada yoktur, oradaki değişiklikler burada var sayılmaz.
 
-Sürüm adları: `VERSION = '0.51.5'` (`qto_workspace.rb:4`), `MST_BUILD = 'v0.51.5 TB1 FIX1'` (`main.rb:27`). Durum: bu not yazılırken iki satır hâlâ 0.51.4 değerindeydi; değişiklik ana oturum/uygulayıcı tarafından yapılacak (Parti D raporu).
+Sürüm adları: `VERSION = '0.51.5'` (`qto_workspace.rb:4`), `MST_BUILD = 'v0.51.5 TB1 FIX1'` (`main.rb:27`). Durum: koddadır (Parti E `f7046b5`; 16 H2a "karşılandı", kaynak metni). *(Yerine geçti: bu notun ilk yazımındaki "iki satır hâlâ 0.51.4 değerindeydi" ifadesi artık geçerli değil.)* Rozetler ve pencere başlığının SketchUp'ta görünümü denenmedi (08, adım 0.1).
 
 ## 2. Değişiklik notu
 
 ### 2.1 Metraj sonucunu değiştirenler
-Değerler sahte örneklerdir (elle beklenen = test sonucu, SketchUp dışı). Sahte fikstür golden-master (SketchUp dışı, 02.11.2026, `ruby tools/golden/run_golden.rb 872d3a3`, kaynak HEAD `8da4ec1`): 44 farklı anahtarın tamamı K36, K50, 08-R6 (§2.1), K08 gösterimi (§2.4) ve K33/K39 bilgi satırlarıyla (§2.2) eşlendi; sayısal farklar beklenen değere eşit; beklenmeyen 0 (`docs\duzeltme\golden\`). Fikstürün kapsamadığı (eylem sonucu oluşan) kalemler: K57, K58, K60, K63, K09, K53, K56, K17, DXF birim, K55, 08-R3, K35 geçmişli eşleme, K06, eğik kazık elipsi (oluşturma). SketchUp içi golden-master (08 satır 0.3) yapılmadı.
+Değerler sahte örneklerdir (elle beklenen = test sonucu, SketchUp dışı). Sahte fikstür golden-master (SketchUp dışı) zinciri parça parça yapıldı (§6): 872d3a3 ↔ 8da4ec1 44 farklı anahtarın tamamı K36, K50, 08-R6 (§2.1), K08 gösterimi (§2.4) ve K33/K39 bilgi satırlarıyla (§2.2) eşlendi, beklenmeyen 0; E, F ve G-a adımlarında fark 0; 7e2e9c7 ↔ eaaa858 (genişletilmiş fikstür) 45 fark, beklenmeyen 0 (`docs\duzeltme\golden\`). **Uçtan uca 0.51.4 ↔ eaaa858 karşılaştırması yok**: genişletilmiş fikstürün CSV, Excel (Özet/Ayrıntılı Metraj), REBAR izlemesi ve hakediş bölümlerinin 0.51.4 karşılığı üretilmedi (0.51.4 kural seti genişletilmiş fikstürle çalıştırılmadı; fark CSV'sindeki `eski_0514` sütun adı bu karşılaştırmada yanıltıcıdır, 15 ve 16). Fikstürün kapsamadığı (eylem sonucu oluşan) kalemler: K57, K58, K60, K63, K09, K53, K56, K17, DXF birim, K55, 08-R3, K35 geçmişli eşleme, K06, eğik kazık elipsi (oluşturma). SketchUp içi golden-master (08 satır 0.3) yapılmadı.
 
 | Bulgu | Etkilenen kalem | Değişiklik | Örnek fark (0.51.4 → 0.51.5) | Kaynak |
 |---|---|---|---|---|
@@ -56,6 +57,9 @@ Plan G2'de metraj etkili sayılıp parti raporunda metraj etkisi yazılmayan: K4
 - K33/K39/K40 BOQ "BİLGİ" satırları: fiyatsız, toplam ve hakediş/Excel/CSV dışı (A2, C). K38 icmal ↔ cetvel uyarısı; K34 eşlenmemiş donatı notu.
 - Mükerrer UID varsa revizyon ve hakediş kaydı öncesi soru (A1).
 - Revizyon arşivi >20 kayıt veya >5 MB uyarısı (A1).
+- G3-#13 (G-a): Model Kontrolü'nde BK gömülme düşümü hesaplanamazsa HATA "BK gömülme düşümü hesaplanamadı (…); BK betonu brüt alındı."; kazık başına derinlik hatasında UYARI; kazık orijini denetimi UYARI "kazık orijini kazık başı merkezi olmayabilir; gömülme derinliği doğrulanmalı" (bilinen sınır: iç içe ötelenmiş kapta yanlış uyarı olası).
+- G4 (G-b): ayrı bordür öğesi bağlı DS2 döşemede (`curb_volume_m3` > 0) çift sayım UYARISI (§2.1).
+- #8 (G-a): Model Kontrolü sağlık kutularına bağlı olmayan kontrol adları gruplara bağlandı (+ 'Kanal Cebi').
 
 ### 2.3 Düzeltmeler
 - Revizyon (K02, K03, K26): kırpma yok; numara max Rev.NN+1; fark yoksa kayıt yok; tek işlem; hata → geri alma + Türkçe ileti. Donatı geçmişi kırpılmaz.
@@ -64,9 +68,35 @@ Plan G2'de metraj etkili sayılıp parti raporunda metraj etkisi yazılmayan: K4
 - Kopya UID (K06): `uid_owner_pid`, `copied_from_uid`; revizyon farkında PID eşleşmesi; tretuvar asıl öğe tercihi.
 - Undo (B): K11 ikinci commit kaldırıldı; K12 transparent işlemde commit + ileti; K13 rescue'da abort; K15 toplu prekast tek işlem (yarıda kalırsa tümü geri alınır); K14 dolgu yazımı; K62 Malzeme Ata / Canlı QTO tek işlem.
 - K07 kaplama bağımlılık ağında (yalnız öteleme), K16, K18, K29 (Component BK yüz aracı, aks adı kaçışı, 9 callback), K61 tam dönüşüm zinciri.
+- F2 (F): tanımsız JS işlevleri (`loadSelectedBimPile`, `setDrillingEditor`, `drillingEditError`) çağrıları `typeof` korumalı; işlev yoksa dialog içinde Türkçe yönlendirme. Callback'ler ve Ruby yöntemleri silinmedi.
+- G-a: G2 `mst_copy_dicts!` sahiplik devri yalnız kaynak PID eşleşirse; G3-#11 paylaşılan Component BK'da çizimden donatı silmeden önce "yalnız bunu ayır / iptal" sorusu (`mst_dr_remove_ui`, `mst_rt_upgrade_ui`); G3-#12 PID'siz eski revizyon kayıtlarında eşleme (`u~PID-n` / `u~REC-n`); #1 bozuk dolgu kesit zinciri (`rockfill_section_chain_json`) kaydetme/otomatik kayıtta ezilmez, yüklemede uyarı; #6 araç çubuğu "donatıyı sil" yolunda bozuk kayıt reddi Türkçe ileti; #7 bozuk `pile_boq_group_codes_json` yalnız AYRI POZ modunda kaydı engeller; #10 toplu prekast hatasında Türkçe ileti.
+- G-b: G7 bağımlılık grafiği işlemde bir kez kurulur (ölçüm: stamp n=200 201 → 2 çağrı, 0,537 → 0,026 s; repair n=209 417 → 2, 1,140 → 0,013 s; son durum imzaları birebir; sahte nesne ölçümü); ara '2.1' şema yazımı kaldırıldı. 'ALL' kazık kapsamı: "Projedeki tüm kazıklar" seçeneği (varsayılan değişmedi: ACTIVE).
 
 ### 2.4 Arayüz (C)
 K24 `skp:` → `sketchup.<ad>()` (20 yer); K25 kronman hata metni; K01 Eleman Düzenle yalnız önizleme; K31 eski menü Keşif/BOQ; K45 kapatılan araç çubuğu geri gelmez; K42/08-R1 kot silinince çakım; K37 kazık önizleme = Kazık QTO; K08 Pano Kaplama satırı; K41 boru çeliği/donatı/dolgu ayrı sütun; K48 Türkçe iletiler.
+
+### 2.5 Arayüz — Türkçeleştirme ve 0.51.5 rozetleri (Parti E, `f7046b5`)
+Dayanak: kullanıcı kararı 02.11.2026 "0.51.5 çekilsin, bütün açıklamalar isimler her şey türkçe olsun" (09). 33 dosya ±443 satır; golden 321 anahtar, farklı 0 (metin işi metrajı değiştirmedi; sahte fikstür).
+- Terimler: Marine Structures Tools → Deniz Yapıları Araçları (MST); BOQ → Keşif; QTO → Metraj; Professional QTO/Excel → Ayrıntılı Metraj (Excel); Model Audit → Model Kontrolü; Element Library → Eleman Kütüphanesi; Identity Repair → Kimlik Onarımı; Dependency Engine → Bağımlılık Motoru; Data Core → BIM Veri Çekirdeği; Snapshot → Anlık Kayıt; Offset → Kaçıklık; Override → Özel Değer.
+- Excel sayfa adları: Özet, Ayrıntılı Metraj, Eleman Kütüphanesi, Kazık Metrajı, Keşif USD, Fore Kazık, Taş Dolgu.
+- CSV başlıkları ASCII Türkçe: Kategori, Tip, Malzeme/Sinif, Adet, Boy_m, Beton_m3, Kalip_m2, Celik_t (BOM'suz UTF-8 nedeniyle); G5 ile sonuna `Donati_t` eklendi (§2.1).
+- Türkçeleştirilmeyen (bilinçli istisna, kullanıcı onayı bekliyor; §4.1): araç çubuğu adları, `EXTENSION.creator`, modelde saklanan grup adları, aksesuar seçenek değerleri, JSON kataloglar, SketchUp terimleri (Component/Group/Tag), teknik kısaltmalar; README arşiv başlığı İngilizce (16 H2b).
+- Davranış etkisi: §2.7.
+
+### 2.6 Arayüz — G arayüz partisi (`c39c52c`)
+Bu partinin ayrı raporu yoktur (16 §Boşluklar); içerik ana oturum bildirimi ve kaynak metninden yazılmıştır.
+- K34 notu (metraj kontrolü D, 11): hakediş REBAR satırındaki "Hakedişe eleman bazında girmeyen donatı" notu nedenleri arasında kazık içi beton donatısını (parametreli / BIM kafes) da yazar; G-b ile "Bordür / tretuvar donatısı eleman ilerlemesiyle ödenir" eklendi (`boq_pro.rb:523`). Metin değişikliği; REBAR tavanı değişmez.
+- "Kazık İçi Beton" yazımı tek terim: `src` içinde "Kazık İçi Betonu" kalmadı (16 H4d, kaynak metni; F'de açık kalan `main.rb:4192` ve `unified_catalog.json` yazımı). SketchUp görünümü denenmedi.
+- KAPLAMA anahtarı: pano Toplam Beton kırılımında `KAPLAMA` (alt yazı "BK + PD + DOSP + KAPLAMA + KRONMAN + ÇBK", `ui.html:1136`); metraj etkisi G6 altında (§2.1).
+
+### 2.7 Davranış değişiklikleri (kullanıcıyı/dış araçları etkileyebilir)
+- **Keşif / Metraj CSV (G5):** 9. sütun `Donati_t` eklendi; sütun sayısını 8 kabul eden dış araç hata verebilir. `Celik_t` anlamı değişti: boru çeliği (önceden ham `weight_kg`, çoğu modelde 0). Beton_m3 BK için net; iç beton tek satır; yeni satır türleri ("Keşif ek kalemi", `bored_pile`). Ayrıntı §3 sonu.
+- **Excel sayfa adları (E):** Türkçe adlar (§2.5); sayfa adına göre okuyan makro/bağlantılar etkilenebilir.
+- **Eklenti adı (E):** "Deniz Yapıları Araçları (MST)". Extension Manager'daki etkin/pasif durumu ve Extensions menü yoluna atanmış kısayollar sıfırlanabilir (doğrulanmadı).
+- **G4 hakediş etkisi:** önceki dönemlerde onaylanmış ayrı bordürlerin donatısı ilk 0.51.5 hakedişinde bu dönem artışı olarak görünür; `previous_*` değişmez (fikstür +0,18 t).
+- **G6:** pano ve Excel Özet "Toplam Beton" kaplamayı içerir; önceki raporlarla karşılaştırmada fark kaplama hacmidir.
+- **F1:** Ayrıntılı Metraj sayfasında kazık iç betonu tek satır; önceki Excel çıktılarıyla karşılaştırmada iç beton satırı azalır.
+- Önceden kayıtlı (B): K15 toplu yerleşim yarıda kalırsa tümü geri alınır; K62 Canlı QTO hatasında son sonuç kaydedilmez; bozuk kayıtta kaydetme reddedilir (§4'te de geçer).
 
 ## 3. Yeni attribute anahtarları ve eski modellerle uyumluluk
 Hepsi yalnız eklenir; mevcut anahtar adı/tipi değişmez (G4). Eski modelde anahtar yoksa eski davranış veya "uyarı yok" geçerlidir.
@@ -92,22 +122,41 @@ Keşif / Metraj CSV (G5): ilk 8 sütun (Kategori, Tip, Malzeme/Sinif, Adet, Boy_
 ## 4. Bilinen sınırlar / açık kalanlar
 - Uygulanmadı (plan): K30 (ölü kod silinmez), K32, K43 (kullanıcı kararı), K44 (dalgakıran tanım belgesi yok), K49 ve TIN/boq_mapping O(n²) (ölçüm yok), derz harcı ve 08-R4 (belge gerekli), menfez–gömülme kesişimi (ertelendi). K46: hata bulunmadı, değişiklik yok (A2).
 - Ara/kısmi çözüm: K33 (poz eşlemesi belge gerekli), K34, K38 (sözleşme kuralı gerekli), K39, K10 (yeniden kurma kuralı belgesi yok), K52, K54, K23 (yalnız uyarı), K22 aşama 2 (yerel eksende boy) açık.
-- Açık belgeler: poz listesi/sınıf eşlemesi (K33), fiyat farkı kuralı (K38), tapa ve derz harcı tarifi (K39), dalgakıran tanımı (K44), paftada ankraj (R4), prekast pursantajı; `mst_dr_clear!` pursantaj oranı belge gerekli. K43 ve K48 terim listesi kullanıcı kararı (denetim §7 önerileri onaylanmadı).
+- Açık belgeler: poz listesi/sınıf eşlemesi (K33), fiyat farkı kuralı (K38), tapa ve derz harcı tarifi (K39), dalgakıran tanımı (K44), paftada ankraj (R4), prekast pursantajı; `mst_dr_clear!` pursantaj oranı belge gerekli. K43 ve K48 terim listesi kullanıcı kararı (denetim §7 önerileri onaylanmadı). *(Düzeltme 02.11.2026, 16: K43 terim sorunu değildir, aks işlevlerine erişim sorunudur — §4.1. K48 terim listesi Parti E ile kullanıcı kararına dayanarak uygulandı — §2.5.)*
 - Geri getirilemez: 0.51.4'te önceden ezilmiş `revision` / `type_id` değerleri; K35 geçiş öncesi kaymış dönemler; silinen grubun numara boşluğu.
 - K51 konumsuz eski kayıt eski anahtara düşer; K07 `parent_uid` dolu ama eşleşmiyorsa `parent_deck_id`'ye düşülmez; kaplama önizlemede "PID-n"; K23 çok örnekli tanımda zincir durur; otomatik paftada L= metre kabulü; K53 eğim genişliği yeniden hesaplanmaz; 08-R6 kısmi kapalı alt yüzde eski kural.
 - Doğrulanmamış varsayımlar (ADR): `make_unique` tanım özniteliklerini kopyalıyor mu; kazık grup orijini başlık merkezi mi.
-- C kapsam dışı notları: `main.rb` ~8941/8964 'Kazık İçi Betonu' ↔ 'Kazık İçi Beton' (Detailed QTO'da çift satır olasılığı, doğrulanmadı); `ui.html` ~1707 boş değer forma yazılmıyor (önceki kazığın kotu kalabilir); `ui.html` ~1965 kullanılmayan `drillingEditorToken`. B ayrı önerileri: VK temas BK formwork rescue nil, `boq_pro.rb:376` hata yalnız puts, `mst_schedule.rb:274` ve `mst_v50_piles.rb:459` işlem dışı yazım, U6 okuma işlevleri yazma, `element_visible_id` kaplama. K35 performansı ölçülmedi.
-- Davranış değişikliği: K15 toplu yerleşim yarıda kalırsa tümü geri alınır; K62 Canlı QTO hatasında son sonuç kaydedilmez; bozuk kayıtta kaydetme reddedilir.
-- `ui.html` satır içi betiklerden 1'i `node --check`'te FAIL (HEAD'de de aynı; çıkarma yöntemi kaynaklı, C raporu).
+- C kapsam dışı notları: `main.rb` ~8941/8964 'Kazık İçi Betonu' ↔ 'Kazık İçi Beton' (Detailed QTO'da çift satır olasılığı, doğrulanmadı) — **giderildi (0.51.5, F1 `a31e168` + G arayüz `c39c52c`)**: çift satır F1 ile düzeltildi (sahte nesne testi f1_infill_excel), yazım tek terim (src içinde "Kazık İçi Betonu" 0); SketchUp'ta denenmedi (08). `ui.html` ~1707 `mstLoadCommonPileForm` boş değer forma yazılmıyor (önceki kazığın kotu kalabilir) — açık. `ui.html` ~1965 kullanılmayan `drillingEditorToken` — açık (K30 kapsamı). B ayrı önerileri: VK temas BK formwork rescue nil, `boq_pro.rb:376` hata yalnız puts, `mst_schedule.rb:274` ve `mst_v50_piles.rb:459` işlem dışı yazım, U6 okuma işlevleri yazma, `element_visible_id` kaplama — açık. K35 performansı ölçülmedi.
+- Davranış değişikliği: K15 toplu yerleşim yarıda kalırsa tümü geri alınır; K62 Canlı QTO hatasında son sonuç kaydedilmez; bozuk kayıtta kaydetme reddedilir. (Tüm davranış değişiklikleri: §2.7.)
+- `ui.html` satır içi betiklerden 1'i `node --check`'te FAIL (HEAD'de de aynı; çıkarma yöntemi kaynaklı, C raporu). *(Sonraki durum: G-a/G-b ve son kaynak eaaa858'de `check_inline_js` 20/20; eski çıkarma yöntemiyle yeniden çalıştırılmadı.)*
+
+### 4.1 Kabul denetimi (16) boşlukları ve sonraki açık kalanlar (02.11.2026, kaynak eaaa858)
+- **K43**: terim sorunu değil; aks organizasyonu / elle aks işlevlerine (`main.rb:9199`, `9278`) arayüzden erişim sorunu. Hiçbir partide açılmadı — açık, kullanıcı kararı.
+- **K30 ölü kod**: gizli `pile_mfg_edit` paneli, kullanılmayan callback'ler, `drillingEditorToken`. "Tüm önerileri yap" talimatı silme onayı sayılmaz (CLAUDE.md üç koşulu: çağrı araması, kayıtlı veri etkisi, kullanıcı onayı) — açık, kullanıcı kararı.
+- **K32** (`ui.html:325` inset/min() yedek CSS) — açık. **K49** yalnız bağımlılık grafiği kısmı yapıldı (G7). **Menfez–gömülme kesişimi** uyarısı yapılmadı.
+- **B ayrı önerileri** açık: VK temas BK formwork rescue nil; `boq_pro.rb:376` send_boq hatası yalnız puts; `mst_schedule.rb:274` ve `mst_v50_piles.rb:459` işlem dışı yazım; U6 okuma işlevlerinin yazması; `element_visible_id` kaplama.
+- **A2 açık önerileri**: K35 performansı ölçülmedi; kafes donatısı yönelimi değişince açıklık güncellemesi.
+- **C**: `mstLoadCommonPileForm` boş değeri forma yazmıyor (önceki kazığın kotu kalabilir) — açık.
+- **DXF birimi**: birim tanımsızken iki farklı varsayılan (m / cm) var (11, 16) — açık; DXF varsayılanı için belge/kullanıcı kararı gerekli.
+- **Triage dışı 08 maddeleri**: 08 R7, sarmalayıcı Component ×N, v034 tretuvar köşe bindirmesi — triage'a girmedi, açık.
+- **K59 #3 ADR sapması**: ADR 02 §6 "rebar_t pursantaj kuralının değeri yazılır" der; kod (`main.rb:12496`) hata yolunda `rebar_t`'yi siler. Metraj QuantityService ile doğru; revizyon imzası etkisi (`rebar_t` `REVISION_PARAMETER_KEYS` içinde, `revision_signatures.rb:5`) ele alınmadı. Kullanıcı kararı bekliyor (mevcut davranış + ADR düzeltmesi ya da kod değişikliği). Ayrıntı: `14_parti_G-a_uygulayici.md` "ADR sapması".
+- **Türkçe istisnaları**: §2.5'teki bilinçli istisnalar ve README arşiv başlığı — kullanıcı onayı bekliyor.
+- **G-a bilinen sınırları**: orijin z denetimi kap çerçevesinde (iç içe ötelenmiş kapta yanlış uyarı olası); kazık Group↔Component dönüşümü sahiplik açısından incelenmedi; bozuk kod/dolgu kaydı için onarım aracı yok.
+- **G-b bilinen sınırları**: G6'da sınıfı '-' olan öğe varsa sınıf satırları + kaplama ≠ toplam; CSV "Kazık içi donatı" ek satırı testsiz.
+- **F açık**: eski foraj düzenleyicisinin "Projedeki tüm kazıklar" kapsamı (10). G-b'de `mst_resolve_pile_targets` için 'ALL' seçeneği "Projedeki tüm kazıklar" eklendi (15); bunun F'deki açık noktayı kapatıp kapatmadığı raporlarda yazılmadı — doğrulanamadı. Gizli `pile_mfg_edit` paneli ölü kod değerlendirmesinde (K30).
+- **Rapor eksikleri**: K47 (D) ve G arayüz partisi `c39c52c` için ayrı parti raporu yok. K40/K23 ara çözüm olarak sınıflanmalı (16).
+- **Golden**: uçtan uca 0.51.4 ↔ eaaa858 karşılaştırması yok (§2.1, §6).
+- **Kullanıcı kararları listesi** (16): ölü kod silme; K43; K32; Türkçe istisnaları; K59; B/A2 açık öneriler; belgeler (poz eşlemesi, fiyat farkı, tapa, derz, R4, REBAR_DEFAULTS, bordür oranı, DXF varsayılanı, K22 aşama 2, K10); davranış değişiklikleri (§2.7); 0.51.5 runner.
 
 ## 5. Runner uyarısı
 Kurulu `mst_tb1_integration_runner` 1.1.0, 0.51.4 sürüm adını ve 0.51.4 dosya SHA-256 manifestini bekler. 0.51.5'te bu kontroller **beklenen şekilde başarısız** olur; paket hatası sayılmaz. Yöntem adı kontrolleri korunmuştur (G4). Runner için ayrı RBZ üretilmedi (ana oturum kararı, seçenek b).
 
-## 6. Kanıt durumu
+## 6. Kanıt durumu (son kaynak eaaa858; ana oturum çıktıları, 02.11.2026)
 | Düzey | Durum |
 |---|---|
-| Statik | Parti C sonrası ana oturum çıktısı (02.11.2026): ruby -c hatasız, Ruby 2.5 dilbilgisi 66 dosya 0 hata, `node --check` OK, `src` içinde `skp:` = 0. Sürüm adı değişikliği ve paketleme sonrası yeniden çalıştırılmalı. Bu belge yazılırken çalıştırılmadı |
-| Sahte nesne | A1 4, A2 9, B 4 test; tümü "0 kaldı" (parti raporları). Yalnız mantığı sınar |
-| Golden-master BOQ/QTO (0.51.4 ↔ 0.51.5) | Sahte fikstür (SketchUp dışı, 872d3a3 ↔ 8da4ec1): 44 fark, beklenmeyen 0 (§2.1 notu). SketchUp içi CSV karşılaştırması yapılmadı; metrajı değiştiren işler "kabul bekliyor". Metin değişikliğinden sonra yeniden çalıştırılmalı |
-| SketchUp 2020 kabulü | Denenmedi. Liste: `08_sketchup_kabul_listesi_0.51.5.md` |
+| Statik | `ruby -c` 66/66 hatasız; r25check files=66 ruby25_failures=0; check_inline_js 20/20; check_chromium64 hits=0. Paket: `dist\MST_v0.51.5_TB1_FIX1_TEST.rbz` iki üretimde aynı SHA-256 (`454daf8e…167bbe`), paket ↔ src 201/201, 0.51.4 paketine göre eklenen/çıkan 0, `unzip -t` hatasız. *(Yerine geçti: önceki "Parti C sonrası … yeniden çalıştırılmalı" satırı.)* |
+| Sahte nesne | 34 test dosyası, hepsi "0 kaldı" (a1/a2/b/c/f/g). Yalnız mantığı sınar; SketchUp davranışını kanıtlamaz |
+| Golden-master BOQ/QTO (sahte fikstür, SketchUp dışı) | Zincir parça parça: 872d3a3 ↔ 8da4ec1 44 fark / 0 beklenmeyen; E (8da4ec1 ↔ E çalışma ağacı) 321 anahtar, fark 0; F (f7046b5 ↔ F çalışma ağacı) 321/321 aynı; G-a (36afd32 ↔ G-a çalışma ağacı) 321/321 aynı; 7e2e9c7 ↔ eaaa858 (genişletilmiş fikstür) eski=425 yeni=432 aynı=400 farklı=45 beklenmeyen=0. **Uçtan uca 0.51.4 ↔ eaaa858 yok**: CSV, Excel Özet/Ayrıntılı Metraj, REBAR izlemesi ve hakediş bölümlerinin 0.51.4 karşılığı üretilmedi; bu bölümlerdeki 0.51.4 → 0.51.5 farkı fikstürle kanıtlı değil. SketchUp içi CSV karşılaştırması yapılmadı; metrajı değiştiren işler "kabul bekliyor" |
+| SketchUp 2020 kabulü (kullanıcı) | Yapılmadı / denenmedi. Liste: `08_sketchup_kabul_listesi_0.51.5.md` |
 | Görsel | Yok |
+| Ajan değerlendirmesi | `16_kabul_denetim.md`: genel "kısmen karşılandı" (ajan incelemesi; kullanıcı onayı değil) |

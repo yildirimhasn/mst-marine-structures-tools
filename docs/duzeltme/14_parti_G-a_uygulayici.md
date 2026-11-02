@@ -6,3 +6,9 @@ Yapılmadı: #3 K59 rebar_t — ADR'nin dayandığı "infill oluşturma yolundak
 Bilinen sınırlar: orijin z denetimi kap çerçevesinde (iç içe ötelenmiş kapta yanlış uyarı olası); kazık Group↔Component dönüşümü sahiplik açısından incelenmedi; bozuk kod/dolgu kaydı için onarım aracı yok (ileti yol gösterir).
 Metraj: G1 hakediş (ikinci kuşak kopya onaysız); G3-#13 özel durumlar (07 §2.1). Diğerleri değiştirmez.
 SketchUp kabul: G1 iki kuşak kopya; #11 üç kopyalı Component BK donatı silme (Hayır → değişiklik yok; Evet → diğerlerinde donatı kalır; tek Ctrl+Z); #13 Model Kontrolü satırları; #1 bozuk dolgu kaydı ezilmez; #7 TEK POZ modunda hakediş kaydı; #10 toplu prekast hata iletisi; #8 sağlık kutuları.
+
+## ADR sapması (mst-dokumantasyon, 02.11.2026; 16 H4a üzerine eklendi)
+- #3 K59 `rebar_t`: ADR 02 §6 (`02_adr_mimar.md:40`) hata durumunda "rebar_t pursantaj kuralının değeri — infill oluşturma yolundaki yazımdan birebir" yazılacağını söyler; kod (kod inceleme #3, `main.rb:12496`) hata yolunda `rebar_t`'yi siler. Bu raporun "Yapılmadı" maddesine göre ADR'nin dayandığı oluşturma yolu yazımı kodda yoktur; ADR 02 §6 metni mevcut kodla çelişir ve ADR'de düzeltme kaydı yoktur.
+- Ele alınmayan etki: `rebar_t` `REVISION_PARAMETER_KEYS` içindedir (`revision_signatures.rb:5`); hata yolunda silinmesi öğenin revizyon parametre imzasını değiştirir (kod inceleme #3: "revizyon imzası değişir"). Bu etki (revizyon farkı / yeni kayıt oluşması) incelenmedi ve test edilmedi.
+- Metraj: QuantityService ile doğru (bu rapor); sahte nesne testi mevcut davranışı belgeliyor. SketchUp'ta denenmedi.
+- Durum: açık, **kullanıcı kararı bekliyor** (16 "Kullanıcı kararları" 5: mevcut davranış korunup ADR 02 §6 düzeltilsin mi, yoksa kod ADR'ye uydurulsun mu). Karar verilmeden ADR veya kod değiştirilmez.
