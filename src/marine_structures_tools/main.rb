@@ -2205,6 +2205,7 @@ def mst_scan_batch(model=Sketchup.active_model)
   r
  ensure
   @mst_scan_batch_on=false;@mst_scan_cache=nil;@mst_scan_cache_ids={};@mst_type_sync_state=nil;@mst_def_cache=nil
+  @mst_infill_children_cache=nil   # v0.51.5 P4: kazık iç beton çocukları önbelleği (yalnız okuma batch'inde kurulur)
  end
 end
 
@@ -2222,6 +2223,7 @@ def mst_read_batch(model=Sketchup.active_model)
    yield
   ensure
    @mst_read_batch_on=nil
+   @mst_infill_children_cache=nil   # v0.51.5 P4
   end
  end
 end
@@ -10065,7 +10067,9 @@ def revision_payload
 end
 
 def revision_send(dialog=@d)
+mst_read_batch do   # v0.51.5 P4: salt okuma, tek model taraması
   dialog.execute_script("revisionLoaded(#{JSON.generate(revision_payload)});") if dialog
+end # mst_read_batch
 rescue=>error
   dialog.execute_script("revisionError(#{JSON.generate(error.message)})") if dialog
 end

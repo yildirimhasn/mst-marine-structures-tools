@@ -134,11 +134,13 @@ module MAG
     end
 
     def send_boq_mapping(dialog,message='')
+    mst_read_batch do   # v0.51.5 P4: salt okuma, tek model taraması (gömülü ÖBF eşleştirme sayfası)
       map=boq_project_mapping; rows=boq_rows(true)
       data={message:message,model_token:Sketchup.active_model.object_id.to_s,sources:boq_mapping_templates.map{|r|{key:r[4],name:r[1],unit:r[2]}},
         rows:rows,mappings:map,records:BOQLibrary.load.map{|r|r.slice('id','code','name','unit','currency','unit_price','rate_description')},
         project:Sketchup.active_model.get_attribute(DICT,'project_name','')}
       dialog.execute_script("setMapping(#{JSON.generate(data)});")
+    end # mst_read_batch
     end
 
     def show_boq_mapping

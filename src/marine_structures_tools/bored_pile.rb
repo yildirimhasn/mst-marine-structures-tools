@@ -91,10 +91,12 @@ class BoredPilePlacement
  def onCancel(reason,view);Sketchup.active_model.select_tool(nil);end
 end
 def bp_send(message='')
+mst_read_batch do   # v0.51.5 P4: salt okuma, tek model taraması (gömülü Fore Kazık sayfası)
  return unless @bp_dialog
  d={types:bp_types,defaults:bp_defaults,rows:bp_rows,message:message,
   project:Sketchup.active_model.get_attribute(DICT,'project_name',''),scopes:qto3_snapshot[:scopes],model_token:Sketchup.active_model.object_id.to_s}
  @bp_dialog.execute_script("bpLoaded(#{JSON.generate(d)})")
+end # mst_read_batch
 end
 def show_bored_pile
  if @bp_dialog && @bp_dialog.visible?;@bp_dialog.bring_to_front;bp_send;return;end

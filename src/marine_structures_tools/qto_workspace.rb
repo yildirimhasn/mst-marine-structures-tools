@@ -66,14 +66,34 @@ module MAG
     end
 
     # Pure reads: reports never stamp cached attributes onto the model.
+    # v0.51.5 P4: yalnız okuma batch'inde (mst_read_batch; yazma batch'inde ve batch dışında değil) sonuç kazık başına bir kez
+    # taranır — anahtar Group'ta kazığın persistent_id'si, Component'te tanımın persistent_id'si (aynı tanımı paylaşan kazıklar
+    # aynı çocukları görür). Önbellek donmuş kopyadır; her çağrı yeni dizi alır, geçersizleşen öğeler süzülür. Batch bitince silinir.
     def pile_qto_infill_children(pile)
+      rb = @mst_read_batch_on
+      key = nil
+      if rb
+        key = if pile.respond_to?(:entities)
+          [:e, pile.persistent_id]
+        elsif pile.respond_to?(:definition)
+          [:d, (pile.definition.persistent_id rescue nil)]
+        end
+        key = nil if key && key[1].to_i <= 0
+        if key
+          @mst_infill_children_cache = {rb: rb, map: {}} unless @mst_infill_children_cache && @mst_infill_children_cache[:rb] == rb
+          hit = @mst_infill_children_cache[:map][key]
+          return hit.select(&:valid?) if hit
+        end
+      end
       ents = if pile.respond_to?(:entities)
         pile.entities
       elsif pile.respond_to?(:definition)
         pile.definition.entities
       end
       return [] unless ents
-      ents.select { |e| e.respond_to?(:get_attribute) && e.get_attribute(DICT, 'element_type', '') == 'pile_infill_concrete' }
+      out = ents.select { |e| e.respond_to?(:get_attribute) && e.get_attribute(DICT, 'element_type', '') == 'pile_infill_concrete' }
+      @mst_infill_children_cache[:map][key] = out.dup.freeze if key
+      out
     end
 
     def pile_qto_concrete(pile)
