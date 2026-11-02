@@ -21,7 +21,9 @@ var FLOW=[
  {n:10,key:'boq', title:'Keşif / Hakediş', page:'boq', desc:'ÖBF iş kalemleri, birim fiyat, revizyon ve hakediş.', need:['qto'], subs:[{title:'Revizyonlar', page:'revision', extra:'revisionMarkStale()'},{title:'Hakediş / İlerleme', page:'progress', extra:'progressRefresh()'}]}
 ];
 var TOOLS=[
- {key:'editor', title:'Eleman Düzenle', page:'editor', desc:'Seçili BIM elemanının kimliği, ilişkileri ve kontrollü güncelleme.'},
+ /* 02.11.2026: eski "Eleman Düzenle / Eleman Düzenleyici" girişi kaldırıldı; yerine Çalışma Alanı. #editor sayfası DOM'da gizli kalır (Ruby setEditorSelection vb. çağrıları için).
+    head:false — sayfanın kendi başlığı ve "Modeli Yenile" düğmesi korunur (std başlık .module-title'ı gizlerdi). */
+ {key:'project_workspace', title:'Çalışma Alanı', page:'project_workspace', head:false, extra:'MSTProjectWorkspace.refresh()', desc:'Proje ağacı, seçimin özellikleri, modelde gösterme ve düzenleme.'},
  {key:'accessories', title:'Aksesuarlar', emb:'accessories', desc:'Baba, usturmaça, merdiven vb. ekipman çizelgesi.'},
  {key:'maint', title:'Model Bakımı', page:'maint', desc:'Onarım, senkronizasyon, kütüphane ve dışa aktarım araçlarının tamamı.'},
  {key:'settings', title:'Ayarlar', page:'settings', desc:'Donatı pursantajları ve harici elemanı modele tanıtma.'},
@@ -71,7 +73,7 @@ function buildNav(){
   deck:findNav(function(o){return o.indexOf("T('deck'")>=0;}),
   crown:findNav(function(o){return o.indexOf("T('crown'")>=0;}),
   rockfill:findNav(function(o){return o.indexOf("T('rockfill_choice'")>=0;}),
-  editor:findNav(function(o){return o.indexOf("T('editor'")>=0;}),
+  workspace:$('#workspaceNav'),
   qto:findNav(function(o){return o.indexOf("T('qto'")>=0;}),
   boq:findNav(function(o){return o.indexOf("T('boq'")>=0;}),
   accessories:findNav(function(o){return o.indexOf('sketchup.accessories(')>=0;}),
@@ -79,12 +81,13 @@ function buildNav(){
   progress:findNav(function(o){return o.indexOf("T('progress'")>=0;}),
   settings:findNav(function(o){return o.indexOf("T('settings'")>=0;})
  };
- var rebar=makeBtn('Donatı BIM','▦','nav_rebar.png');rebar.setAttribute('onclick',"T('rebar',this);mstRebarRefresh()");
+ /* yenileme T() sarmalayıcısında (wrapT) yapılır; onclick'te ikinci kez çağrılmaz */
+ var rebar=makeBtn('Donatı BIM','▦','nav_rebar.png');rebar.setAttribute('onclick',"T('rebar',this)");
  var audit=makeBtn('Model Kontrolü','✓','nav_audit.png');audit.setAttribute('onclick','sketchup.model_audit()');
- var maint=makeBtn('Model Bakımı','⚒','nav_maint.png');maint.setAttribute('onclick',"T('maint',this);mstMaintRefresh()");
+ var maint=makeBtn('Model Bakımı','⚒','nav_maint.png');maint.setAttribute('onclick',"T('maint',this)");
  if(!pick.settings){pick.settings=makeBtn('Ayarlar','⚙');pick.settings.setAttribute('onclick',"T('settings',this)");}
  var guide=$('#guide')?makeBtn('Kullanma Kılavuzu','📘'):null;if(guide)guide.setAttribute('onclick',"T('guide',this)");
- addIcon(pick.editor,'nav_editor.png');addIcon(pick.settings,'nav_settings.png');if(pick.jet)addIcon(pick.jet,'nav_bored.png');
+ addIcon(pick.workspace,'nav_editor.png');addIcon(pick.settings,'nav_settings.png');if(pick.jet)addIcon(pick.jet,'nav_bored.png');
  var keep=[];
  function sec(t){var d=document.createElement('div');d.className='nav-section';d.textContent=t;keep.push(d);}
  function add(b,it,isSub,n){if(!b)return;decorate(b,it,isSub,n);keep.push(b);}
@@ -96,7 +99,7 @@ function buildNav(){
  add(rebar,FLOW[6],false,7);add(audit,FLOW[7],false,8);add(pick.qto,FLOW[8],false,9);
  add(pick.boq,FLOW[9],false,10);add(pick.revision,{key:'revision',title:'Revizyonlar'},true);add(pick.progress,{key:'progress',title:'Hakediş / İlerleme'},true);
  sec('ARAÇLAR');
- add(pick.editor,TOOLS[0]);add(pick.accessories,TOOLS[1]);add(maint,TOOLS[2]);add(pick.settings,TOOLS[3]);add(guide,TOOLS[4]);
+ add(pick.workspace,TOOLS[0]);add(pick.accessories,TOOLS[1]);add(maint,TOOLS[2]);add(pick.settings,TOOLS[3]);add(guide,TOOLS[4]);
  /* menüde kalan diğer her şey (varsa) en sona — hiçbir giriş kaybolmaz */
  var rest=$$('.tabs > *').filter(function(x){return keep.indexOf(x)<0&&x.tagName==='BUTTON';});
  var olds=$$('.tabs > .nav-section').filter(function(x){return keep.indexOf(x)<0;});
@@ -104,7 +107,7 @@ function buildNav(){
  keep.forEach(function(x){tabs.appendChild(x);});
  rest.forEach(function(x){tabs.appendChild(x);});
  tabs.classList.add('mst-flow-nav');
- NAVMAP={pile:pick.pile,beam:pick.beam,precast:pick.precast,deck:pick.deck,crown:pick.crown,rockfill_choice:pick.rockfill,rebar:rebar,qto:pick.qto,boq:pick.boq,revision:pick.revision,progress:pick.progress,editor:pick.editor,maint:maint,settings:pick.settings,guide:guide,
+ NAVMAP={pile:pick.pile,beam:pick.beam,precast:pick.precast,deck:pick.deck,crown:pick.crown,rockfill_choice:pick.rockfill,rebar:rebar,qto:pick.qto,boq:pick.boq,revision:pick.revision,progress:pick.progress,project_workspace:pick.workspace,maint:maint,settings:pick.settings,guide:guide,
   emb_project_manager:pick.project,emb_bored_pile:pick.bored,emb_jet_grout:pick.jet,emb_special_solids:pick.rockfill,emb_model_audit:audit,emb_accessories:pick.accessories};
  ['rockfill','rockfill_live','rockfill_alt2'].forEach(function(p){NAVMAP[p]=pick.rockfill;});
 }
@@ -112,7 +115,7 @@ function buildNav(){
 /* ---- UI3: her sayfanın başı aynı ---- */
 function stdHead(pg){
  if(!pg||pg.querySelector(':scope > .mst-std-head'))return;
- var s=stepOfPage(pg.id);if(!s)return;
+ var s=stepOfPage(pg.id);if(!s||(s.tool&&s.f.head===false))return;
  var f=s.f,it=s.sub||f;
  var desc=it.desc||f.desc||'';
  var eh=pg.querySelector(':scope > .mst-embed-head');if(eh)eh.style.display='none';
@@ -165,7 +168,7 @@ var ACT={
  settings:{create:[{oc:'saveRebarRates()'}]}
 };
 /* aynı işi yapan ikinci/üçüncü düğmeler (UI6) */
-var DUPS={pile:['pile()','sketchup.pile_load_selected_for_edit()',"document.getElementById('count_x').focus()","document.getElementById('diameter_select').focus()","document.getElementById('top_elevation_m').focus()","T('editor'"],
+var DUPS={pile:['pile()','sketchup.pile_load_selected_for_edit()',"document.getElementById('count_x').focus()","document.getElementById('diameter_select').focus()","document.getElementById('top_elevation_m').focus()"],
  qto:['refreshQTO()'],boq:['refreshBOQ()']};
 var SLOTCACHE={};
 function slotBtn(pg,spec){
