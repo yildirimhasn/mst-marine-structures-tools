@@ -144,7 +144,7 @@ def speedups(on)
     M.define_singleton_method(:mst_read_batch, &ORIG_RB) if HAS_RB
   else
     M.define_singleton_method(:revision_shape_memo) { |&b| b.call } if HAS_MEMO
-    M.define_singleton_method(:revision_send_reuse) { |d, _c| M.revision_send(d) } if HAS_REUSE
+    M.define_singleton_method(:revision_send_reuse) { |d, _c, *_r| M.revision_send(d) } if HAS_REUSE   # G3 (03.11.2026): keşif özeti argümanı da yok sayılır
     M.define_singleton_method(:mst_read_batch) { |*_a, &b| b.call } if HAS_RB
   end
 end

@@ -4215,11 +4215,12 @@ def takeoff(mode='all',want=nil)
   attrs=detail_cols.map do |key,title|
    val=item[key.to_sym]
    val= key=='plug_count' ? val.to_i : format('%.3f',val.to_f) if numeric_cols.include?(key)
+   val=mst_structure_label(val,sn) if key=='structure' && !val.to_s.strip.empty?   # G5c ADR-0515-I: "Ad (kod)"; süzgeç değeri (data-structure) kod
    "<td>#{html_escape(val.to_s)}</td>"
   end.join
-  "<tr class='bim-pile-row' data-search='#{html_escape([item[:pile_id],item[:system],item[:structure],item[:grid_point],item[:diameter_mm],item[:thickness_mm]].join(' ').downcase)}' data-section='#{html_escape("#{item[:diameter_mm].to_f.round(3)}x#{item[:thickness_mm].to_f.round(3)}")}' data-structure='#{html_escape(item[:structure].to_s)}' data-values='#{sum_keys.map{|k|item[k.to_sym].to_f}.join(',')}'>#{attrs}</tr>"
+  "<tr class='bim-pile-row' data-search='#{html_escape([item[:pile_id],item[:system],item[:structure],*((item[:structure].to_s.strip.empty? || (dn_=mst_structure_display(item[:structure],sn))==item[:structure].to_s) ? [] : [dn_]),item[:grid_point],item[:diameter_mm],item[:thickness_mm]].join(' ').downcase)}' data-section='#{html_escape("#{item[:diameter_mm].to_f.round(3)}x#{item[:thickness_mm].to_f.round(3)}")}' data-structure='#{html_escape(item[:structure].to_s)}' data-values='#{sum_keys.map{|k|item[k.to_sym].to_f}.join(',')}'>#{attrs}</tr>"
  end.join
- options=pile_items.map{|x|x[:structure].to_s}.uniq.sort.map{|x|"<option value='#{html_escape(x)}'>#{html_escape(x)}</option>"}.join
+ options=pile_items.map{|x|x[:structure].to_s}.uniq.sort.map{|x|"<option value='#{html_escape(x)}'>#{html_escape(x.strip.empty? ? x : mst_structure_label(x,sn))}</option>"}.join   # G5c: value kod, metin "Ad (kod)"
  sections_opts=pile_items.map{|x|"#{x[:diameter_mm].to_f.round(3)}x#{x[:thickness_mm].to_f.round(3)}"}.uniq.sort.map{|x|"<option value='#{html_escape(x)}'>#{html_escape(x.tr('x',' × '))} mm</option>"}.join
  summary_heads=['Kesit','Adet','Boy (m)','Boru (t)','Beton (m³)','PE (m²)','Foraj (m)','Tapa (adet)','Tapa (kg)','Alt/İç (kg)','Üst/Dış (kg)'].map{|h|"<th>#{h}</th>"}.join
  pile_bim_html="<h3>Kesit Bazlı BIM / Metraj Özeti</h3><div class='note'>Sistem → yapı → Ø × t ara toplamları ve proje genel toplamı; alt satırlar toplama tekrar eklenmez.</div><div class='table-scroll'><table class='pile-detail'><thead><tr>#{summary_heads}</tr></thead><tbody>#{section_rows}</tbody></table></div><h3>Kazık ID Bazlı Detaylı Metraj</h3><div class='pile-filters'><input id='pileSearch' placeholder='Kazık ID, aks veya kesit ara...' oninput='filterPileRows()'><select id='pileStructure' onchange='filterPileRows()'><option value=''>Tüm yapılar</option>#{options}</select><select id='pileSection' onchange='filterPileRows()'><option value=''>Tüm kesitler</option>#{sections_opts}</select><span id='pileFilterCount'></span></div><div class='table-scroll'><table class='pile-detail'><thead><tr>#{detail_cols.map{|c|"<th>#{c[1]}</th>"}.join}</tr></thead><tbody>#{detail_rows}</tbody><tfoot><tr class='subtotal' id='pileFilteredTotal'><td>FİLTRELENEN ARA TOPLAM</td>#{'<td></td>' * 5}<td>—</td>#{'<td></td>' * 2}#{'<td>—</td>' * 8}</tr></tfoot></table></div>"
@@ -9948,11 +9949,30 @@ end
 
 def revision_snapshots
  raw=Sketchup.active_model.get_attribute(REVISION_DICT,'snapshots','[]').to_s
+ memo=@mst_rev_snaps_memo
+ return memo[:data] if memo && memo[:data] && memo[:raw]==raw   # G3: aynı kayıtlı metin kapsam içinde bir kez ayrıştırılır
  data=JSON.parse(raw)
  raise 'Revizyon arşivi geçersiz; mevcut kayıtların üzerine yazılmadı.' unless data.is_a?(Array) && data.all?{|r|r.is_a?(Hash) && r['elements'].is_a?(Array)}
+ (memo[:raw]=raw;memo[:data]=data) if memo
  data
 rescue JSON::ParserError
  raise 'Revizyon arşivi okunamadı; mevcut kayıtların üzerine yazılmadı.'
+end
+# G3 (03.11.2026): revizyon ekranı / anlık kayıt süresince arşiv (MB düzeyinde JSON) kayıtlı metin değişmedikçe yeniden
+# ayrıştırılmaz. Önbellek kayıtlı metinle eşleşmeli (kayıttan sonra metin değişir → yeniden ayrıştırılır). Dönen dizi salt
+# okunur; değiştiren çağıran (revision_create_snapshot) revision_snapshots_forget çağırır. Kapsam dışında önbellek yok.
+def revision_snapshots_memo
+ return yield if @mst_rev_snaps_memo
+ @mst_rev_snaps_memo={raw:nil,data:nil}
+ begin
+  yield
+ ensure
+  @mst_rev_snaps_memo=nil
+ end
+end
+def revision_snapshots_forget
+ @mst_rev_snaps_memo[:raw]=nil if @mst_rev_snaps_memo
+ @mst_rev_snaps_memo[:data]=nil if @mst_rev_snaps_memo
 end
 
 def revision_save_snapshots(arr)
@@ -10073,7 +10093,9 @@ end
 
 def revision_send(dialog=@d)
 mst_read_batch do   # v0.51.5 P4: salt okuma, tek model taraması
+revision_snapshots_memo do   # G3: revision_payload ve boq_pro sarmalayıcısı arşivi bir kez ayrıştırır
   dialog.execute_script("revisionLoaded(#{JSON.generate(revision_payload)});") if dialog
+end # revision_snapshots_memo
 end # mst_read_batch
 rescue=>error
   dialog.execute_script("revisionError(#{JSON.generate(error.message)})") if dialog
@@ -10505,7 +10527,7 @@ rescue => e
 end
 
 def mst_register_flow_callbacks(d)
- d.add_action_callback('workflow_status'){|_|mst_send_workflow_status(d)}
+ d.add_action_callback('workflow_status'){|_,page=nil|mst_ui_page_note(page);mst_send_workflow_status(d)}   # G1: sayfa kimliği (varsa) Çalışma Alanı yenilemesi için
  d.add_action_callback('maint_list'){|_|mst_send_maint(d)}
  d.add_action_callback('maint_action'){|_,k|mst_maint_run(k)}
  d.add_action_callback('rebar_sources_get'){|_|mst_send_rebar_page(d)}
@@ -10526,7 +10548,7 @@ def show_dialog
  @d.add_action_callback('relationship_audit'){|_|relationship_audit_show}
  @d.add_action_callback('project_workspace_refresh'){|_|project_workspace_refresh(@d)}
  @d.add_action_callback('project_workspace_action'){|_,raw|project_workspace_action(raw,@d)}
- @d.set_on_closed{project_workspace_detach}
+ @d.set_on_closed{project_workspace_detach;@mst_ui_page=nil}   # G1: açık sayfa kaydı pencereyle biter
  @d.add_action_callback('generatePileLayout'){|_,j|generate_layout(JSON.parse(j))}
  @d.add_action_callback('pile_load_central_grid'){|_|begin
    model=Sketchup.active_model
@@ -10550,16 +10572,17 @@ def show_dialog
   rescue=>e;UI.messagebox("Aktif Sistem / Yapı gridi yüklenemedi: #{e.message}");end}
  @d.add_action_callback('pile_open_override'){|_,raw|begin
    payload=JSON.parse(raw); points=payload['points']||[]; raise 'Seçili kazık noktası yok.' if points.empty?
+   lbl=mst_pile_override_labels(payload)   # G5c ADR-0515-I: başlık / nokta listesi görünen ad; payload ve geri gönderilen değerler kod
    html = <<~HTML
    <!doctype html><html><head><meta charset="utf-8"><style>
    *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#29495d;background:#f7fafc;font-size:12px}.head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:#eaf4fa;border-bottom:1px solid #cbdde8}.head b{font-size:15px;color:#12608f}.body{padding:15px}.note{background:#eef7fc;border-left:3px solid #2c8abd;padding:8px 10px;margin-bottom:12px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}label{font-size:11px;color:#587184}input,select{display:block;width:100%;min-width:0;height:34px;margin-top:4px;border:1px solid #b9cbd7;border-radius:4px;padding:5px 7px;background:white}.readonly{background:#eef3f6!important;color:#496879;font-weight:600}.section{grid-column:1/-1;border-top:1px solid #dce7ed;margin-top:5px;padding-top:10px;font-weight:bold;color:#1b668f}.actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 15px;border-top:1px solid #dce7ed;background:white}button{padding:8px 18px;border:1px solid #8eb4cb;border-radius:4px;background:#1674a8;color:white;cursor:pointer}.ghost{background:white;color:#42677d}.span2{grid-column:span 2}@media(max-width:620px){.grid{grid-template-columns:1fr 1fr}}
-   </style></head><body><div class="head"><b>⚙ Kazık Özel Ayarları</b><span>#{html_escape(payload['axis_name'])}</span></div><div class="body"><div class="note">Boş bırakılan alanlar genel kazık ayarını kullanır.</div><div class="grid">
+   </style></head><body><div class="head"><b>⚙ Kazık Özel Ayarları</b><span>#{html_escape(lbl['axis'])}</span></div><div class="body"><div class="note">Boş bırakılan alanlar genel kazık ayarını kullanır.</div><div class="grid">
    <label>Kazık Noktası<select id="pt"></select></label><label>Kazık ID<input id="pile_id" class="readonly" readonly title="Otomatik Kazık ID"></label><label>Kazık Grubu<input id="pile_group" class="readonly" readonly title="Sistem / Yapıdan otomatik"></label>
    <div class="section">Konuma Özel Değer</div><label>ΔX (m)<input id="dx" type="number" step="0.01"></label><label>ΔY (m)<input id="dy" type="number" step="0.01"></label><div></div>
    <div class="section">Geometri / Doğrultu</div><label>Doğrultu<select id="orientation_mode"><option value="">Genel</option><option value="VERTICAL">Düşey</option><option value="BATTERED">Batarlı</option></select></label><label>H/V<input id="batter_ratio"></label><label>Azimut (°)<input id="azimuth_deg" type="number" step="0.1"></label><label>Ø (mm)<input id="diameter_mm" type="number" step="0.1"></label><label>t (mm)<input id="thickness_mm" type="number" step="0.1"></label><label>L (m)<input id="length_m" type="number" step="0.01"></label><label>Çelik Sınıfı<input id="steel_grade"></label><div></div><div></div>
    <div class="section">Özel Kazık Üst Kotu / BIM Bağlantısı</div><label>Kot Tipi<select id="elevation_mode"><option value="GENERAL">Genel</option><option value="SPECIAL">Özel</option></select></label><label>Özel Üst Kot (m)<input id="top_elevation_m" type="number" step="0.01"></label><label>Kot Sebebi<select id="elevation_reason"><option value="">—</option><option value="UTILITY_CHANNEL">Tesisat Kanalı</option><option value="CRANE_BEAM">Vinç Kirişi</option><option value="HEAD_BEAM">Başlık Kirişi</option><option value="OTHER">Diğer</option></select></label><label>Bağlı Eleman ID<input id="linked_element_id" placeholder="örn. BK-03 / VK-01"></label><div class="note span2">BK / Vinç Kirişi modülleri geldiğinde Bağlı Eleman alanı BIM ID açılır listesi olacaktır.</div>
    </div></div><div class="actions"><button class="ghost" onclick="resetVals()">Genel Değerlere Dön</button><button onclick="save()">Kaydet</button></div>
-   <script>const payload=#{JSON.generate(payload).gsub('</','<\/')};let cur=0;const ids=['pile_id','pile_group','dx','dy','orientation_mode','batter_ratio','azimuth_deg','diameter_mm','thickness_mm','length_m','steel_grade','elevation_mode','top_elevation_m','elevation_reason','linked_element_id'];const pt=document.getElementById('pt');payload.points.forEach((p,i)=>{let o=document.createElement('option');o.value=i;o.textContent=payload.axis_name+'/'+p.point_name;pt.appendChild(o)});function load(){cur=+pt.value||0;let d=payload.points[cur].data||{};ids.forEach(id=>{document.getElementById(id).value=(d[id]===undefined||d[id]===null)?'':d[id]});document.getElementById('dx').value=d.dx||0;document.getElementById('dy').value=d.dy||0;toggle()}function toggle(){let sp=document.getElementById('elevation_mode').value==='SPECIAL';['top_elevation_m','elevation_reason','linked_element_id'].forEach(id=>document.getElementById(id).disabled=!sp)}document.getElementById('elevation_mode').onchange=toggle;pt.onchange=load;function data(){let d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.dx=parseFloat(d.dx)||0;d.dy=parseFloat(d.dy)||0;if(d.elevation_mode!=='SPECIAL'){d.top_elevation_m='';d.elevation_reason='';d.linked_element_id=''}return d}function save(){sketchup.pile_override_save(JSON.stringify({axis_index:payload.axis_index,point_index:payload.points[cur].point_index,data:data()}))}function resetVals(){ids.filter(id=>!['pile_id','pile_group'].includes(id)).forEach(id=>document.getElementById(id).value='');let d=payload.points[cur].data||{};document.getElementById('pile_id').value=d.pile_id||'';document.getElementById('pile_group').value=d.pile_group||'';document.getElementById('dx').value=0;document.getElementById('dy').value=0;document.getElementById('elevation_mode').value='GENERAL';toggle()}pt.value='0';load();</script></body></html>
+   <script>const payload=#{JSON.generate(payload).gsub('</','<\/')};const mstLbl=#{JSON.generate(lbl).gsub('</','<\/')};let cur=0;const ids=['pile_id','pile_group','dx','dy','orientation_mode','batter_ratio','azimuth_deg','diameter_mm','thickness_mm','length_m','steel_grade','elevation_mode','top_elevation_m','elevation_reason','linked_element_id'];const pt=document.getElementById('pt');payload.points.forEach((p,i)=>{let o=document.createElement('option');o.value=i;o.textContent=mstLbl.axis+'/'+(mstLbl.points[i]||p.point_name);pt.appendChild(o)});function load(){cur=+pt.value||0;let d=payload.points[cur].data||{};ids.forEach(id=>{document.getElementById(id).value=(d[id]===undefined||d[id]===null)?'':d[id]});document.getElementById('dx').value=d.dx||0;document.getElementById('dy').value=d.dy||0;toggle()}function toggle(){let sp=document.getElementById('elevation_mode').value==='SPECIAL';['top_elevation_m','elevation_reason','linked_element_id'].forEach(id=>document.getElementById(id).disabled=!sp)}document.getElementById('elevation_mode').onchange=toggle;pt.onchange=load;function data(){let d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.dx=parseFloat(d.dx)||0;d.dy=parseFloat(d.dy)||0;if(d.elevation_mode!=='SPECIAL'){d.top_elevation_m='';d.elevation_reason='';d.linked_element_id=''}return d}function save(){sketchup.pile_override_save(JSON.stringify({axis_index:payload.axis_index,point_index:payload.points[cur].point_index,data:data()}))}function resetVals(){ids.filter(id=>!['pile_id','pile_group'].includes(id)).forEach(id=>document.getElementById(id).value='');let d=payload.points[cur].data||{};document.getElementById('pile_id').value=d.pile_id||'';document.getElementById('pile_group').value=d.pile_group||'';document.getElementById('dx').value=0;document.getElementById('dy').value=0;document.getElementById('elevation_mode').value='GENERAL';toggle()}pt.value='0';load();</script></body></html>
    HTML
    @pile_override_dialog.close if @pile_override_dialog && @pile_override_dialog.visible?
    @pile_override_dialog=mst_html_dialog('pile_override',dialog_title:'Kazık Özel Ayarları',preferences_key:'MAG_MST_PileOverride',width:900,height:650,resizable:true,style:UI::HtmlDialog::STYLE_DIALOG)
@@ -11658,6 +11681,26 @@ def mst_axis_display(ano,zone,dir,code,amap=nil,model=Sketchup.active_model)
   z=zone.to_s.strip.empty? ? ano.to_s : zone.to_s
   n=(((amap || mst_axis_display_names(model))[mst_axis_grid_key(ano,z)] || {})[dir.to_s.downcase] || {})[code.to_s].to_s
   n.strip.empty? ? code.to_s : n
+end
+
+# G5c (03.11.2026): Kazık Özel Ayarları penceresi başlığı ve nokta listesi metni. Aks / nokta kodu (payload axis_name, point_name)
+# değişmez; görünen ad varsa "Ad (kod)". Yapı: yükte 'structure' varsa o, yoksa kazık sayfasının ızgarasını yükleyen etkin yapı
+# (pile_load_central_grid ile aynı kural; salt okuma, yazım yok). X aksı → 'x', nokta (Y aksı) → 'y'.
+def mst_pile_override_labels(payload,model=Sketchup.active_model)
+  st=payload['structure'].to_s.strip
+  if st.empty?
+    sys=model.get_attribute(DICT,'project_system_type','ISKELE').to_s.upcase
+    sys='ISKELE' unless %w[DOLFEN ISKELE RIHTIM].include?(sys)
+    st=model.get_attribute(DICT,"active_structure__#{sys}",'').to_s
+  end
+  amap=mst_axis_display_names(model)
+  lab=lambda do |dir,code|
+    c=code.to_s
+    return c if c.empty? || st.empty?
+    d=mst_axis_display(st,st,dir,c,amap)
+    d==c ? c : "#{d} (#{c})"
+  end
+  {'axis'=>lab.call('x',payload['axis_name']),'points'=>Array(payload['points']).map{|p|lab.call('y',(p.is_a?(Hash) ? p['point_name'] : nil))}}
 end
 
 # Sonraki boş kod: aynı ön ekli kodların en büyük numarası + 1 (görünen adlar okunmaz). Aks Yöneticisi JS nextCode ile aynı kural.
@@ -13394,6 +13437,54 @@ def mst_apply_axis_move_plans(plans)
 end
 
 # Original grid/project save, unchanged in behaviour (extracted for reuse).
+# G5a (03.11.2026): kayıt yükünün model özniteliklerine yazacağı değerler — mst_axis_manager_save_payload kayıt nesnesiyle kuru
+# çalıştırılır (okuma: önce bekleyen yazım, yoksa model; yazım yalnız kayda). Aynı kod yolu → aynı değerler; modelde yazım yok.
+class MstAttrRecorder
+  attr_reader :writes
+  def initialize(model);@model=model;@writes={};end
+  def get_attribute(d,k,dflt=nil)
+    key=[d.to_s,k.to_s]
+    return (@writes[key].nil? ? dflt : @writes[key]) if @writes.key?(key)
+    @model.get_attribute(d,k,dflt)
+  end
+  def set_attribute(d,k,v);@writes[[d.to_s,k.to_s]]=v;v;end
+  def delete_attribute(d,k=nil);@writes[[d.to_s,k.to_s]]=nil;true;end
+  def method_missing(n,*a,&b);@model.send(n,*a,&b);end
+  def respond_to_missing?(n,p=false);@model.respond_to?(n,p);end
+end
+# => {[sözlük, anahtar] => yeni değer} yalnız mevcut değerden farklı olanlar (boş = değişiklik yok)
+def mst_axis_manager_payload_changes(x,model)
+  rec=MstAttrRecorder.new(model)
+  mst_axis_manager_save_payload(JSON.parse(JSON.generate(x)),rec)
+  rec.writes.reject{|(d,k),v|model.get_attribute(d,k,nil)==v}
+end
+
+# G5b (03.11.2026): kayıt yükünde, modelde kayıtlı ızgarası olan bir yapının kullanılan aks kodu (eleman ya da yerleşim bağlantısı;
+# mst_axis_code_locks ile aynı kural) yoksa — silme ya da kod değişikliği — Aks Yöneticisi önizlemesinde onaylanmış olmalı
+# (yükteki removed_used_axes, "SİSTEM::yapı::yön::kod"). Onaysız kayıt işlem açılmadan Türkçe hatayla durur. Kullanılan aksın
+# kodu arayüzde kilitli; silme önizleme + onayla yapılır (ADR-0515-I). Eleman verisi değişmez.
+def mst_axis_manager_check_removed_axes!(x,model)
+  old_grids=mst_axis_grids(model);usage=nil;pl=nil;bad=[]
+  ok=x['removed_used_axes'].is_a?(Array) ? x['removed_used_axes'].map(&:to_s) : []
+  (x['grids'].is_a?(Hash) ? x['grids'] : {}).each do |k,g|
+    next unless k.to_s.include?('::') && g.is_a?(Hash)
+    sys,name=k.to_s.split('::',2)
+    old=old_grids[mst_axis_grid_key(name,name)]
+    next unless old.is_a?(Hash)
+    %w[x y].each do |dd|
+      codes=lambda{|rows|Array(rows).map{|r|r.is_a?(Hash) ? r['name'].to_s.strip : ''}.reject(&:empty?)}
+      gone=codes.call(old[dd])-codes.call(g[dd])
+      next if gone.empty?
+      usage||=mst_code_usage(model);pl||=mst_structure_placements(model)
+      mst_axis_code_locks(sys,name,{dd=>gone.map{|c|{'name'=>c}}},usage,pl)[dd].each do |c,why|
+        bad << "#{mst_structure_label(name,nil,model)} / #{dd.upcase} #{c}: #{why.sub(/\AAks kodu değiştirilemez: /,'')}" unless ok.include?("#{sys}::#{name}::#{dd}::#{c}")
+      end
+    end
+  end
+  return true if bad.empty?
+  raise "Kullanılan aks kaydı onaysız kaldırılamaz ya da kodu değiştirilemez:\n#{bad.first(10).join("\n")}#{bad.length>10 ? "\n… #{bad.length-10} aks daha" : ''}\nAksı geri ekleyin ya da Aks Yöneticisi kayıt önizlemesinde onaylayın. Hiçbir şey kaydedilmedi."
+end
+
 def mst_axis_manager_save_payload(x,model)
   [['system_structures_json','Sistem / yapı listesi'],['axis_grids_json','Aks ağı'],['structure_placements_json','Yapı yerleşimleri']].each{|k,l|mst_json_attr_guard!(model,k,Hash,l)}   # K20
   model.set_attribute(DICT,'project_name',x['project'].to_s.strip)
@@ -13697,7 +13788,8 @@ function loadPlacement(){var p=placement();loadOneLink('X',p.x_link);loadOneLink
 function readLink(fam){var f=fam.toLowerCase(),mode=el(f+'Mode').value;if(mode==='INDEPENDENT'){var cv=dec(el(f+'Distance').value)*(el(f+'Direction').value==='-'+fam?-1:1);return Math.abs(cv)<1e-9?null:{mode:'ABSOLUTE',coord_m:cv};}var rs=mode==='SAME_SYSTEM'?currentSystem:el(f+'RefSystem').value,ln={mode:mode,ref_system:rs,ref_structure:el(f+'RefStructure').value,ref_axis:el(f+'RefAxis').value,target_axis:el(f+'TargetAxis').value,distance_m:Math.max(0,dec(el(f+'Distance').value)),direction:el(f+'Direction').value};if(!ln.ref_structure||!ln.ref_axis||!ln.target_axis)throw new Error(fam+' konumu için referans yapı ve aksları seçin.');return ln}
 function savePlacement(){var old=placements[key(currentSystem,currentStructure)];try{placements[key(currentSystem,currentStructure)]={x_link:readLink('X'),y_link:readLink('Y')};structureOrigin(currentSystem,currentStructure);renderChain();status('X + Y konumu kaydedildi. Projeyi Kaydet ile modele yazın.')}catch(e){if(old)placements[key(currentSystem,currentStructure)]=old;else delete placements[key(currentSystem,currentStructure)];alert(e.message)}}
 function codeChangeList(){return Object.keys(codeChanges).map(function(k){var p=k.split('::');return {system:p[0],from:p.slice(1).join('::'),to:codeChanges[k]}})}
-function payload(){return {project:el('project').value,system:currentSystem,systems:systems,active:active,grids:grids,placements:placements,structure_names:names,code_changes:codeChangeList()}}
+function removedUsed(){var o=[];Object.keys(systems).forEach(function(s){systems[s].forEach(function(c){var la=locks.axes[key(s,c)]||{},g=grids[key(s,c)]||{};['x','y'].forEach(function(d){Object.keys(la[d]||{}).forEach(function(q){if(!(g[d]||[]).some(function(r){return r.name===q}))o.push(key(s,c)+'::'+d+'::'+q)})})})});return o}
+function payload(){return {project:el('project').value,system:currentSystem,systems:systems,active:active,grids:grids,placements:placements,structure_names:names,code_changes:codeChangeList(),removed_used_axes:removedUsed()}}
 function previewText(){var L=[],cur=axisDisplaySnap(),seen={},sh=function(v){return v?'"'+v+'"':'(ad yok)'};codeChangeList().forEach(function(c){L.push('Kod: '+c.from+' → '+c.to+' ('+c.system+'; bağlı eleman yok)')});
 Object.keys(systems).forEach(function(s){systems[s].forEach(function(c){var o=origOf(s,c),b=snap.names[o]||'',a=names[c]||'';seen[o]=true;if(b!==a)L.push('Yapı '+c+': '+sh(b)+' → '+sh(a));var bk=snap.axes[key(s,o)]||{x:{},y:{}},ak=cur[key(s,c)]||{x:{},y:{}};['x','y'].forEach(function(d){var u={};Object.keys(bk[d]||{}).concat(Object.keys(ak[d]||{})).forEach(function(q){if(u[q])return;u[q]=true;var x1=(bk[d]||{})[q]||'',x2=(ak[d]||{})[q]||'';if(x1!==x2)L.push('Aks '+c+' / '+q+': '+sh(x1)+' → '+sh(x2))})});var la=locks.axes[key(s,c)]||{},g=grids[key(s,c)]||{};['x','y'].forEach(function(d){Object.keys(la[d]||{}).forEach(function(q){if(!(g[d]||[]).some(function(r){return r.name===q}))L.push('Kaldırılan kullanılan aks: '+c+' / '+q+' — '+la[d][q])})})})});
 Object.keys(snap.names).forEach(function(o){if(!seen[o])L.push('Yapı '+o+' silindi: görünen ad kaydı '+sh(snap.names[o])+' de silinir.')});
@@ -13717,9 +13809,15 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     begin
       x=JSON.parse(json)
       nplan=mst_axis_manager_names_plan(x,model)   # ADR-0515-I: görünen ad / kod doğrulaması işlem açılmadan
+      mst_axis_manager_check_removed_axes!(x,model)   # G5b: kullanılan aks kodu onaysız kalkmaz (işlem açılmadan)
       # v0.38 R7: preview elements on moved axes before anything is saved.
       plans=mst_axis_move_plan_for_payload(x,model)
       splans=mst_structure_move_plans(x,model)   # v0.38 R8
+      # G5a (NCR-003): değişiklik yoksa işlem açılmaz, yazım olmaz (boş Geri Al adımı yok)
+      if plans.empty? && splans.empty? && nplan['writes'].empty? && nplan['changes'].empty? && mst_axis_manager_payload_changes(x,model).empty?
+        d.execute_script("document.getElementById('status').textContent=#{JSON.generate('Değişiklik yok — model değişmedi, Geri Al adımı oluşmadı.')};if(window.mstNamesSaved)mstNamesSaved();") rescue nil
+        next
+      end
       decision=mst_axis_move_confirm(plans,splans)
       if decision==:cancel
         d.execute_script("document.getElementById('status').textContent='Kaydetme iptal edildi; hiçbir şey değişmedi.'") rescue nil

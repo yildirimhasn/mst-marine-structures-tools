@@ -293,7 +293,7 @@ window.mstFlowStatus=function(st){STATUS=st||{};
  $$('.page').forEach(paintHead);
 };
 var stTimer=null;
-function askStatus(){clearTimeout(stTimer);stTimer=setTimeout(function(){if(window.sketchup&&sketchup.workflow_status)sketchup.workflow_status();},150);}
+function askStatus(){clearTimeout(stTimer);stTimer=setTimeout(function(){if(window.sketchup&&sketchup.workflow_status){var pg=document.querySelector('.page.on');sketchup.workflow_status(pg?pg.id:'');}},150);}   /* G1: açık sayfa Ruby'ye bildirilir (Çalışma Alanı yalnız açıkken yenilenir) */
 window.mstAskStatus=askStatus;
 
 /* ---- T() sarmalayıcı: her sayfa açılışında aynı iskelet ---- */

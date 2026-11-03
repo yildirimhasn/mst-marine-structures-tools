@@ -1588,7 +1588,7 @@ function openPileOverrideDialog(i){
  const axis=customAxes[i],pts=(axis&&axis.points)||[],selected=[];
  pts.forEach(function(p,j){if(p&&p.selected)selected.push(j)});
  if(!selected.length){alert('Önce bu X aksında en az bir kazık noktası seçin.');return;}
- const payload={axis_index:i,axis_name:axis.name||('X-'+(i+1)),points:selected.map(function(j){const ident=pileAutoIdentity(i,j),d=Object.assign({},pts[j],ident);return {point_index:j,point_name:(pts[j].name||('Y'+(j+1))),data:d};})};
+ const payload={axis_index:i,axis_name:axis.name||('X-'+(i+1)),structure:window.currentPileStructure||'',points:selected.map(function(j){const ident=pileAutoIdentity(i,j),d=Object.assign({},pts[j],ident);return {point_index:j,point_name:(pts[j].name||('Y'+(j+1))),data:d};})};
  if(window.sketchup&&sketchup.pile_open_override){sketchup.pile_open_override(JSON.stringify(payload));return;}
  alert('Kazık Özel Ayarları bağlantısı bulunamadı.');
 }

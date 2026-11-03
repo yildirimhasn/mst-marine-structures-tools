@@ -8,6 +8,7 @@ module MAG
    def tokens(value);value.to_s.split(',').map(&:strip).reject(&:empty?);end
    def analyze(model)
     entries=ProjectWorkspace.entries(model)
+    sn=api.mst_structure_display_names(model)   # G5c ADR-0515-I: iletide yapı "Ad (kod)"; karşılaştırma kodla
     pid=entries.group_by{|r|r[:entity].persistent_id.to_s}
     uid=entries.group_by{|r|r[:entity].get_attribute(DICT,'element_uid','').to_s}
     ids=entries.group_by{|r|api.element_visible_id(r[:entity]).to_s}
@@ -66,7 +67,7 @@ module MAG
         b=parent.get_attribute(DICT,'ano','').to_s.strip if b.empty?
        end
        add.call('ORGANIZATION_INCOMPLETE',"#{label}: #{field=='project' ? 'proje' : 'yapı'} bilgisi eksik.") if a.empty?||b.empty?
-       add.call('ORGANIZATION_CONFLICT',"#{label}: #{field=='project' ? 'proje' : 'yapı'} bilgileri uyuşmuyor (#{a} / #{b}).") if !a.empty?&&!b.empty?&&a!=b
+       add.call('ORGANIZATION_CONFLICT',"#{label}: #{field=='project' ? 'proje' : 'yapı'} bilgileri uyuşmuyor (#{field=='project' ? a : api.mst_structure_label(a,sn)} / #{field=='project' ? b : api.mst_structure_label(b,sn)}).") if !a.empty?&&!b.empty?&&a!=b
       end
       source_ano=e.get_attribute(DICT,'ano','').to_s.strip;target_ano=parent.get_attribute(DICT,'ano','').to_s.strip
       add.call('ANO_CONFLICT',"#{label}: ANO kayıtları uyuşmuyor.") if !source_ano.empty?&&!target_ano.empty?&&source_ano!=target_ano

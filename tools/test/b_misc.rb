@@ -126,7 +126,8 @@ if norm
 else
   t('K29 N8 toplu kazık tip normalleştirmesi', false, true)
 end
-t('K29 (statik) aks adı HTML kaçışı ve </script> kaçışı', [main.include?("<span>\#{html_escape(payload['axis_name'])}</span>"), main.include?("const payload=\#{JSON.generate(payload).gsub('</','<\\/')}")], [true, true])
+# G5c (03.11.2026): başlık görünen ad etiketiyle (lbl['axis'] = "Ad (kod)" ya da kod); kaçış aynı
+t('K29 (statik) aks adı HTML kaçışı ve </script> kaçışı', [main.include?("<span>\#{html_escape(payload['axis_name'])}</span>") || main.include?("<span>\#{html_escape(lbl['axis'])}</span>"), main.include?("const payload=\#{JSON.generate(payload).gsub('</','<\\/')}")], [true, true])
 t('K29 </script> kaçışı çalışır', JSON.generate('axis_name' => 'A</script><b>').gsub('</', '<\/').include?('</script>'), false)
 
 # ------------------------------------------------------------------ K45

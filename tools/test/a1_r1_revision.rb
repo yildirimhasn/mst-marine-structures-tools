@@ -11,10 +11,15 @@ class Host
   def revision_send(_d = nil); $log << [:send]; end
   def boq2_boq_digest; @digest || [{ 'source' => 'S1', 'quantity' => 1.0, 'unit_price' => 10.0 }]; end
   def boq2_currency; raise 'kur okunamadı (test)' if @cur_raise; 'TRY'; end
+  def mst_read_batch(*_a); yield; end   # G3 (03.11.2026): okuma kısmı tek tarama; sahtede yalnız blok
 end
 A1.load(Host, main, 'def revision_snapshots', 'def revision_save_snapshots', 'def revision_diff(', 'def revision_create_snapshot(')
 Host.class_eval('alias_method :revision_create_snapshot_base, :revision_create_snapshot unless method_defined?(:revision_create_snapshot_base)')
 A1.load(Host, boq, 'def revision_create_snapshot(', 'def boq2_boq_diff(')
+# G3 (03.11.2026): arşiv ayrıştırma önbelleği ve keşif özeti yeniden kullanımı (varsa)
+A1.load_opt(Host, main, 'def revision_snapshots_memo')
+A1.load_opt(Host, main, 'def revision_snapshots_forget')
+A1.load_opt(Host, boq, 'def revision_send_reuse(')
 has_dup = A1.load_opt(Host, boq, 'def mst_dup_uid_continue?')
 obs('mst_dup_uid_continue? tanımlı', has_dup)
 snaps = -> { JSON.parse($model.get_attribute('MAG_MST_RevisionLog', 'snapshots', '[]')) }

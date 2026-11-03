@@ -49,6 +49,10 @@ A1.load(Host, main, 'def html_escape(', 'def mst_json_attr_bad?(', 'def mst_json
         'def mst_default_axis_grid', 'def mst_normalize_axis_rows(', 'def mst_axis_grid_for(', 'def mst_save_axis_grid(',
         'def mst_ano_layouts(', 'def mst_system_structures(', 'def mst_structures_for_system(', 'def mst_structure_placements(',
         'def mst_axis_manager_save_payload(')
+# G5a / G5b (03.11.2026): değişiklik denetimi (kuru çalıştırma) ve kullanılan aks denetimi (varsa)
+G5 = A1.load_opt(Host, main, 'class MstAttrRecorder')
+A1.load_opt(Host, main, 'def mst_axis_manager_payload_changes(')
+A1.load_opt(Host, main, 'def mst_axis_manager_check_removed_axes!(')
 # Aks Yöneticisi: dosyada iki tanım var; yüklemede sonuncusu geçerli
 a = main.rindex("\ndef project_ano_axis_manager\n") + 1
 e = main.index("\nend\n", a)
@@ -157,7 +161,9 @@ if payload
   pl2['systems']['DOLFEN'] = %w[BD-01 BD-07]
   save.(pl2)
   t('Değişikliksiz kayıt: görünen ad anahtarlarına yazım 0', sets.count { |s| %w[structure_display_names_json axis_display_names_json].include?(s[3]) }, 0)
-  t('Değişikliksiz kayıt: hata yok, tek işlem', [$msgs, ops], [[], [:start, :commit]])
+  # G5a (03.11.2026, NCR-003): değişiklik yoksa işlem açılmaz (boş Geri Al adımı yok); taban: tek işlem
+  t("Değişikliksiz kayıt: hata yok, #{G5 ? 'işlem açılmaz' : 'tek işlem'}", [$msgs, ops], [[], G5 ? [] : [:start, :commit]])
+  t('G5a değişikliksiz kayıt: Türkçe durum iletisi', $dlg.scripts.last.to_s.include?('Değişiklik yok'), true) if G5
 end
 
 # --- 4) Red durumları: işlem açılmaz, yazım yok ---

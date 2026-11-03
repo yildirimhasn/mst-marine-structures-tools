@@ -67,14 +67,30 @@ module MAG
     raise 'Eleman kimliği birden fazla fiziksel yerleşimde kullanılıyor; önce kimlik kontrolünü tamamlayın.' if occurrences>1
     entry
    end
-   def fingerprint(model)
+   # Önizleme ile uygulama arasında model değişti mi (bayat önizleme). Her Çalışma Alanı elemanı için öznitelikler, alt varlık
+   # öznitelik/malzemeleri, kendi dönüşümü ve üst yol; model öznitelikleri. G2 (03.11.2026): iç geometri imzası
+   # (revision_geometry_signature: yüz/kenar köşeleri) yalnız düzenlenen eleman ve bağımlılık ağacı (mst_dependency_tree) için
+   # hesaplanır — uygulama (plan, validate_geometry, yeniden kurma, sync_type) başka elemanın yalnız özniteliklerini okur.
+   # request yoksa ya da hedef çözülemezse (silinmiş / taşınmış) eski tam imza → önizleme imzasıyla eşleşmez, aynı ileti.
+   def fingerprint(model,request=nil)
     list=ProjectWorkspace.entries(model)
-    records=list.map do |entry|
-     e=entry[:entity]
-     attrs=api.mst_attr_hash(e).sort_by{|k,v|k}
-     entities=e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities
-     surface=entities.map{|part|[api.mst_attr_hash(part),part.respond_to?(:material)&&part.material ? part.material.name : nil,part.respond_to?(:back_material)&&part.back_material ? part.back_material.name : nil]}
-     [entry[:key],attrs,surface,api.revision_geometry_signature(e),entry[:path].map{|n|[n.transformation.to_a,n.locked?,n.definition.instances.size]}]
+    focus=nil
+    if request
+     t=(ProjectWorkspace.validate_request(model,request,list) rescue nil)
+     if t&&t.size==1
+      root=t.first[:entity];focus={root=>true}
+      api.mst_dependency_tree(root).each{|child,_depth|focus[child]=true}
+     end
+    end
+    records=api.revision_shape_memo do
+     list.map do |entry|
+      e=entry[:entity]
+      attrs=api.mst_attr_hash(e).sort_by{|k,v|k}
+      entities=e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities
+      surface=entities.map{|part|[api.mst_attr_hash(part),part.respond_to?(:material)&&part.material ? part.material.name : nil,part.respond_to?(:back_material)&&part.back_material ? part.back_material.name : nil]}
+      shape=(focus.nil?||focus[e]) ? api.revision_geometry_signature(e) : ['T',e.transformation.to_a]
+      [entry[:key],attrs,surface,shape,entry[:path].map{|n|[n.transformation.to_a,n.locked?,n.definition.instances.size]}]
+     end
     end
     api.revision_digest([api.mst_attr_hash(model).sort_by{|k,v|k},records])
    end
@@ -146,8 +162,15 @@ module MAG
     api.mst_assign_tag(e,model)
    end
    def apply(model,pending)
-    raise 'Önizlemeden sonra model değişti; yeniden önizleyin.' unless pending[:fingerprint]==fingerprint(model)
-    plan=plan(model,pending[:request]);e=plan[:entry][:entity];opened=false
+    plan=nil
+    # G2: işlem öncesi denetim salt okuma — tek tarama, Çalışma Alanı ağacı bir kez (yeniden kurma / sync_type kapsam dışında)
+    api.mst_read_batch(model) do
+     ProjectWorkspace.entries_memo(model) do
+      raise 'Önizlemeden sonra model değişti; yeniden önizleyin.' unless pending[:fingerprint]==fingerprint(model,pending[:request])
+      plan=plan(model,pending[:request])
+     end
+    end
+    e=plan[:entry][:entity];opened=false
     begin
      model.start_operation('MST Kontrollü Eleman Düzenleme',true);opened=true
      if plan[:geometry_changed]
@@ -175,18 +198,26 @@ module MAG
   def controlled_editor_open(request,dialog=@d)
    @controlled_editor_pending=nil
    dialog.execute_script('controlledEditorReset()')
-   data=ControlledEditor.open(Sketchup.active_model,request)
+   model=Sketchup.active_model
+   data=ProjectWorkspace.entries_memo(model){ControlledEditor.open(model,request)}   # G2: resolve içinde ağaç bir kez
    dialog.execute_script("controlledEditorLoaded(#{JSON.generate(data)})")
   rescue=>error
    dialog.execute_script("controlledEditorError(#{JSON.generate(error.message)})")
   end
   def controlled_editor_preview(raw,dialog=@d)
    @controlled_editor_pending=nil;request=JSON.parse(raw);model=Sketchup.active_model
-   plan=ControlledEditor.plan(model,request);token=SecureRandom.hex(16)
-   @controlled_editor_pending={token:token,request:request,fingerprint:ControlledEditor.fingerprint(model)}
-   e=plan[:entry][:entity]
-   data={token:token,request_id:request['request_id'],changes:plan[:changes],before_concrete:QuantityService.value(e,:concrete_m3),after_concrete:plan[:volume],
-    before_formwork:QuantityService.value(e,:formwork_m2),after_formwork:plan[:formwork],dependencies:plan[:dependencies]}
+   data=nil;token=nil;fp=nil
+   # G2 (03.11.2026): salt okuma — tek model taraması, Çalışma Alanı ağacı bir kez
+   mst_read_batch(model) do
+    ProjectWorkspace.entries_memo(model) do
+     plan=ControlledEditor.plan(model,request);token=SecureRandom.hex(16)
+     fp=ControlledEditor.fingerprint(model,request)
+     e=plan[:entry][:entity]
+     data={token:token,request_id:request['request_id'],changes:plan[:changes],before_concrete:QuantityService.value(e,:concrete_m3),after_concrete:plan[:volume],
+      before_formwork:QuantityService.value(e,:formwork_m2),after_formwork:plan[:formwork],dependencies:plan[:dependencies]}
+    end
+   end
+   @controlled_editor_pending={token:token,request:request,fingerprint:fp}
    dialog.execute_script("controlledEditorPreview(#{JSON.generate(data)})")
   rescue=>error
    @controlled_editor_pending=nil;dialog.execute_script("controlledEditorError(#{JSON.generate(error.message)})")
@@ -197,7 +228,7 @@ module MAG
    raise 'Geçerli bir önizleme gerekiyor.' unless pending&&pending[:token]==token
    result=ControlledEditor.apply(Sketchup.active_model,pending)
    dialog.execute_script("controlledEditorDone(#{JSON.generate(result)})")
-   project_workspace_refresh(dialog)
+   project_workspace_refresh(dialog)   # G1: bu tam yenileme işlem sonrası bekleyen gözlemci yenilemesini iptal eder (tek yenileme)
   rescue=>error
    dialog.execute_script("controlledEditorError(#{JSON.generate(error.message)})")
   end

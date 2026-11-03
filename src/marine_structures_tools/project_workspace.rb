@@ -6,7 +6,23 @@ module MAG
    TYPES={'steel_pipe_pile'=>'Çelik boru kazık','head_beam'=>'Başlık kirişi','flat_precast'=>'Normal prekast','channel_precast'=>'Kanal prekastı','crane_precast'=>'Vinç prekastı','deck_slab'=>'Döşeme','curb'=>'Bordür / tretuvar','crown_wall'=>'Kronman','bored_pile'=>'Fore kazık'}.freeze
    FIELDS={'project'=>'Proje','system'=>'Sistem','structure'=>'Yapı','axis'=>'Aks','library_type_id'=>'Tip kimliği','concrete_class'=>'Beton sınıfı','steel_grade'=>'Çelik kalitesi','diameter_mm'=>'Çap (mm)','thickness_mm'=>'Et kalınlığı (mm)','length_m'=>'Boy (m)','width_m'=>'Genişlik (m)','height_m'=>'Yükseklik (m)'}.freeze
    def api;MarineStructuresTools;end
+   # G2 (03.11.2026): tek kullanıcı adımı (ağaç tıklaması, Önizle, Uygula öncesi denetim) süresince model ağacı bir kez taranır.
+   # Kapsam içinde öğe eklenmez / silinmez / element_type değişmez (yalnız okuma ve seçim); iç içe çağrı dış kapsamı kullanır.
+   def entries_memo(model)
+    return yield if @entries_memo
+    @entries_memo={model:model,list:nil}
+    begin
+     yield
+    ensure
+     @entries_memo=nil
+    end
+   end
    def entries(model)
+    m=@entries_memo
+    return (m[:list]||=entries_scan(model)) if m&&m[:model].equal?(model)
+    entries_scan(model)
+   end
+   def entries_scan(model)
     result=[];walk=nil
     walk=lambda do |entities,path|
      entities.each do |e|
@@ -134,12 +150,33 @@ module MAG
    data=ProjectWorkspace.payload(Sketchup.active_model,@workspace_entries)
    @workspace_rows=data[:records].each_with_object({}){|r,h|h[r[:key]]=r}
    dialog.execute_script("projectWorkspaceLoaded(#{JSON.generate(data)})")
+   # G1 (03.11.2026): tam yenileme seçimi de taşır; bekleyen gözlemci yenilemesi (ör. controlled_editor_apply'ın açık yenilemesinden
+   # önce kurulan zamanlayıcı) ikinci kez tam yenileme yapmaz
+   @workspace_stale=false
+   UI.stop_timer(@workspace_timer) if @workspace_timer
+   @workspace_timer=nil;@workspace_pending_full=false
   end # mst_read_batch
   rescue=>error
    dialog.execute_script("projectWorkspaceError(#{JSON.generate(error.message)},true)") if dialog
   end
+  # G1 (03.11.2026): açık sayfa kaydı. Arayüz workflow_status geri çağrısına sayfa kimliğini (.page.on id) ekler; kimlik gelmezse
+  # (eski arayüz) nil = bilinmiyor → eski davranış (her işlemden sonra tam yenileme). Çalışma Alanı sayfası kapalıyken işlem
+  # sonrası tam yenileme yapılmaz, "bayat" işaretlenir; sayfa açılınca MSTProjectWorkspace.refresh() (project_workspace_refresh) yeniler.
+  def mst_ui_page_note(page)
+   s=page.is_a?(String) ? page.strip : ''
+   @mst_ui_page=s.empty? ? nil : s
+   # sayfa yenileme çağrısı olmadan açıldıysa (tüm giriş yolları refresh() çağırır; yedek) bayat veri gösterilmez
+   project_workspace_refresh if @workspace_stale && !project_workspace_page_hidden? && @workspace_model==Sketchup.active_model
+  end
+  def project_workspace_page_hidden?
+   !@mst_ui_page.nil? && @mst_ui_page!='project_workspace'
+  end
   def project_workspace_selection(dialog=@d)
    return unless dialog&&dialog.visible?
+   if @workspace_stale   # G1: bayat liste ile seçim gösterilmez; sayfa kapalıysa açılışta yenilenir, açıksa şimdi yenilenir
+    return if project_workspace_page_hidden?
+    return project_workspace_refresh(dialog)
+   end
    return project_workspace_refresh(dialog) unless @workspace_entries&&@workspace_rows&&@workspace_model==Sketchup.active_model
    selected=ProjectWorkspace.selected_entries(Sketchup.active_model,@workspace_entries).map{|entry|@workspace_rows.fetch(entry[:key])}
    dialog.execute_script("projectWorkspaceSelection(#{JSON.generate(ProjectWorkspace.properties(selected))},#{JSON.generate(Sketchup.active_model.object_id.to_s)})")
@@ -149,11 +186,16 @@ module MAG
   def project_workspace_action(raw,dialog=@d)
    request=JSON.parse(raw)
    raise 'Düzenlemek için yalnız bir eleman seçin.' if request['edit'] && (!request['keys'].is_a?(Array)||request['keys'].uniq.size!=1)
-   targets=ProjectWorkspace.validate_request(Sketchup.active_model,request,ProjectWorkspace.entries(Sketchup.active_model))
+   model=Sketchup.active_model
+   # G1/G2 (03.11.2026): salt okuma + seçim; model ağacı bir kez (doğrulama, seçim, düzenleyici açılışı aynı liste), tek tarama
+   mst_read_batch(model) do
+   ProjectWorkspace.entries_memo(model) do
+   list=ProjectWorkspace.entries(model)
+   targets=ProjectWorkspace.validate_request(model,request,list)
    if request['edit'] && !(['steel_pipe_pile']+ControlledEditor::FIELDS.keys).include?(targets.first[:entity].get_attribute(DICT,'element_type',''))
     raise 'Bu eleman türü için kontrollü düzenleme henüz hazır değil.'
    end
-   ProjectWorkspace.select(Sketchup.active_model,request)
+   ProjectWorkspace.select(model,request,list)
    if request['edit']
     if targets.first[:entity].get_attribute(DICT,'element_type','')=='steel_pipe_pile'
      dialog.execute_script('projectWorkspaceOpenPileEditor()')
@@ -161,6 +203,8 @@ module MAG
      controlled_editor_open(request,dialog)
     end
    end
+   end # entries_memo
+   end # mst_read_batch
    project_workspace_selection(dialog)
   rescue=>error
    dialog.execute_script("projectWorkspaceError(#{JSON.generate(error.message)})") if dialog
@@ -182,7 +226,11 @@ module MAG
     @workspace_timer=nil
     refresh=@workspace_pending_full;@workspace_pending_full=false
     if @workspace_model==Sketchup.active_model
-     refresh ? project_workspace_refresh : project_workspace_selection
+     if refresh && project_workspace_page_hidden?
+      @workspace_stale=true   # G1: sayfa kapalı; açılışta yenilenir
+     else
+      refresh ? project_workspace_refresh : project_workspace_selection
+     end
     end
    end
   end
@@ -194,7 +242,7 @@ module MAG
     @workspace_model.selection.remove_observer(@workspace_selection_observer) if @workspace_selection_observer
     @workspace_model.remove_observer(@workspace_model_observer) if @workspace_model_observer
    end
-   @workspace_model=nil;@workspace_entries=nil;@workspace_rows=nil
+   @workspace_model=nil;@workspace_entries=nil;@workspace_rows=nil;@workspace_stale=false
   end
   def project_workspace_attach(model)
    return if @workspace_model==model

@@ -903,27 +903,34 @@ alias_method :revision_create_snapshot_base, :revision_create_snapshot unless me
 # R-1 (K02, K03, K26): arşiv okunamazsa işlem açılmaz; fark yoksa revizyon oluşmaz; snapshot + keşif + last_revision tek işlem (tek Ctrl+Z)
 def revision_create_snapshot(dialog=@d)
  model=Sketchup.active_model;op=false
+revision_snapshots_memo do   # G3 (03.11.2026): arşiv işlem süresince kayıtlı metin başına bir kez ayrıştırılır
  snaps=begin;revision_snapshots;rescue => ex;UI.messagebox("Revizyon kaydedilemedi: #{ex.message}");return nil;end
- return nil unless mst_dup_uid_continue?
- curr=revision_current_snapshot;boq=boq2_boq_digest;prev=snaps.last
+ curr=nil;boq=nil
+ # G3: okuma kısmı tek model taraması (mükerrer UID denetimi, anlık kayıt, keşif özeti); yazım bu bloğun dışında
+ mst_read_batch(model) do
+  return nil unless mst_dup_uid_continue?
+  curr=revision_current_snapshot;boq=boq2_boq_digest
+ end
+ prev=snaps.last
  if prev
   df=revision_diff(prev['elements'],curr)
   if df[:added].empty? && df[:deleted].empty? && df[:changed].empty? && (prev['boq'].nil? || boq2_boq_diff(prev['boq'],boq).empty?)
    UI.messagebox("Son revizyondan (#{prev['revision']}) bu yana modelde ve keşif miktarlarında değişiklik yok; yeni revizyon oluşturulmadı.")
-   revision_send_reuse(dialog,curr)   # v0.51.5 P5: aynı anlık kayıt yeniden hesaplanmaz
+   revision_send_reuse(dialog,curr,boq)   # v0.51.5 P5: aynı anlık kayıt yeniden hesaplanmaz; G3: keşif özeti de
    return nil
   end
  end
  model.start_operation('MST Revizyon Kaydı',true);op=true
  snap=revision_create_snapshot_base(snaps,curr)
  snap['boq']=boq;snap['currency']=boq2_currency
- snaps << snap;revision_save_snapshots(snaps)
+ snaps << snap;revision_snapshots_forget;revision_save_snapshots(snaps)   # G3: önbellekteki dizi değişti → kayıttan sonra yeniden okunur
  model.set_attribute(REVISION_DICT,'last_revision',snap['revision'])
  model.commit_operation;op=false
  mb=model.get_attribute(REVISION_DICT,'snapshots','').to_s.bytesize/1048576.0
  UI.messagebox(format("Revizyon arşivi büyüdü (%d kayıt, %.1f MB); eski kayıtlar otomatik silinmez.",snaps.length,mb)) if snaps.length>20 || mb>5.0
- revision_send_reuse(dialog,curr)   # v0.51.5 P5: kayıttan sonra öğe yazımı yok; curr aynı
+ revision_send_reuse(dialog,curr,boq)   # v0.51.5 P5: kayıttan sonra öğe yazımı yok; curr aynı. G3: keşif satırları revizyon arşivini okumaz → boq aynı
  snap['revision']
+end # revision_snapshots_memo
 rescue => ex
  model.abort_operation if op
  UI.messagebox("Revizyon kaydedilemedi: #{ex.message}")
@@ -931,11 +938,12 @@ rescue => ex
 end
 # v0.51.5 P5: revision_create_snapshot sonrası ekran yenilemesi az önce hesaplanan anlık kaydı kullanır (revision_current_snapshot
 # yeniden çalışmaz). Arada yalnız revizyon arşivi / last_revision yazılır; öğe ve geometri değişmez → çıktı aynı.
-def revision_send_reuse(dialog,curr)
- @mst_revision_curr_reuse=curr
+# G3 (03.11.2026): aynı gerekçeyle keşif özeti (boq2_boq_digest = boq_rows) de yeniden hesaplanmaz.
+def revision_send_reuse(dialog,curr,boq=nil)
+ @mst_revision_curr_reuse=curr;@mst_revision_boq_reuse=boq
  revision_send(dialog)
 ensure
- @mst_revision_curr_reuse=nil
+ @mst_revision_curr_reuse=nil;@mst_revision_boq_reuse=nil
 end
 def boq2_boq_diff(prev_boq,curr_boq)
  pm=Hash[Array(prev_boq).map{|r|[r['source'],r]}];cm=Hash[Array(curr_boq).map{|r|[r['source'],r]}]
@@ -950,7 +958,7 @@ alias_method :revision_payload_base, :revision_payload unless method_defined?(:r
 def revision_payload
  p=revision_payload_base
  prev=revision_snapshots.last
- p[:boq_diff]=prev && prev['boq'] ? boq2_boq_diff(prev['boq'],boq2_boq_digest) : nil
+ p[:boq_diff]=prev && prev['boq'] ? boq2_boq_diff(prev['boq'],(@mst_revision_boq_reuse.nil? ? boq2_boq_digest : @mst_revision_boq_reuse)) : nil   # G3
  p[:boq_diff_note]=prev.nil? ? 'Henüz snapshot yok.' : (prev['boq'] ? "#{prev['revision']} ile güncel model" : "#{prev['revision']} keşif içermiyor; yeni snapshot alın (bundan sonrakiler keşfi de saklar).")
  p[:currency]=boq2_currency
  p
