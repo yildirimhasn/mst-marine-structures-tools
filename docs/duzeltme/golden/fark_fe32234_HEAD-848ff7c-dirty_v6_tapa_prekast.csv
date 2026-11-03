@@ -1,0 +1,11 @@
+bolum;anahtar;eski_0514;yeni_0515;esleme;kontrol
+BOQ_INFO;INFO:PILE_PLUG;68.753506410;(yok);V6 (04.11 kullanıcı talimatı) tapa bilgi satırı kalktı (pozda);
+BOQ_INFO;INFO:UNMAPPED_CONCRETE#Prekast#C30/37;1.500000000;(yok);V6 (04.11 kullanıcı talimatı) prekast bilgi satırı kalktı (sınıf satırında);
+BOQ_QTY;PILE_MANIP;54.999845747;55.068599254;V6 (04.11 kullanıcı talimatı) manipülasyon + tapa (t);fark +0.068754 = beklenen +0.068754
+BOQ_QTY;PILE_PLUG;(yok);68.753506410;V6 (04.11 kullanıcı talimatı) tapa kg kaynağı;fark +68.753506 = beklenen +68.753506
+BOQ_QTY;PRECAST_CONCRETE#C30/37;(yok);1.500000000;V6 (04.11 kullanıcı talimatı) prekast C30/37 sınıf kaynağı;fark +1.500000 = beklenen +1.500000
+BOQ_ROW;ÖBF-012|PILE_MANIP|ton;54.999845747;55.068599254;V6 (04.11 kullanıcı talimatı) manipülasyon + tapa (t);fark +0.068754 = beklenen +0.068754
+BOQ_ROW;ÖBF-017|PILE_PLUG|kg;(yok);68.753506410;V6 (04.11 kullanıcı talimatı) tapa → ÇEŞİTLİ DEMİR (kg) pozu;fark +68.753506 = beklenen +68.753506
+BOQ_ROW;ÖBF-037|PRECAST_CONCRETE#C30/37|m³;(yok);1.500000000;V6 (04.11 kullanıcı talimatı) prekast C30/37 → PREKAST BETONU (C30/37);fark +1.500000 = beklenen +1.500000
+HAKEDIS;PILE_PLUG|approved;(yok);0.000000000;V6 (04.11 kullanıcı talimatı) yeni satır, onaylı ilerleme yok;fark +0.000000 = beklenen +0.000000
+HAKEDIS;PRECAST_CONCRETE#C30/37|approved;(yok);0.000000000;V6 (04.11 kullanıcı talimatı) yeni satır, onaylı ilerleme yok;fark +0.000000 = beklenen +0.000000

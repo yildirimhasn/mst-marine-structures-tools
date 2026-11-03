@@ -4,7 +4,7 @@ module MAG
     BOQ_MAPPING_KEY='boq_project_mapping_v1'.freeze
 
     def boq_mapping_templates
-      BOQ_TEMPLATE + (respond_to?(:rf_live_excavation_sources) ? rf_live_excavation_sources : []) + accessory_sources.map{|r|['—',r[:name],r[:unit],nil,r[:key]]} + jg_sources.map{|r|['—',r[:name],r[:unit],nil,r[:key]]} + bp_sources.map{|r|['—',r[:name],r[:unit],nil,r[:key]]} + rockfill_qto_data[:materials].map{|m|['—',m[:name],'ton',nil,"ROCKFILL:#{m[:code]}"]}
+      BOQ_TEMPLATE + boq_auto_library_sources + (respond_to?(:rf_live_excavation_sources) ? rf_live_excavation_sources : []) + accessory_sources.map{|r|['—',r[:name],r[:unit],nil,r[:key]]} + jg_sources.map{|r|['—',r[:name],r[:unit],nil,r[:key]]} + bp_sources.map{|r|['—',r[:name],r[:unit],nil,r[:key]]} + rockfill_qto_data[:materials].map{|m|['—',m[:name],'ton',nil,"ROCKFILL:#{m[:code]}"]}
     end
 
     def rockfill_boq_name(name)
@@ -66,11 +66,75 @@ module MAG
       row
     end
 
+    # v0.51.5 (04.11.2026 kullanıcı talimatı): kütüphaneden ADI ile otomatik eşleşen model miktarları.
+    #  PILE_PLUG                  → 'ÇEŞİTLİ DEMİR İMALATI VE YERİNE KONULMASI' (kg)
+    #  PRECAST_CONCRETE#<sınıf>   → 'PREKAST BETONU (<sınıf>)' (m³); 'Sınıfsız' → 'PREKAST BETONU'
+    # Ad karşılaştırması: Türkçe büyük harf, boşluksuz, birebir. Proje eşleştirmesi (ÖBF Eşleştirme) varsa o kullanılır.
+    BOQ_PLUG_POZ_NAME='ÇEŞİTLİ DEMİR İMALATI VE YERİNE KONULMASI'.freeze
+    BOQ_PRECAST_POZ_NAME='PREKAST BETONU'.freeze
+
+    def boq_precast_poz_name(cls)
+      cls.to_s=='Sınıfsız' ? BOQ_PRECAST_POZ_NAME : "#{BOQ_PRECAST_POZ_NAME} (#{cls.to_s.upcase.gsub(' ','')})"
+    end
+
+    def boq_auto_library_sources(q=nil)
+      q||=boq_quantities
+      keys=q.keys.select{|k|k.start_with?('PRECAST_CONCRETE#')}.sort
+      [['—',"Kazık tapası → #{BOQ_PLUG_POZ_NAME}",'kg',nil,'PILE_PLUG']]+
+        keys.map{|k|cls=k.split('#',2)[1];['—',"Prekast betonu — #{cls=='Sınıfsız' ? 'sınıf belirtilmemiş' : cls}",'m³',nil,k]}
+    end
+
+    def boq_library_name_key(s)
+      s.to_s.tr('ıi','Iİ').upcase.gsub(/\s+/,'')
+    end
+
+    # Kullanıcı kütüphanesindeki aynı adlı/birimli kayıtlar önce; yoksa paketteki katalog (kütüphanedeki karşılığıyla).
+    def boq_library_exact(name,unit,library,seeds)
+      key=boq_library_name_key(name)
+      hit=->(r){r['unit']==unit && boq_library_name_key(r['name'])==key}
+      own=library.select(&hit)
+      return own unless own.empty?
+      seeds.select(&hit).map do |seed|
+        library.find{|r|r['id']==seed['id'] || (!seed['catalog_key'].to_s.empty? && r['catalog_key']==seed['catalog_key'])} || seed
+      end.uniq{|r|r['id']}
+    end
+
+    def boq_auto_library_row(key,unit,quantity,poz_name,label,library,seeds)
+      c=boq_library_exact(poz_name,unit,library,seeds)
+      if c.length==1
+        row=boq_mapped_row(key,unit,quantity,c.first,c)
+        row[:project_mapping]=false;row[:automatic_mapping]=true
+        row[:mapping_reason]="Kütüphanedeki '#{c.first['name']}' (#{unit}) pozuyla adından eşleşti."
+        return row
+      end
+      reason=if c.empty?
+        "Kütüphanede '#{poz_name}' adlı, birimi #{unit} olan poz yok. Kütüphaneye bu adla poz ekleyin (otomatik eşleşir) ya da ÖBF Eşleştirme'den bir poz seçin."
+      else
+        "Kütüphanede '#{poz_name}' adlı #{c.length} poz var (#{c.map{|r|r['code']}.join(', ')}). ÖBF Eşleştirme'den birini seçin."
+      end
+      {code:'—',name:"#{label} — #{c.empty? ? 'KÜTÜPHANEDE POZ YOK' : 'POZ SEÇİLMELİ'}",unit:unit,quantity:quantity,
+       unit_price:nil,total:nil,source:key,status:(c.empty? ? 'UYGUN POZ EKSİK' : 'BİRDEN ÇOK UYGUN POZ'),
+       library_price:true,automatic_mapping:true,missing_library:true,mapping_reason:reason}
+    end
+
+    def boq_auto_library_rows(q,library,seeds,map)
+      boq_auto_library_sources(q).map do |_,_,unit,_,key|
+        qty=q[key].to_f
+        next boq_mapped_row(key,unit,qty,map[key],library) if map.key?(key)
+        if key=='PILE_PLUG'
+          boq_auto_library_row(key,unit,qty,BOQ_PLUG_POZ_NAME,'KAZIK TAPASI',library,seeds)
+        else
+          cls=key.split('#',2)[1]
+          boq_auto_library_row(key,unit,qty,boq_precast_poz_name(cls),"PREKAST BETONU (#{cls})",library,seeds)
+        end
+      end
+    end
+
     def boq_project_mapping
       raw=Sketchup.active_model.get_attribute(DICT,BOQ_MAPPING_KEY,'{}')
       map=JSON.parse(raw)
       keys=BOQ_TEMPLATE.map{|r|r[4]}
-      raise 'Proje ÖBF eşleştirme verisi okunamadı.' unless map.is_a?(Hash) && map.all?{|k,v|(keys.include?(k) || k=='LIVE_EXCAVATION' || k.start_with?('ROCKFILL:') || k.start_with?('BORED:') || k.start_with?('JETGROUT:') || k.start_with?('ACCESSORY:')) && v.is_a?(Hash) && %w[id code name].all?{|f|v[f].is_a?(String) && !v[f].empty?}}
+      raise 'Proje ÖBF eşleştirme verisi okunamadı.' unless map.is_a?(Hash) && map.all?{|k,v|(keys.include?(k) || k=='LIVE_EXCAVATION' || k=='PILE_PLUG' || k.start_with?('PRECAST_CONCRETE#') || k.start_with?('ROCKFILL:') || k.start_with?('BORED:') || k.start_with?('JETGROUT:') || k.start_with?('ACCESSORY:')) && v.is_a?(Hash) && %w[id code name].all?{|f|v[f].is_a?(String) && !v[f].empty?}}
       map
     end
 

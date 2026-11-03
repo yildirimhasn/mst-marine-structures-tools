@@ -275,8 +275,13 @@ Dir.mktmpdir('mst_r') do |tmp|
     # 03.11.2026 (kullanıcı kararı, runner 1.2.4 uyarısı): çelik boru kazık kalıbı "eksik" → "uygulanmaz" (değer 0 aynı). Çalışma Alanı
     # yükünü içeren üç özet bu yüzden tabandan farklıdır; model yazımları (ce_apply_state) ve diğerleri birebir kalmalı.
     pile_fw = %w[ws_return_loaded ce_preview ce_apply_loaded_last]
+    # 04.11.2026 (kullanıcı talimatı, METRAJ DEĞİŞİR): tapa manipülasyona + PILE_PLUG satırı, prekast sınıf satırları
+    # (PRECAST_CONCRETE#<sınıf>). Keşif / revizyon arşivi / detay metraj özetleri bu yüzden tabandan farklıdır; miktar ayrıntısı
+    # tools/test/v4_tapa_prekast_poz.rb ve golden-master farkındadır. Diğer özetler birebir kalmalı.
+    metraj = %w[rev_archive_sha boq_open takeoff]
     (a.keys | b.keys).each do |k|
       if pile_fw.include?(k) then t("E #{k}: tabandan farklı (yalnız kazık kalıbı durumu; açıklanmış)", a[k] != b[k] && !a[k].nil?, true)
+      elsif metraj.include?(k) then t("E #{k}: tabandan farklı (04.11 tapa + prekast sınıf metraj değişikliği; açıklanmış)", a[k] != b[k] && !a[k].nil?, true)
       else t("E #{k}: yeni = taban (#{ref})", a[k], b[k])
       end
     end

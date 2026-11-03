@@ -103,7 +103,23 @@ RULES_H = [
   [/\ACSV;\d+\|head_beam\|/, "#{M21} H4b (CSV BK satırı = Keşif, 2 ondalık)", :text],
   [/\ACSV_TOTAL;Kalip_m2\z/, "#{M21} H4b (CSV kalıp toplamı, 2 ondalık)", :text]
 ].freeze
-rules = { 'Gb' => RULES_GB, 'H' => RULES_H }[profile] || RULES
+# V6 (taban fe32234; 04.11.2026 kullanıcı talimatı): tapa manipülasyona + çeşitli demir (kg) pozuna; prekast C35/45 dışı sınıf satırı.
+# Beklenen değerler fikstürden bağımsız: P1 tek tapa, Ø1016×16, boşluk 10 mm, kalınlık 12 mm (varsayılan), ρ 7850 →
+# tapa = π/4 · (1,016 − 2·0,016 − 2·0,010)² · 0,012 · 7850 kg; prekast pd2 C30/37 = 1,5 m³.
+V6_PLUG = Math::PI / 4 * (1.016 - 2 * 0.016 - 2 * 0.010)**2 * 0.012 * 7850.0
+V6 = 'V6 (04.11 kullanıcı talimatı)'.freeze
+RULES_V6 = [
+  [/\ABOQ_QTY;PILE_MANIP\z/, "#{V6} manipülasyon + tapa (t)", V6_PLUG / 1000.0],
+  [/\ABOQ_ROW;ÖBF-\d+\|PILE_MANIP\|ton\z/, "#{V6} manipülasyon + tapa (t)", V6_PLUG / 1000.0],
+  [/\ABOQ_QTY;PILE_PLUG\z/, "#{V6} tapa kg kaynağı", V6_PLUG],
+  [/\ABOQ_ROW;ÖBF-\d+\|PILE_PLUG\|kg\z/, "#{V6} tapa → ÇEŞİTLİ DEMİR (kg) pozu", V6_PLUG],
+  [/\ABOQ_QTY;PRECAST_CONCRETE#C30\/37\z/, "#{V6} prekast C30/37 sınıf kaynağı", 1.5],
+  [/\ABOQ_ROW;ÖBF-\d+\|PRECAST_CONCRETE#C30\/37\|m³\z/, "#{V6} prekast C30/37 → PREKAST BETONU (C30/37)", 1.5],
+  [/\AHAKEDIS;(PILE_PLUG|PRECAST_CONCRETE#C30\/37)\|approved\z/, "#{V6} yeni satır, onaylı ilerleme yok", 0.0],
+  [/\ABOQ_INFO;INFO:PILE_PLUG\z/, "#{V6} tapa bilgi satırı kalktı (pozda)", :text],
+  [/\ABOQ_INFO;INFO:UNMAPPED_CONCRETE#Prekast#/, "#{V6} prekast bilgi satırı kalktı (sınıf satırında)", :text]
+].freeze
+rules = { 'Gb' => RULES_GB, 'H' => RULES_H, 'V6' => RULES_V6 }[profile] || RULES
 
 out = []
 bad = 0
@@ -115,7 +131,7 @@ bad = 0
   cat = rule ? rule[1] : 'BEKLENMEYEN'
   check = ''
   if rule && rule[2].is_a?(Numeric)
-    oz = num.(ov) || (profile == 'Gb' && o[k].nil? ? 0.0 : nil)   # Gb: tabanda olmayan yeni anahtar 0'dan sayılır
+    oz = num.(ov) || (%w[Gb V6].include?(profile) && o[k].nil? ? 0.0 : nil)   # Gb, V6: tabanda olmayan yeni anahtar 0'dan sayılır
     d = num.(nv) && oz ? num.(nv) - oz : nil
     if d && (d - rule[2]).abs <= 1e-6
       check = format('fark %+.6f = beklenen %+.6f', d, rule[2])

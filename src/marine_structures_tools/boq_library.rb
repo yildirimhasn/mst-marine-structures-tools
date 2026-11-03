@@ -227,8 +227,12 @@ module MAG
           end
         end
         MarineStructuresTools.boq_rows.each do |model_row|
+          # v0.51.5: kütüphaneden adıyla eşleşen kaynaklar (PILE_PLUG, PRECAST_CONCRETE#sınıf) katalogda 'source' taşımaz;
+          # poz bulunamamış satır arşivlenmez, eşleşmiş satır library_id ile yazılır.
+          auto_src=model_row[:source].to_s=='PILE_PLUG' || model_row[:source].to_s.start_with?('PRECAST_CONCRETE#')
+          next if auto_src && model_row[:missing_library]
           seed=seeds.find { |r| r['source']==model_row[:source] && r['unit']==model_row[:unit] }
-          raise 'Keşif katalog eşleştirmesi bulunamadı.' unless seed
+          raise 'Keşif katalog eşleştirmesi bulunamadı.' unless seed || auto_src
           target=if model_row[:project_mapping] || model_row[:automatic_mapping]
             rows.find { |r| r['id']==model_row[:library_id] }
           else

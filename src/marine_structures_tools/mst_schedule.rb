@@ -44,7 +44,12 @@ MST_SP_TYPES={'steel_pipe_pile'=>'pile','bored_pile'=>'pile','pile_infill_concre
 MST_SP_BOQ_MAP={'MOBILIZATION'=>:start,'FORMWORK_CAST'=>%w[bk deck],'FORMWORK_PRECAST'=>%w[pcprod],'REBAR'=>:rebar,'HB_DECK_CONCRETE'=>%w[bk deck],
  'CAST_C35_45_OTHER'=>%w[fin],'PRECAST_C35_45'=>%w[pcprod],'PRECAST_INSTALL'=>%w[pc],'TOPPING_AREA'=>%w[fin],'TOPPING_CONCRETE'=>%w[fin],
  'PILE_INFILL'=>%w[infill],'PILE_STEEL'=>%w[pile],'PILE_MANIP'=>%w[pile],'PILE_RINGS'=>%w[pile],'PILE_SPLICES'=>%w[pile],'PILE_DRIVING'=>%w[pile],
- 'PILE_PE'=>%w[pile],'PILE_DRILLING'=>%w[pile],'CROWN_FORMWORK'=>%w[fin],'CROWN_CONCRETE'=>%w[fin]}.freeze
+ 'PILE_PE'=>%w[pile],'PILE_DRILLING'=>%w[pile],'CROWN_FORMWORK'=>%w[fin],'CROWN_CONCRETE'=>%w[fin],'PILE_PLUG'=>%w[pile]}.freeze
+# v0.51.5: prekast sınıf satırları (PRECAST_CONCRETE#<sınıf>) prekast üretimine dağıtılır
+def mst_sp_boq_kinds(source)
+ s=source.to_s
+ MST_SP_BOQ_MAP[s] || (s.start_with?('PRECAST_CONCRETE#') ? %w[pcprod] : nil)
+end
 
 def mst_sp_defaults;Hash[MST_SP_RATES.map{|k,_,v,_|[k,v.to_f]}].merge('start'=>Date.today.strftime('%Y-%m-%d'),'reverse'=>0.0);end
 def mst_sp_params(model=Sketchup.active_model)
@@ -198,7 +203,7 @@ def mst_sp_monthly(sch,boq)
  wsum=->(list,f){s=list.sum{|a|f.(a)};s}
  boq.each do |r|
   tot=r[:total].to_f;next if tot<=0
-  m=MST_SP_BOQ_MAP[r[:source].to_s]
+  m=mst_sp_boq_kinds(r[:source])
   if m==:start then mon[sch[:start].strftime('%Y-%m')]+=tot;next end
   list,f=if m==:rebar then [acts.select{|a|a[:item] && a[:kind]!='pcprod'},->(a){a[:item][:rebar_kg]}]
    elsif m.is_a?(Array) then [acts.select{|a|m.include?(a[:kind])},->(a){a[:item] ? [a[:item][:vol],(a[:qty_unit]=='adet' ? 1.0 : 0.0)].max : 1.0}]

@@ -3688,8 +3688,19 @@ def boq_quantities
     'PILE_DRIVING'=>piles.sum{|p|pile_driving_length(p)},
     'PILE_PE'=>pile_row ? pile_row[14].to_f : 0.0,
     'PILE_DRILLING'=>pile_row ? pile_row[15].to_f : 0.0,
-    'TOPPING_CONCRETE'=>topping_vol
-  }
+    'TOPPING_CONCRETE'=>topping_vol,
+    'PILE_PLUG'=>pile_row ? pile_row[8].to_f*1000.0 : 0.0   # v0.51.5: tapa kg → çeşitli demir pozu (boq_auto_library_rows)
+  }.merge(boq_precast_class_quantities(precast))
+end
+
+# v0.51.5 (04.11.2026 kullanıcı talimatı): C35/45 dışındaki prekast betonu sınıfa göre ayrı kaynak 'PRECAST_CONCRETE#<sınıf>'
+# (sınıf anahtarı boq2_class_of: boş / '-' → 'Sınıfsız'). C35/45 eskisi gibi PRECAST_C35_45'te kalır.
+def boq_precast_class_quantities(precast)
+  h={}
+  precast.reject{|e|qto_material_class(e).to_s.upcase.gsub(' ','')=='C35/45'}.group_by{|e|boq2_class_of(e)}.sort.each do |cls,es|
+    h["PRECAST_CONCRETE##{cls}"]=es.sum{|e|qto3_quantity(e,:concrete_m3)}
+  end
+  h
 end
 
 # v0.36.5n: BOQ presentation grouping never modifies BIM/QTO source quantities.
@@ -3849,6 +3860,7 @@ def boq_rows(include_inactive=false)
     price=boq_price(code,default_price)
     {code:code,name:name,unit:unit,quantity:qty,unit_price:price,total:qty*price,source:key,status:(mapped ? 'MODEL' : 'YOK')}
   end
+  rows.concat(boq_auto_library_rows(q,library,seeds,project_mapping))   # v0.51.5: tapa (PILE_PLUG) + prekast sınıf satırları
   rows.concat(rockfill_boq_rows(library,seeds,project_mapping))
   rows.concat(bp_boq_rows(library,seeds,project_mapping))
   rows.concat(jg_boq_rows(library,project_mapping))
@@ -3882,13 +3894,14 @@ def boq_trace_entities(source)
   by_type=lambda{|*types| all.select{|e| types.include?(e.get_attribute(DICT,'element_type','').to_s)}}
   case source.to_s
   when 'FORMWORK_CAST' then by_type.call('head_beam','deck_slab','curb')
-  when 'FORMWORK_PRECAST','PRECAST_C35_45','PRECAST_INSTALL' then by_type.call('flat_precast','channel_precast','crane_precast')
+  when 'FORMWORK_PRECAST','PRECAST_INSTALL','PRECAST_CONCRETE' then by_type.call('flat_precast','channel_precast','crane_precast')   # PRECAST_CONCRETE: sınıf süzmesi boq_pro boq_trace_entities ('#sınıf')
+  when 'PRECAST_C35_45' then by_type.call('flat_precast','channel_precast','crane_precast').select{|e|qto_material_class(e).to_s.upcase.gsub(' ','')=='C35/45'}   # v0.51.5: miktarla aynı küme
   when 'HB_DECK_CONCRETE' then by_type.call('head_beam','deck_slab')
   when 'CAST_C35_45_OTHER' then by_type.call('curb')
   when 'CROWN_FORMWORK','CROWN_CONCRETE' then by_type.call('crown_wall')
   when 'TOPPING_AREA','TOPPING_CONCRETE' then by_type.call('deck_topping','deck_slab')
   when 'PILE_INFILL' then by_type.call('steel_pipe_pile').select{|p| pile_bim_qto_item(p)[:concrete_m3].to_f>0}.uniq{|p|p.persistent_id}
-  when 'PILE_STEEL','PILE_MANIP','PILE_RINGS','PILE_SPLICES','PILE_DRIVING','PILE_PE','PILE_DRILLING' then by_type.call('steel_pipe_pile')
+  when 'PILE_STEEL','PILE_MANIP','PILE_RINGS','PILE_SPLICES','PILE_DRIVING','PILE_PE','PILE_DRILLING','PILE_PLUG' then by_type.call('steel_pipe_pile')
   when 'REBAR' then QuantityService.rebar_sources(all)   # ADR-0515 G4: bordür donatısı Keşif REBAR'da; izleme de bordürü içerir
   else
     # Project mappings and future BOQ keys may carry their source key in metadata.
@@ -8245,20 +8258,16 @@ def mst_boq_info_rows(all=nil)
  out=[]
  info=->(name,unit,qty,src,note){out << {code:'BİLGİ',name:name,unit:unit,quantity:qty,unit_price:nil,total:nil,source:src,
   status:'BİLGİ · POZSUZ (toplama girmez)',library_price:true,info_only:true,mapping_reason:note,trace:{count:0,items:[]}}}
- # K33: PRECAST_C35_45 / CAST_C35_45_OTHER yalnız C35/45 alır (boq_quantities); diğer sınıflar hiçbir beton pozunda yok
- [['Prekast',by.('flat_precast')+by.('channel_precast')+by.('crane_precast'),' Montaj pozunda (PRECAST_INSTALL) var.'],['Bordür',by.('curb'),'']].each do |grp,es,extra|
+ # K33: CAST_C35_45_OTHER yalnız C35/45 alır (boq_quantities); bordürün diğer sınıfları hiçbir beton pozunda yok.
+ # Prekast: 04.11.2026'dan beri C35/45 dışı sınıflar PRECAST_CONCRETE#<sınıf> satırında (boq_auto_library_rows) — bilgi satırı yok.
+ [['Bordür',by.('curb'),'']].each do |grp,es,extra|
   es.reject{|e|qto_material_class(e).to_s.upcase.gsub(' ','')=='C35/45'}.group_by{|e|c=qto_material_class(e).to_s.strip;(c.empty? || c=='-') ? 'belirtilmemiş' : c}.sort.each do |cls,xs|
    q=xs.sum{|e|qto3_quantity(e,:concrete_m3)};next if q<=1e-9
    info.("Poz eşlenmemiş beton: #{format('%.3f',q)} m³ (#{grp}, sınıf #{cls}; #{xs.length} eleman)",'m³',q,"INFO:UNMAPPED_CONCRETE##{grp}##{cls}",
     "C35/45 beton pozu yalnız C35/45 sınıfını alır; bu hacim hiçbir beton pozunda yok.#{extra} Poz/sınıf eşlemesi için proje poz listesi gerekli.")
   end
  end
- # K39: tapa ağırlığı hesaplanıyor (pile_fabrication_qto_row) ama hiçbir pozda değil
- pr=pile_fabrication_qto_row(by.('steel_pipe_pile'),'TOPLAM',true)
- if pr && pr[8].to_f>1e-9
-  info.("Kazık tapası (pozsuz): #{pr[4].to_i} adet, #{format('%.1f',pr[8].to_f*1000.0)} kg",'kg',pr[8].to_f*1000.0,'INFO:PILE_PLUG',
-   'Tapa ağırlığı hiçbir keşif pozuna girmiyor (kazık çeliği ve manipülasyon dahil değil). Tarif/poz belgesi gerekli.')
- end
+ # K39 (kaldırıldı 04.11.2026, kullanıcı talimatı): tapa ağırlığı manipülasyona ve PILE_PLUG (çeşitli demir, kg) satırına girer.
  # K40: paftadan / çizimden 3B donatıda yerleştirilemeyen pozlar — tonajı pafta tablosundan REBAR'a girer
  n_el=0;n_poz=0;kg=0.0
  all.each do |e|
@@ -8616,7 +8625,7 @@ mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
  end
  begin
   audit_boq=boq_rows(false)
-  central=%w[FORMWORK_CAST FORMWORK_PRECAST REBAR HB_DECK_CONCRETE CROWN_FORMWORK CROWN_CONCRETE CAST_C35_45_OTHER PRECAST_C35_45 PRECAST_INSTALL TOPPING_AREA PILE_INFILL PILE_STEEL PILE_MANIP PILE_RINGS PILE_SPLICES PILE_DRIVING PILE_PE PILE_DRILLING TOPPING_CONCRETE]
+  central=%w[FORMWORK_CAST FORMWORK_PRECAST REBAR HB_DECK_CONCRETE CROWN_FORMWORK CROWN_CONCRETE CAST_C35_45_OTHER PRECAST_C35_45 PRECAST_INSTALL TOPPING_AREA PILE_INFILL PILE_STEEL PILE_MANIP PILE_RINGS PILE_SPLICES PILE_DRIVING PILE_PE PILE_DRILLING TOPPING_CONCRETE PRECAST_CONCRETE PILE_PLUG]
   audit_boq.each do |r|
    src=r[:source].to_s; next unless central.include?(src.split('#',2)[0])   # v0.47 BQ1: sınıf satırı 'KAYNAK#sınıf'
    traced=(respond_to?(:prog2_row_entities) ? prog2_row_entities(r) : boq_trace_entities(src))
@@ -9089,7 +9098,7 @@ def pile_fabrication_qto_row(piles, label, raw_quantities=false)
   Math::PI*(p.get_attribute(DICT,'diameter_mm',0).to_f/1000.0)*[p.get_attribute(DICT,'pe_length_m',0).to_f,0.0].max
  end
  drilling=piles.sum{|p|p.get_attribute(DICT,'drilling_enabled','0').to_s=='1' ? [p.get_attribute(DICT,'drilling_length_m',0).to_f,0.0].max : 0.0}
- manipulation_t=(pile_kg+upper_kg+lower_kg)/1000.0
+ manipulation_t=(pile_kg+upper_kg+lower_kg+plug_kg)/1000.0   # v0.51.5 (04.11.2026 kullanıcı talimatı): tapa manipülasyona dahil
  # BOQ calculations consume full precision; presentation rounding stays below.
  return [label,d,t,count,plug_count,splice_count,fab_len,driving,plug_kg/1000.0,pile_kg/1000.0,upper_kg,lower_kg,manipulation_t,concrete,pe_area,drilling] if raw_quantities
  [label,(d).round(4),(t).round(4),count,plug_count,splice_count,fab_len.round(2),driving.round(2),(plug_kg/1000.0).round(3),(pile_kg/1000.0).round(3),upper_kg.round(2),lower_kg.round(2),manipulation_t.round(3),concrete.round(3),pe_area.round(2),drilling.round(2)]
@@ -10138,7 +10147,7 @@ def progress_entity_quantity(e, source)
     qto3_quantity(e,:formwork_m2)
   when 'TOPPING_CONCRETE'
     topping_quantities([e])[1]
-  when 'HB_DECK_CONCRETE','CAST_C35_45_OTHER','PRECAST_C35_45','PRECAST_INSTALL','CROWN_CONCRETE'
+  when 'HB_DECK_CONCRETE','CAST_C35_45_OTHER','PRECAST_C35_45','PRECAST_INSTALL','CROWN_CONCRETE','PRECAST_CONCRETE'
     qto3_quantity(e,:concrete_m3)
   when 'TOPPING_AREA'
     topping_quantities([e])[0]
@@ -10146,7 +10155,7 @@ def progress_entity_quantity(e, source)
     QuantityService.number(mst_element_rebar(e).fetch('kg'),'progress_rebar_kg')/1000.0
   when 'PILE_INFILL'
     et=='steel_pipe_pile' ? pile_qto_concrete(e) : (et=='pile_infill_concrete' ? qto3_quantity(e,:concrete_m3) : 0.0)
-  when 'PILE_STEEL','PILE_MANIP','PILE_RINGS','PILE_SPLICES','PILE_DRIVING','PILE_PE','PILE_DRILLING'
+  when 'PILE_STEEL','PILE_MANIP','PILE_RINGS','PILE_SPLICES','PILE_DRIVING','PILE_PE','PILE_DRILLING','PILE_PLUG'
     return 0.0 unless et=='steel_pipe_pile'
     row=pile_fabrication_qto_row([e],'PROGRESS',true)
     return 0.0 unless row
@@ -10158,6 +10167,7 @@ def progress_entity_quantity(e, source)
     when 'PILE_SPLICES' then row[5].to_f
     when 'PILE_PE' then row[14].to_f
     when 'PILE_DRILLING' then row[15].to_f
+    when 'PILE_PLUG' then row[8].to_f*1000.0
     else 0.0
     end
   else

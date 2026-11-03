@@ -55,9 +55,11 @@ if NEW
   info = h.mst_boq_info_rows($all)
   info.each { |r| obs('bilgi satırı', [r[:name], r[:quantity].round(4), r[:unit]]) }
   q33 = info.select { |r| r[:source].start_with?('INFO:UNMAPPED_CONCRETE') }.map { |r| [r[:source], r[:quantity].round(3)] }
-  t('K33: C35/45 dışı prekast 10 m³ (C30/37), sınıfsız 1.419 m³, bordür 2 m³; C35/45 hariç', q33,
-    [['INFO:UNMAPPED_CONCRETE#Prekast#C30/37', 10.0], ['INFO:UNMAPPED_CONCRETE#Prekast#belirtilmemiş', 1.419], ['INFO:UNMAPPED_CONCRETE#Bordür#C30/37', 2.0]])
-  t('K39: tapa 2 adet, 137.5 kg pozsuz bilgi', info.find { |r| r[:source] == 'INFO:PILE_PLUG' }.values_at(:quantity, :unit), [137.5, 'kg'])
+  # 04.11.2026 kullanıcı talimatı: prekast C35/45 dışı sınıflar PRECAST_CONCRETE#<sınıf> satırında, tapa PILE_MANIP + PILE_PLUG'da
+  # (tools/test/v4_tapa_prekast_poz.rb) → prekast ve tapa bilgi satırı yok; bordür bilgi satırı kalır.
+  t('K33: yalnız bordür 2 m³ (C30/37) bilgi satırı; prekast bilgi satırı yok (sınıf satırına taşındı)', q33,
+    [['INFO:UNMAPPED_CONCRETE#Bordür#C30/37', 2.0]])
+  t('K39: tapa bilgi satırı yok (manipülasyon + çeşitli demir pozunda)', info.find { |r| r[:source] == 'INFO:PILE_PLUG' }, nil)
   t('K40: yerleştirilemeyen 1 poz 60.5 kg = 0.0605 t (REBAR\'a dahil notu)', [info.find { |r| r[:source] == 'INFO:REBAR_UNPLACED' }[:quantity].round(4),
                                                                               info.find { |r| r[:source] == 'INFO:REBAR_UNPLACED' }[:mapping_reason].include?('DAHİL')], [0.0605, true])
   t('bilgi satırları: fiyat yok, tutar yok, kütüphane bayrağı (fiyat girişi açılmaz)', info.all? { |r| r[:unit_price].nil? && r[:total].nil? && r[:library_price] && r[:info_only] }, true)
