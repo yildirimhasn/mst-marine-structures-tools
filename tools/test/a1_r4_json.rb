@@ -35,7 +35,7 @@ class Host
   def prog2_legacy_ok?(_e); false; end
   def mst_save_axis_grid(*_a); $log << [:set, nil, 'x', 'axis_grid_via_save', nil]; end
 end
-A1.load(Host, boq, 'def prog2_items(e)', 'def prog2_apply(')
+A1.load(Host, boq, 'def prog2_items(e)', 'def prog2_raw_rec(', 'def prog2_apply(')
 A1.load_opt(Host, boq, 'def prog2_items_for_write(')
 obs('mst_json_attr_guard! tanımlı', A1.load_opt(Host, main, 'def mst_json_attr_bad?(') && A1.load_opt(Host, main, 'def mst_json_attr_guard!('))
 A1.load(Host, main, 'def rockfill_save_library(', 'def rockfill_autosave_library(', 'def mst_system_structures(', 'def mst_default_structure_name(',

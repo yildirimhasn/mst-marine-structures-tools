@@ -350,7 +350,10 @@ def boq_trace_entities(source)
  base,cls=source.to_s.split('#',2)
  base=base.to_s.split('@',2)[0]
  es=boq_trace_entities_base(base)
- cls ? es.select{|e|boq2_class_of(e)==cls} : es
+ return es unless cls
+ # v0.51.5: prekast sınıf satırı normalleştirilmiş sınıf anahtarıyla (boq_precast_class_quantities ile aynı küme)
+ return es.select{|e|mst_precast_class_key(e)==cls} if base=='PRECAST_CONCRETE'
+ es.select{|e|boq2_class_of(e)==cls}
 end
 alias_method :progress_entity_quantity_base, :progress_entity_quantity unless method_defined?(:progress_entity_quantity_base)
 def progress_entity_quantity(e,source)
@@ -425,9 +428,16 @@ def prog2_norm(r)
  return r if r['ok'].is_a?(Array)
  {'claim'=>r['pct'].to_f,'claim_date'=>r['date'],'claim_by'=>r['by'],'ok'=>(r['ok'] ? [[r['date'].to_s,r['pct'].to_f,r['by'].to_s]] : [])}
 end
+# v0.51.5 (04.11.2026): C35/45 dışı prekast eskiden PRECAST_C35_45 izlemesindeydi; o anahtarla girilmiş ilerleme
+# PRECAST_CONCRETE (sınıf satırı) kaydı yoksa okunur. Eski kayıt silinmez/değiştirilmez.
+def prog2_raw_rec(h,base)
+ r=h[base]
+ r=h['PRECAST_C35_45'] if r.nil? && base=='PRECAST_CONCRETE'
+ r
+end
 def prog2_rec(e,src)
  h=prog2_items(e)
- prog2_norm(h[prog2_base(src)])
+ prog2_norm(prog2_raw_rec(h,prog2_base(src)))
 end
 def prog2_clamp(p);[[p.to_f/100.0,0.0].max,1.0].min;end
 # tarihe kadar geçerli son onay (aynı tarihte sonra girilen geçerli)
@@ -812,10 +822,12 @@ def prog2_apply(raw)
    es=(row ? prog2_row_entities(row) : boq_trace_entities(key)).select{|e|pids[e.persistent_id]}
    es.each do |e|
     h=prog2_items_for_write(e)
-    if clear
+    if clear && base=='PRECAST_CONCRETE' && h.key?('PRECAST_C35_45')
+     h[base]={'claim'=>0.0,'ok'=>[]}   # eski PRECAST_C35_45 kaydı korunur; sınıf satırında okunmasın diye boş kayıt
+    elsif clear
      h.delete(base)
     else
-     h[base]=prog2_rec_apply(prog2_norm(h[base]),pct,!!d['ok'],date,prog2_legacy_ok?(e))
+     h[base]=prog2_rec_apply(prog2_norm(prog2_raw_rec(h,base)),pct,!!d['ok'],date,prog2_legacy_ok?(e))
     end
     h.empty? ? e.delete_attribute(DICT,PROG2_KEY) : e.set_attribute(DICT,PROG2_KEY,JSON.generate(h))
     n+=1

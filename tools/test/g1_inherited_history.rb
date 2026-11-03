@@ -17,7 +17,7 @@ class Host
 end
 A1.load(Host, main, 'def ensure_uid(', 'def repair_bim_identity', 'def mst_world_box_center(')
 A1.load(Host, dep, 'def mst_uid_owner(')
-A1.load(Host, boq, 'def prog2_base(', 'def prog2_items(e)', 'def prog2_norm(', 'def prog2_rec(', 'def prog2_clamp(', 'def prog2_ok_entry(',
+A1.load(Host, boq, 'def prog2_base(', 'def prog2_items(e)', 'def prog2_norm(', 'def prog2_raw_rec(', 'def prog2_rec(', 'def prog2_clamp(', 'def prog2_ok_entry(',
         'def prog2_rec_frac(', 'def prog2_legacy_ok?(', 'def prog2_frac(')
 h = Host.new
 H = 'progress_inherited_history_json'

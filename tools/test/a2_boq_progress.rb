@@ -13,7 +13,7 @@ class Host
   def prog2_last_period(_h = nil); nil; end
   def prog2_view_date; '2026-10-29'; end
 end
-A1.load(Host, boq, 'def prog2_base(', 'def prog2_row_key(', 'def prog2_row_entities(', 'def prog2_items(e)', 'def prog2_norm(', 'def prog2_rec(',
+A1.load(Host, boq, 'def prog2_base(', 'def prog2_row_key(', 'def prog2_row_entities(', 'def prog2_items(e)', 'def prog2_norm(', 'def prog2_raw_rec(', 'def prog2_rec(',
         'def prog2_clamp(', 'def prog2_ok_entry(', 'def prog2_rec_frac(', 'def prog2_legacy_ok?(', 'def prog2_frac(', 'def prog2_claim(',
         'def prog2_manual', 'def prog2_quantities(', 'def progress_approved_quantity(', 'def progress_live_rows(')
 K38 = A1.load_opt(Host, boq, 'def prog2_icmal_cetvel_warning(')

@@ -135,6 +135,40 @@ rescue StandardError => e
   t('P6 birim uyuşmazlığı reddedilir', e.message, 'Poz birimi model miktarının birimiyle aynı olmalı.')
 end
 
+# ---- İnceleme bulguları (kod inceleme 30 / metraj kontrol 29, 04.11.2026)
+MAPK = 'boq_project_mapping_v1'
+$model.set_attribute(D, MAPK, '{}')
+rows = M.boq_rows(true)
+c50 = rows.find { |x| x[:source] == 'PRECAST_CONCRETE#C50/60' }
+c3037 = rows.find { |x| x[:source] == 'PRECAST_CONCRETE#C30/37' }
+dr = rows.find { |x| x[:source] == 'PILE_DRILLING' }
+t('R1 ad eşleşmeli satırlar ÖBF Eşleştirme\'de kilitli değil (automatic_mapping yok; auto_library var)',
+  [c50 && c50[:automatic_mapping], c3037 && c3037[:automatic_mapping], c50 && c50[:auto_library], c3037 && c3037[:auto_library]], [nil, nil, true, true])
+t('R1 foraj satırı kilitli kalır', dr && dr[:automatic_mapping], true)
+# R2: sınıf yazımı farkı tek satır (C35/45 kuralıyla aynı: büyük harf, boşluksuz)
+v = Sketchup::Group.new(6104, 'element_type' => 'flat_precast', 'concrete_volume_m3' => 0.5, 'formwork_area_m2' => 1.0, 'concrete_class' => 'c 30/37')
+v.parent = $model.entities; $model.entities << v
+q = M.boq_quantities
+t('R2 "c 30/37" → PRECAST_CONCRETE#C30/37 (1.5 + 0.5)', [near(q['PRECAST_CONCRETE#C30/37'], 2.0), q.keys.grep(/PRECAST_CONCRETE#/).sort],
+  [true, ['PRECAST_CONCRETE#C30/37', 'PRECAST_CONCRETE#C40', 'PRECAST_CONCRETE#C50/60', 'PRECAST_CONCRETE#Sınıfsız']])
+t('R2 izleme yazım farkını da kapsar', M.boq_trace_entities('PRECAST_CONCRETE#C30/37').map(&:persistent_id).sort, [6002, 6104])
+$model.entities.delete(v)
+# R3: eski sürümde PRECAST_C35_45 altında girilmiş ilerleme (C30/37 eleman) sınıf satırında okunur, kayıt silinmez
+pd2.set_attribute(D, 'progress_items_json', JSON.generate('PRECAST_C35_45' => { 'claim' => 100.0, 'ok' => [['2026-10-01', 100.0, 'x']] }))
+t('R3 eski kayıt PRECAST_CONCRETE#C30/37 satırında okunur', M.prog2_frac(pd2, 'PRECAST_CONCRETE#C30/37'), 1.0)
+pd2.set_attribute(D, 'progress_items_json', JSON.generate('PRECAST_C35_45' => { 'claim' => 50.0, 'ok' => [] }, 'PRECAST_CONCRETE' => { 'claim' => 20.0, 'ok' => [] }))
+t('R3 yeni anahtar varsa o geçerli', M.prog2_claim(pd2, 'PRECAST_CONCRETE#C30/37'), 0.2)
+pd2.set_attribute(D, 'progress_items_json', nil)
+# R4: sınıfı değişmiş (modelde artık olmayan) eşleştirme listede görünür ve sıfırlanabilir
+$model.set_attribute(D, MAPK, JSON.generate('PRECAST_CONCRETE#C99/99' => { 'id' => 'lib-pc-c40p', 'code' => 'ÖBF-150', 'name' => 'x' }))
+t('R4 eski eşleştirme kaynağı listede', M.boq_mapping_templates.any? { |x| x[4] == 'PRECAST_CONCRETE#C99/99' }, true)
+t('R4 sıfırlanabilir', [M.save_boq_mapping('source' => 'PRECAST_CONCRETE#C99/99', 'reset' => true), M.boq_project_mapping], [true, {}])
+# R5: başka kaynağa elle bağlanmış poz ad eşleşmesiyle ikinci kez seçilmez
+$model.set_attribute(D, MAPK, JSON.generate('PRECAST_C35_45' => { 'id' => 'lib-pc-gen', 'code' => 'ÖBF-071', 'name' => 'PREKAST BETONU' }))
+gen = M.boq_rows(true).find { |x| x[:source] == 'PRECAST_CONCRETE#Sınıfsız' }
+t('R5 elle bağlı poz otomatik seçilmez', gen && [gen[:status], gen[:library_id]], ['UYGUN POZ EKSİK', nil])
+$model.set_attribute(D, MAPK, '{}')
+
 puts "\nV4: #{$ok} geçti, #{$bad} kaldı"
 FileUtils.rm_rf(TMP)
 exit($bad.zero? ? 0 : 1)

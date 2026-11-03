@@ -3694,10 +3694,16 @@ def boq_quantities
 end
 
 # v0.51.5 (04.11.2026 kullanıcı talimatı): C35/45 dışındaki prekast betonu sınıfa göre ayrı kaynak 'PRECAST_CONCRETE#<sınıf>'
-# (sınıf anahtarı boq2_class_of: boş / '-' → 'Sınıfsız'). C35/45 eskisi gibi PRECAST_C35_45'te kalır.
+# (sınıf anahtarı mst_precast_class_key). C35/45 eskisi gibi PRECAST_C35_45'te kalır.
+# Sınıf anahtarı C35/45 denetimiyle aynı yazım kuralı: büyük harf, boşluksuz ("c 30/37" = "C30/37"); boş / '-' → 'Sınıfsız'.
+def mst_precast_class_key(e)
+  c=qto_material_class(e).to_s.upcase.gsub(/\s+/,'')
+  c.empty? || c=='-' ? 'Sınıfsız' : c
+end
+
 def boq_precast_class_quantities(precast)
   h={}
-  precast.reject{|e|qto_material_class(e).to_s.upcase.gsub(' ','')=='C35/45'}.group_by{|e|boq2_class_of(e)}.sort.each do |cls,es|
+  precast.reject{|e|mst_precast_class_key(e)=='C35/45'}.group_by{|e|mst_precast_class_key(e)}.sort.each do |cls,es|
     h["PRECAST_CONCRETE##{cls}"]=es.sum{|e|qto3_quantity(e,:concrete_m3)}
   end
   h

@@ -233,7 +233,7 @@ module MAG
           next if auto_src && model_row[:missing_library]
           seed=seeds.find { |r| r['source']==model_row[:source] && r['unit']==model_row[:unit] }
           raise 'Keşif katalog eşleştirmesi bulunamadı.' unless seed || auto_src
-          target=if model_row[:project_mapping] || model_row[:automatic_mapping]
+          target=if model_row[:project_mapping] || model_row[:automatic_mapping] || model_row[:auto_library]
             rows.find { |r| r['id']==model_row[:library_id] }
           else
             rows.find { |r| r['catalog_key']==seed['catalog_key'] }

@@ -77,9 +77,11 @@ module MAG
       cls.to_s=='Sınıfsız' ? BOQ_PRECAST_POZ_NAME : "#{BOQ_PRECAST_POZ_NAME} (#{cls.to_s.upcase.gsub(' ','')})"
     end
 
-    def boq_auto_library_sources(q=nil)
+    # Modelde artık olmayan sınıfın (sınıfı değişmiş prekast) kayıtlı eşleştirmesi de listelenir: görülür ve sıfırlanabilir.
+    def boq_auto_library_sources(q=nil,map=nil)
       q||=boq_quantities
-      keys=q.keys.select{|k|k.start_with?('PRECAST_CONCRETE#')}.sort
+      map||=(boq_project_mapping rescue {})
+      keys=(q.keys+map.keys).select{|k|k.start_with?('PRECAST_CONCRETE#')}.uniq.sort
       [['—',"Kazık tapası → #{BOQ_PLUG_POZ_NAME}",'kg',nil,'PILE_PLUG']]+
         keys.map{|k|cls=k.split('#',2)[1];['—',"Prekast betonu — #{cls=='Sınıfsız' ? 'sınıf belirtilmemiş' : cls}",'m³',nil,k]}
     end
@@ -99,33 +101,39 @@ module MAG
       end.uniq{|r|r['id']}
     end
 
-    def boq_auto_library_row(key,unit,quantity,poz_name,label,library,seeds)
-      c=boq_library_exact(poz_name,unit,library,seeds)
+    # auto_library: ad eşleşmesi; automatic_mapping (foraj) gibi ÖBF Eşleştirme'de kilitli DEĞİL — kullanıcı elle poz seçebilir.
+    # used_ids: başka kaynağa proje eşleştirmesiyle bağlı pozlar otomatik seçilmez (aynı poz iki satırda olmaz).
+    def boq_auto_library_row(key,unit,quantity,poz_name,label,library,seeds,used_ids=[])
+      all=boq_library_exact(poz_name,unit,library,seeds)
+      c=all.reject{|r|used_ids.include?(r['id'])}
       if c.length==1
         row=boq_mapped_row(key,unit,quantity,c.first,c)
-        row[:project_mapping]=false;row[:automatic_mapping]=true
+        row[:project_mapping]=false;row[:auto_library]=true
         row[:mapping_reason]="Kütüphanedeki '#{c.first['name']}' (#{unit}) pozuyla adından eşleşti."
         return row
       end
-      reason=if c.empty?
+      reason=if c.empty? && !all.empty?
+        "Kütüphanedeki '#{poz_name}' pozu (#{all.map{|r|r['code']}.join(', ')}) başka bir model miktarına bağlı. ÖBF Eşleştirme'den bir poz seçin."
+      elsif c.empty?
         "Kütüphanede '#{poz_name}' adlı, birimi #{unit} olan poz yok. Kütüphaneye bu adla poz ekleyin (otomatik eşleşir) ya da ÖBF Eşleştirme'den bir poz seçin."
       else
         "Kütüphanede '#{poz_name}' adlı #{c.length} poz var (#{c.map{|r|r['code']}.join(', ')}). ÖBF Eşleştirme'den birini seçin."
       end
       {code:'—',name:"#{label} — #{c.empty? ? 'KÜTÜPHANEDE POZ YOK' : 'POZ SEÇİLMELİ'}",unit:unit,quantity:quantity,
        unit_price:nil,total:nil,source:key,status:(c.empty? ? 'UYGUN POZ EKSİK' : 'BİRDEN ÇOK UYGUN POZ'),
-       library_price:true,automatic_mapping:true,missing_library:true,mapping_reason:reason}
+       library_price:true,auto_library:true,missing_library:true,mapping_reason:reason}
     end
 
     def boq_auto_library_rows(q,library,seeds,map)
-      boq_auto_library_sources(q).map do |_,_,unit,_,key|
+      used_ids=map.values.map{|v|v['id']}
+      boq_auto_library_sources(q,map).map do |_,_,unit,_,key|
         qty=q[key].to_f
         next boq_mapped_row(key,unit,qty,map[key],library) if map.key?(key)
         if key=='PILE_PLUG'
-          boq_auto_library_row(key,unit,qty,BOQ_PLUG_POZ_NAME,'KAZIK TAPASI',library,seeds)
+          boq_auto_library_row(key,unit,qty,BOQ_PLUG_POZ_NAME,'KAZIK TAPASI',library,seeds,used_ids)
         else
           cls=key.split('#',2)[1]
-          boq_auto_library_row(key,unit,qty,boq_precast_poz_name(cls),"PREKAST BETONU (#{cls})",library,seeds)
+          boq_auto_library_row(key,unit,qty,boq_precast_poz_name(cls),"PREKAST BETONU (#{cls})",library,seeds,used_ids)
         end
       end
     end
