@@ -173,3 +173,21 @@ Ek (03.11.2026): §10 18 satır (N-1 … N-18); yeni toplam 107.
 Ek (03.11.2026, `dd952bb`): §10 5 satır (N-19 … N-23); yeni toplam 112.
 
 Ajan değerlendirmesi (mst-kabul-denetim): ______ (onay sayılmaz)
+
+## 11. Kazık tapası ve prekast beton sınıfı pozu (kaynak `2cc5c29`, 04.11.2026)
+Kaynak: 07 §2.9, raporlar 29–30. Tüm adımlar **model kopyası** üzerinde. Bu satırlar SketchUp'ta denenmedi. Önce önceki sürümün Keşif Excel'ini aynı kopyada alın (karşılaştırma için).
+
+| No | Parti / bulgu | Adım | Beklenen | Tarih | Model kopyası | Sonuç | Kullanıcının sözü |
+|---|---|---|---|---|---|---|---|
+| N-24 | tapa | Tapalı kazıkları olan kopyada Keşif'i aç; ÖBF-012 manipülasyon satırını önceki sürümle karşılaştır | Artış = tapa toplam ağırlığı / 1000 (Detaylı Metraj "Tapa (kg)" toplamı) | | | | |
+| N-25 | tapa | Keşif'te "ÇEŞİTLİ DEMİR İMALATI VE YERİNE KONULMASI" (kg) satırına bak | Miktar = tapa toplamı (kg); poz kg birimli (ÖBF-017), ton pozu değil; "Kazık tapası (pozsuz)" bilgi satırı yok | | | | |
+| N-26 | prekast | C30/37 prekastlı kopyada Keşif'e bak | "PREKAST BETONU (C30/37)" satırı (ÖBF-037), miktar = C30/37 prekast hacmi; "Poz eşlenmemiş beton … Prekast" bilgi satırı yok; C35/45 satırı miktarı önceki sürümle aynı | | | | |
+| N-27 | prekast | Bir prekastın beton sınıfını boşalt (sınıf belirtilmemiş) → Keşif | "PREKAST BETONU" (ÖBF-071) satırı | | | | |
+| N-28 | prekast | Bir prekasta kütüphanede pozu olmayan sınıf ver (ör. C50/60) → Keşif | Satır "UYGUN POZ EKSİK", fiyatsız, toplam tutara girmez; açıklamada "PREKAST BETONU (C50/60)" adı | | | | |
+| N-29 | prekast | Poz Kütüphanesi'ne "PREKAST BETONU (C50/60)", birim m³, USD fiyatlı poz ekle → Keşif'i yenile | Satır o poza eşleşir, fiyat ve tutar görünür | | | | |
+| N-30 | 30/1 | ÖBF Eşleştirme'de "Prekast betonu — C50/60" (veya tapa) kaynağını seç, başka bir m³ (tapa için kg) poz seç → Uygula; sonra Sıfırla | Uygula düğmesi açık; seçilen poz Keşif'e gelir; Sıfırla sonrası ad eşleşmesine döner; her adım tek Ctrl+Z | | | | |
+| N-31 | fiyat | ÖBF-037 / ÖBF-071 / ÖBF-017 kütüphanede fiyatsızsa Keşif'e bak | Satır "KÜTÜPHANE FİYATI EKSİK"; fiyat kütüphanede girilince tutar oluşur | | | | |
+| N-32 | 30/2 | Önceden C30/37 prekasta (eski sürümde) ilerleme girilmiş kopyada Hakediş'i aç | İlerleme "PREKAST BETONU (C30/37)" satırında görünür; C35/45 satırında yalnız C35/45 elemanlar; geçmiş varsa C35/45 satırında "ödenen miktar azaldı" uyarısı beklenebilir (bilinen sınır) | | | | |
+| N-33 | genel | Keşif Excel'i ve Hakediş Excel'ini al | Yeni satırlar Excel'de; Ruby Konsolu'nda MST hatası yok | | | | |
+
+Ek (04.11.2026, `2cc5c29`): §11 10 satır (N-24 … N-33); yeni toplam 122.

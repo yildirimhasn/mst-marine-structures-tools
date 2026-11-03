@@ -132,11 +132,30 @@ Kaynaklar: `21`–`28` raporları ve ana oturumun commit bildirimi. Bu bölüm y
 - Excel: Keşif "Poz Metrajları" 4 → 5 sütun, Hakediş "Onaylı Metraj" 9 → 10 sütun ("Yapı" görünen ad + "Yapı Kodu"); CSV değişmedi (23). Dışarıdan sütun konumuna göre okuyan araçlar etkilenebilir (§2.7 ile aynı tür davranış değişikliği).
 - Prekast NCR-003 seçenek A (`0983966`): Çalışma Alanı → Elemanı Düzenle, prekastta Kontrollü Düzenleme formunu Prekast sayfasında açar; alt sekme PD / PK (kanal) parçaya göre seçilir; önizlemede "Prekast tipi" satırı.
 
+### 2.9 Kazık tapası ve prekast beton sınıfı pozu (04.11.2026; kaynak `ee18c79` + `2cc5c29`; dayanak: kullanıcı talimatı 03–04.11.2026)
+SketchUp içinde denenmedi. Kanıt: sahte nesne `tools/test/v4_tapa_prekast_poz.rb` 38/0; tüm takım 56 dosya 0 sorunlu; golden `fe32234` ↔ `HEAD-2cc5c29` (profil V6) 433 → 437 anahtar, 10 fark, beklenmeyen 0 (`golden/fark_fe32234_HEAD-2cc5c29_v6b.csv`); metraj kontrol 29, kod inceleme 30.
+
+**Metraj sonucunu değiştirenler:**
+| Kalem | Değişiklik | Örnek (golden fikstürü) |
+|---|---|---|
+| ÖBF-012 Çelik boru kazık manipülasyonu (PILE_MANIP) | (boru + üst + alt çarık + **tapa**) kg / 1000 | 54,999846 → 55,068599 t (+68,7535 kg tapa) |
+| Yeni satır PILE_PLUG → "ÇEŞİTLİ DEMİR İMALATI VE YERİNE KONULMASI" (kg) | tapa ağırlığı kg; kütüphane pozu ADI ve birimi kg ile otomatik (ton pozu seçilmez) | yok → 68,7535 kg |
+| Yeni satırlar PRECAST_CONCRETE#&lt;sınıf&gt; | C35/45 dışı prekast betonu sınıfa göre; kütüphanede "PREKAST BETONU (&lt;sınıf&gt;)" adlı m³ pozu; sınıfsız → "PREKAST BETONU"; sınıf yazımı büyük harf/boşluksuz ("c 30/37" = C30/37) | C30/37 yok → 1,5 m³ (ÖBF-037) |
+| PRECAST_C35_45 (ÖBF-007 şablon) | miktar aynı; izleme/hakediş eleman kümesi yalnız C35/45 (eskiden tüm prekast) | miktar 9,0 m³ değişmedi |
+
+**Satır durumları:** eşleşti → kütüphane fiyatı (boşsa "KÜTÜPHANE FİYATI EKSİK"); pozu yok → "UYGUN POZ EKSİK" (fiyatsız, toplama girmez; açıklama eklenecek poz adını söyler; poz eklenince otomatik eşleşir); aynı adlı birden çok poz → "BİRDEN ÇOK UYGUN POZ". ÖBF Eşleştirme'de bu satırlar için elle poz seçilebilir ve seçim otomatiğin önüne geçer; başka kaynağa elle bağlı poz otomatik seçilmez.
+**Kalkan bilgi satırları:** INFO:PILE_PLUG (tapa) ve INFO:UNMAPPED_CONCRETE#Prekast#… (bordür bilgi satırı kalır).
+**Hakediş:** yeni satırların ilerleme anahtarı `PILE_PLUG` / `PRECAST_CONCRETE`. Eski sürümde C35/45 dışı prekasta PRECAST_C35_45 altında girilmiş ilerleme, PRECAST_CONCRETE kaydı yoksa sınıf satırında okunur; eski kayıt silinmez. Prekastın sınıfı sonradan değişirse ilerleme kaydı aynı (`PRECAST_CONCRETE`) kalır, eleman yeni sınıf satırına geçer.
+**Bilinen sınırlar:** (1) Hakediş geçmişi olan modelde PRECAST_C35_45 satırının önceki dönemde ödenen miktarı (eskiden C30/37 vb. dahil) azalabilir → "önceki hakedişte ödenen miktar azaldı" uyarısı; aynı miktar sınıf satırında görünür (30/2). (2) Yeni eşleştirme anahtarları (`PILE_PLUG`, `PRECAST_CONCRETE#…`) kaydedilmiş model 0.51.5 öncesi sürümde açılırsa ÖBF eşleştirme doğrulaması hata verebilir (30/3, çıkarım). (3) C35/45 prekast hâlâ şablon satırında (ÖBF-007, fiyat 125); kütüphanedeki ÖBF-059 ile otomatik eşleşmez — ayrı karar. (4) Yeni satırlar proje poz listesinden pasif yapılamaz (30/7). (5) Kütüphane pozu fiyatı boşsa (kullanıcı kütüphanesinde ÖBF-037, ÖBF-071, ÖBF-017) satır tutara girmez.
+**Diğer:** iş programı dağıtımı (sınıf satırı → prekast üretimi, tapa → kazık); Model Kontrolü Metraj → Keşif denetimine iki kaynak eklendi; kütüphaneye arşivleme (capture) pozu olmayan satırı atlar.
+
 ## 3. Yeni attribute anahtarları ve eski modellerle uyumluluk
 Hepsi yalnız eklenir; mevcut anahtar adı/tipi değişmez (G4). Eski modelde anahtar yoksa eski davranış veya "uyarı yok" geçerlidir.
 
 | Anahtar | Tip | Yer | Eski modelde yoksa |
 |---|---|---|---|
+| `boq_project_mapping_v1` içinde yeni anahtarlar `PILE_PLUG`, `PRECAST_CONCRETE#<sınıf>` (04.11.2026) | String (JSON) | model | Anahtar yoksa ad eşleşmesi kullanılır. Bu anahtarlar kaydedilmiş model 0.51.5 öncesi sürümde açılırsa ÖBF eşleştirme doğrulaması hata verebilir (§2.9) |
+| `progress_items_json` içinde yeni iş kalemi anahtarları `PILE_PLUG`, `PRECAST_CONCRETE` (04.11.2026) | String (JSON) | öğe | `PRECAST_CONCRETE` yoksa eski `PRECAST_C35_45` kaydı okunur; eski kayıt silinmez |
 | `uid_owner_pid` | Integer | öğe | Asıl öğe UID içindeki PID'den, o da yoksa en eski PID'den seçilir (tretuvar bağında en eski PID kullanılmaz) |
 | `copied_from_uid` | String | öğe (kopya) | Yalnız onarımda yazılır |
 | `progress_inherited_json`, `progress_inherited_status` | String | öğe (kopya) | Yalnız onarımda; eski `progress_items_json` buraya taşınır (A1 sapması, ana oturum kabul etti) |
