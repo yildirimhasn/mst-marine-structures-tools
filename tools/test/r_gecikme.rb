@@ -196,8 +196,9 @@ t('G4 boq2_get (Keşif açılışında ikinci çağrı): model taraması yok, bo
 # ---------------- G5 ----------------
 d = r_setup
 ax = r_axis_open
-ax.cb['axis_manager_v2_save'].call(nil, JSON.generate(r_axis_payload))   # ilk kayıt: varsayılan ızgaralar (BD-01, RIHTIM-01) yazılır
-t('G5a ilk kayıt (kayıtsız varsayılan ızgaralar yazılıyor): işlem var', $model.ops.map(&:first), %i[start commit])
+ax.cb['axis_manager_v2_save'].call(nil, JSON.generate(r_axis_payload))   # ilk kayıt: yalnız varsayılan ızgaralar (BD-01, RIHTIM-01) farklı
+# 03.11.2026 rapor 25/5 (kullanıcı kararı "düzelt"): varsayılan ızgara tek başına değişiklik sayılmaz — eski beklenti [start, commit]
+t('G5a ilk kayıt (yalnız kayıtsız varsayılan ızgaralar): işlem açılmaz (25/5)', $model.ops.map(&:first), [])
 $model.ops.clear
 ax = r_axis_open
 x = r_axis_payload

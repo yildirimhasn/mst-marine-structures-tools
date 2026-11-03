@@ -54,6 +54,8 @@ A1.load_opt(Host, main, 'def mst_code_validate(')      # V1 (03.11.2026): kod ka
 A1.load_opt(Host, main, 'def mst_code_usage_extra(')   # V1: kullanım taraması kapsamı
 G5 = A1.load_opt(Host, main, 'class MstAttrRecorder')
 A1.load_opt(Host, main, 'def mst_axis_manager_payload_changes(')
+A1.load_opt(Host, main, 'def mst_drop_default_grid_only_write!(')   # V3 25/5
+A1.load_opt(Host, main, 'def mst_plan_readonly')                    # V3 25/5
 A1.load_opt(Host, main, 'def mst_axis_manager_check_removed_axes!(')
 # Aks Yöneticisi: dosyada iki tanım var; yüklemede sonuncusu geçerli
 a = main.rindex("\ndef project_ano_axis_manager\n") + 1

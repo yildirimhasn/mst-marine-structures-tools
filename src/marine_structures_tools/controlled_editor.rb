@@ -50,6 +50,8 @@ module MAG
     raise 'Tek bir eleman seçin.' unless targets.size==1
     entry=targets.first;e=entry[:entity]
     raise 'Bu eleman türü için kontrollü düzenleme hazır değil.' unless FIELDS.key?(e.get_attribute(DICT,'element_type',''))
+    # 25/8 (03.11.2026, NCR-003): BK yalnız Başlık Kirişi sayfasındaki ortak formda düzenlenir; güvence arayüze bırakılmaz
+    raise 'Başlık kirişi, Başlık Kirişi sayfasındaki ortak formda düzenlenir (Çalışma Alanı → Elemanı Düzenle).' if e.get_attribute(DICT,'element_type','')=='head_beam'
     raise 'Yalnız özgün grup geometrisi düzenlenebilir.' unless e.is_a?(Sketchup::Group)
     (entry[:path]+[e]).each do |node|
      raise 'Kilitli eleman veya üst grup düzenlenemez.' if node.locked?

@@ -1032,13 +1032,14 @@ def boq2_kesif_xlsx_write(path)
   m << ['Eleman','Tip','Yapı','Yapı Kodu','Miktar'].map{|h|{v:h,s:st.id(:header)}}   # ADR-0515-I: Yapı = görünen ad, Yapı Kodu = kod
   per=es.map{|e|[e,progress_entity_quantity(e,src).to_f]}
   sum=per.sum{|_,q|q}
-  per.select{|_,q|q>0}.sort_by{|e,_|element_visible_id(e).to_s}.each do |e,q|
+  shown=per.select{|_,q|q>0}   # 26/1a (03.11.2026): ara toplam adedi yalnız listelenen (miktarı > 0) elemanlar
+  shown.sort_by{|e,_|element_visible_id(e).to_s}.each do |e,q|
    yk=(e.get_attribute(DICT,'ano','').to_s.empty? ? e.get_attribute(DICT,'structure','').to_s : e.get_attribute(DICT,'ano','').to_s)
    m << [{v:element_visible_id(e).to_s,s:st.id(:cell)},{v:e.get_attribute(DICT,'element_type','').to_s,s:st.id(:cell)},
          {v:mst_structure_display(yk,sn),s:st.id(:cell)},{v:yk,s:st.id(:cell)},
          {v:q,s:st.id(:cell,boq2_qty_fmt(r[:unit]))}]
   end
-  m << [{v:"Eleman toplamı#{(sum-r[:quantity].to_f).abs>1e-6 && sum>0 ? " (Keşif: #{format('%.3f',r[:quantity])})" : ''}",s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:es.length,s:st.id(:sub,'#,##0')},{v:'',s:st.id(:sub)},{v:sum,s:st.id(:sub,boq2_qty_fmt(r[:unit]))}]
+  m << [{v:"Eleman toplamı · #{shown.length} eleman#{(sum-r[:quantity].to_f).abs>1e-6 && sum>0 ? " (Keşif: #{format('%.3f',r[:quantity])})" : ''}",s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:'',s:st.id(:sub)},{v:sum,s:st.id(:sub,boq2_qty_fmt(r[:unit]))}]   # 26/1a: adet "Yapı" sütununda değil
   m << []
  end
  boq2_xl_write(path,{styles:st,list:[['Keşif Cetveli',k],['Poz Metrajları',m],['Bilgi',boq2_info_rows(st,'Keşif Bilgileri')]]})
