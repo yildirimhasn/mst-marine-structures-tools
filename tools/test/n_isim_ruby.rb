@@ -50,6 +50,8 @@ A1.load(Host, main, 'def html_escape(', 'def mst_json_attr_bad?(', 'def mst_json
         'def mst_ano_layouts(', 'def mst_system_structures(', 'def mst_structures_for_system(', 'def mst_structure_placements(',
         'def mst_axis_manager_save_payload(')
 # G5a / G5b (03.11.2026): değişiklik denetimi (kuru çalıştırma) ve kullanılan aks denetimi (varsa)
+A1.load_opt(Host, main, 'def mst_code_validate(')      # V1 (03.11.2026): kod karakter kümesi
+A1.load_opt(Host, main, 'def mst_code_usage_extra(')   # V1: kullanım taraması kapsamı
 G5 = A1.load_opt(Host, main, 'class MstAttrRecorder')
 A1.load_opt(Host, main, 'def mst_axis_manager_payload_changes(')
 A1.load_opt(Host, main, 'def mst_axis_manager_check_removed_axes!(')

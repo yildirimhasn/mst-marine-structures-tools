@@ -12,6 +12,8 @@
  function structureText(code){var c=(code===null||code===undefined)?'':String(code),l=Object.prototype.hasOwnProperty.call(structureNames,c)?structureNames[c]:'';return l||c;}
  function indexStructureNames(records){structureNames={};(records||[]).forEach(function(r){var c=r&&r.fields?r.fields.structure:null,l=r?r.structure_label:null;if(!unassigned(c)&&typeof l==='string'&&l.trim()&&!Object.prototype.hasOwnProperty.call(structureNames,String(c)))structureNames[String(c)]=l;});}
  function labels(r){var f=r.fields;return [f.project||'Proje atanmamış',f.system||'Sistem atanmamış',unassigned(f.structure)?'Yapı atanmamış':((typeof r.structure_label==='string'&&r.structure_label.trim())?r.structure_label:structureText(f.structure)),f.axis||'Aks atanmamış',r.label];}
+ /* 03.11.2026 (rapor 26 §1b): ağaç düğüm kimliği yapı düzeyinde etiket değil yapı kodu — aynı görünen metinli iki yapı birleşmez */
+ function pathIds(r){var p=labels(r).map(String);p[2]=unassigned(r.fields.structure)?'u:':'s:'+String(r.fields.structure);return p;}
  function searchable(r){return [r.id,r.uid,r.label,r.structure_label||'','Ø'+(r.fields.diameter_mm||''),'t'+(r.fields.thickness_mm||'')].concat(Object.keys(r.fields).map(function(k){return r.fields[k];})).join(' ').toLocaleLowerCase('tr-TR');}
  function unassigned(value){return value===null||value===undefined||String(value).trim()==='';}
  function visible(records,query,filters){var terms=(query||'').trim().toLocaleLowerCase('tr-TR').split(/\s+/).filter(Boolean);filters=filters||{};return records.filter(function(r){
@@ -37,10 +39,10 @@
  function build(records){
   var root={children:[],keys:[],index:{}};
   records.forEach(function(r){
-   var node=root,path=[];
-   labels(r).forEach(function(label){
-    path.push(String(label));var key='g:'+JSON.stringify(path);
-    if(!node.index[key]){node.index[key]={key:key,label:String(label),children:[],keys:[],index:{}};node.children.push(node.index[key]);}
+   var node=root,path=[],ls=labels(r);
+   pathIds(r).forEach(function(id,i){
+    var label=ls[i];path.push(id);var key='g:'+JSON.stringify(path);
+    if(!node.index[key]){node.index[key]={key:key,label:String(label),code:(i===2&&!unassigned(r.fields.structure))?String(r.fields.structure):null,children:[],keys:[],index:{}};node.children.push(node.index[key]);}
     node=node.index[key];node.keys.push(r.key);
    });
    node.children.push({key:'e:'+r.key,label:r.id,record:r,keys:[r.key],children:[]});
@@ -160,7 +162,7 @@
    var button=text('button','','pw-node');button.type='button';button.appendChild(text('span',node.label||'Adsız eleman'));
    if(group)button.appendChild(text('small',String(node.keys.length)));
    else if(node.record.issues.length)button.appendChild(text('small','!'));
-   button.title=node.record?context.concat([node.record.id,node.record.uid||'Kimlik eksik',node.record.nested?'İç içe yerleşim':'Ana düzey']).join(' · '):node.label+' · '+node.keys.length+' eleman';
+   button.title=node.record?context.concat([node.record.id,node.record.uid||'Kimlik eksik',node.record.nested?'İç içe yerleşim':'Ana düzey']).join(' · '):node.label+(node.code&&node.code!==node.label?' · Yapı kodu: '+node.code:'')+' · '+node.keys.length+' eleman';
    button.onclick=function(){setFocus(node.keys,group);if(!group)action(false,false);};
    if(!group&&selected.has(node.record.key)){line.classList.add('selected');button.setAttribute('aria-pressed','true');}
    line.style.marginLeft=(depth*13)+'px';line.appendChild(toggle);line.appendChild(button);parent.appendChild(line);
@@ -178,7 +180,7 @@
  }
  function reveal(keys){
   invalidateRows();revealKey=keys[0]||null;var wanted=new Set(keys);state.records.filter(function(r){return wanted.has(r.key);}).forEach(function(r){
-   var path=[];labels(r).forEach(function(label){path.push(String(label));state.expanded.add('g:'+JSON.stringify(path));});
+   var path=[];pathIds(r).forEach(function(id){path.push(id);state.expanded.add('g:'+JSON.stringify(path));});
   });
  }
  function refresh(){
@@ -202,8 +204,10 @@
  function consumeBeam(){
   if(!pendingBeam)return;
   if(Date.now()-pendingBeam.at>5000){pendingBeam=null;return;}
-  if(state.selected.length!==1||state.selected[0]!==pendingBeam.key)return;
-  pendingBeam=null;global.projectWorkspaceOpenBeamEditor();
+  /* 03.11.2026 (rapor 25/10): ilk dolu seçim yanıtı karar verir — başka eleman seçildiyse bekleyiş iptal (sonradan aynı BK seçilince BK sayfası açılmaz) */
+  if(!state.selected.length)return;
+  var p=pendingBeam;pendingBeam=null;
+  if(state.selected.length===1&&state.selected[0]===p.key)global.projectWorkspaceOpenBeamEditor();
  }
  function loaded(data){
   cancelSearch(true);viewCache=null;focusCache=null;page=0;revealKey=null;
