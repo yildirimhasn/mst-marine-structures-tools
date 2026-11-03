@@ -272,7 +272,14 @@ Dir.mktmpdir('mst_r') do |tmp|
       line ? JSON.parse(line.sub('RDUMP ', '')) : { 'hata' => o.lines.last(3).join }
     end
     a = dump.(File.expand_path(dir)); b = dump.(refdir)
-    (a.keys | b.keys).each { |k| t("E #{k}: yeni = taban (#{ref})", a[k], b[k]) }
+    # 03.11.2026 (kullanıcı kararı, runner 1.2.4 uyarısı): çelik boru kazık kalıbı "eksik" → "uygulanmaz" (değer 0 aynı). Çalışma Alanı
+    # yükünü içeren üç özet bu yüzden tabandan farklıdır; model yazımları (ce_apply_state) ve diğerleri birebir kalmalı.
+    pile_fw = %w[ws_return_loaded ce_preview ce_apply_loaded_last]
+    (a.keys | b.keys).each do |k|
+      if pile_fw.include?(k) then t("E #{k}: tabandan farklı (yalnız kazık kalıbı durumu; açıklanmış)", a[k] != b[k] && !a[k].nil?, true)
+      else t("E #{k}: yeni = taban (#{ref})", a[k], b[k])
+      end
+    end
   end
 end
 

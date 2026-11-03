@@ -132,5 +132,11 @@ t('25/12 gömülü sayfa açılınca sayfa kimliği Ruby\'ye bildirilir', [st.su
 M.mst_ui_page_note('emb_accessories')
 t('25/12 Ruby: gömülü sayfa açıkken Çalışma Alanı gizli sayılır', M.project_workspace_page_hidden?, true)
 
+# ---------- runner 1.2.4 uyarısı: çelik boru kazıkta kalıp ----------
+r_setup
+pile = $all_ents.values.find { |e| e.get_attribute(D, 'element_type', '') == 'steel_pipe_pile' }
+fq = M::QuantityService.record(pile, :formwork_m2)
+t('Kazık kalıbı "uygulanmaz", değer 0 (eksik değil)', [fq[:state], fq[:value]], ['not_applicable', 0.0])
+
 puts "\nSONUÇ: #{$ok} geçti, #{$bad} kaldı"
 exit($bad.zero? ? 0 : 1)

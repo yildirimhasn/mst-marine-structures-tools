@@ -80,7 +80,8 @@ module MAG
       end
      end
     when :formwork_m2
-     t=='head_beam' ? {value:number(api.head_beam_net_formwork_area(e),'formwork_m2'),state:'calculated',method:'net_faces'} : attribute(e,['formwork_area_m2'])
+     return {value:0.0,state:'not_applicable',method:'steel_pipe_no_formwork'} if t=='steel_pipe_pile'   # 03.11.2026: çelik boru kazıkta kalıp yok (runner uyarısı; değer aynı 0)
+    t=='head_beam' ? {value:number(api.head_beam_net_formwork_area(e),'formwork_m2'),state:'calculated',method:'net_faces'} : attribute(e,['formwork_area_m2'])
     when :area_m2;attribute(e,['net_area_m2'])
     else;{value:0.0,state:'not_applicable',method:'unsupported'}
     end
