@@ -30,6 +30,13 @@
   node('ceStatus').textContent=data.dependencies?'Beton sınıfı değişir; bağlı eleman geometrisi korunur.':'Önizleme hazır. Tip kimliği yeni ölçü ve malzemeye göre eşleştirilecek.';
   node('ceApply').disabled=false;
  };
- global.controlledEditorError=function(message){invalidate();if(!current){global.projectWorkspaceError(message);return;}node('ceStatus').textContent=message;};
+ /* 03.11.2026 (kullanıcı bildirimi): açılış reddedilirse (ör. Component prekast) de Prekast sayfasına gidilir; neden form alanında yazılır */
+ global.controlledEditorError=function(message){invalidate();if(!current){
+  if(global.mstShowPage)global.mstShowPage('precast');
+  var panel=node('controlledEditor');panel.hidden=false;node('ceTitle').textContent='Seçili Prekastı Düzenle';clear(node('ceFields'));
+  node('ceStatus').textContent=message+' — Bu prekast bu formda düzenlenemez. Component (bileşen) prekastlar ve alt gruplu kanallar için ölçü/tip değişikliğini yukarıdaki prekast tip ve yerleşim bölümlerinden yapın (yerleşimi yeniden oluşturun).';
+  node('ceCheck').disabled=true;node('ceClose').onclick=function(){panel.hidden=true;};
+  global.projectWorkspaceError(message);panel.scrollIntoView({block:'center'});return;}
+  node('ceStatus').textContent=message;};
  global.controlledEditorDone=function(data){invalidate();node('ceStatus').textContent=data.message;node('ceCheck').disabled=true;};
 })(window);

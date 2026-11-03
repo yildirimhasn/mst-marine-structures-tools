@@ -115,7 +115,7 @@ steps = [
   { label: 'aç pd', js: "controlledEditorLoaded(#{JSON.generate(open_pd)});[#{page},document.getElementById('controlledEditor').hidden,document.getElementById('precast').getAttribute('data-pctab')]" },
   { label: 'kapat', js: "document.getElementById('ceClose').click();[#{page},document.getElementById('controlledEditor').hidden]" },
   { label: 'aç pk', js: "mstShowPage('project_workspace');controlledEditorLoaded(#{JSON.generate(open_pk)});[#{page},document.getElementById('precast').getAttribute('data-pctab')]" },
-  { label: 'hata', js: "controlledEditorReset();mstShowPage('project_workspace');controlledEditorError('Yalnız özgün grup geometrisi düzenlenebilir.');[#{page},document.getElementById('pwStatus').textContent]" }
+  { label: 'hata', js: "controlledEditorReset();mstShowPage('project_workspace');controlledEditorError('Yalnız özgün grup geometrisi düzenlenebilir.');var s=document.getElementById('ceStatus').textContent;[#{page},document.getElementById('controlledEditor').hidden,s.indexOf('Yalnız özgün grup')>=0,s.indexOf('Component')>=0,document.getElementById('ceCheck').disabled]" }
 ]
 out, st = Dir.mktmpdir('mst_v2') do |dd|
   f = File.join(dd, 'steps.json'); File.binwrite(f, JSON.generate(steps))
@@ -129,7 +129,7 @@ t('A Elemanı Düzenle ipucu Prekast sayfasını söyler', v.('başlık').to_s.i
 t('A normal prekast: Prekast sayfası açılır, form görünür, PD sekmesi', v.('aç pd'), ['precast', false, 'pd'])
 t('A Kapat: Prekast sayfasında kalınır, form gizlenir', v.('kapat'), ['precast', true])
 t('A kanal prekastı: PK sekmesi', v.('aç pk'), %w[precast pk])
-t('A açılış hatası Çalışma Alanı durumunda görünür', v.('hata'), ['project_workspace', 'Yalnız özgün grup geometrisi düzenlenebilir.'])
+t('A açılış hatası (ör. Component prekast): Prekast sayfası açılır, form alanında neden + yol gösterme, Önizle kapalı', v.('hata'), ['precast', false, true, true, true])
 r.each { |k, x| next if k == '__load__'; t("node adımı hatasız: #{k}", x['err'], []) }
 
 puts "\nSONUÇ: #{$ok} geçti, #{$bad} kaldı"
