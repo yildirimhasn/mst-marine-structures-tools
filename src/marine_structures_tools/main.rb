@@ -11897,7 +11897,7 @@ def mst_axis_manager_names_plan(x,model)
       refs=pp.select{|k,v|k.to_s!=mst_placement_key(c['system'],c['from']) && mst_placement_links(v).any?{|_f,l|l['mode'].to_s!='ABSOLUTE' && l['ref_structure'].to_s==c['from']}}.keys
       raise "#{c['from']}: Kod değiştirilemez: yerleşim bağlantısı (#{refs.map{|k|k.to_s.split('::',2).last}.join(', ')}) bu koda bağlı." unless refs.empty?
       # 25/1: hedef kod kayıtlı (bu kayıtta silinmiş olsa da) bir yapının ya da sahipsiz elemanların kodu olamaz (sessiz yapı birleşmesi)
-      raise "#{c['to']}: hedef kod kullanılamaz — bu kod modelde kayıtlı bir yapıya ait (bu kayıtta silinmiş olsa da bağlı verisi kalır). Başka bir kod seçin." if old_codes.include?(c['to'])
+      raise "#{c['to']}: hedef kod kullanılamaz — bu kod modelde kayıtlı bir yapıya ait (bu kayıtta silinmiş olsa da bağlı verisi kalır). Başka bir kod seçin." if old_codes.any?{|q|mst_name_key(q)==mst_name_key(c['to'])}   # 27/K5: harf farkı yok sayılır (JS nkey)
       tl=mst_structure_code_lock(c['system'],c['to'],usage,model,pl_model)
       raise "#{c['to']}: hedef kod kullanılamaz — #{tl.sub(/\AKod değiştirilemez: /,'')}" if tl
       ok=mst_placement_key(c['system'],c['from']);nk=mst_placement_key(c['system'],c['to'])
@@ -11908,7 +11908,8 @@ def mst_axis_manager_names_plan(x,model)
   end
   # 25/2: kullanılan yapı yalnız Aks Yöneticisi önizlemesinde onaylanmışsa silinir (yük: removed_used_structures "SİSTEM::kod")
   froms=changes.map{|c|[c['system'],c['from']]}
-  removed=old_by.flat_map{|s,rows|(rows-clean[s]).reject{|c|froms.include?([s,c])}.map{|c|[s,c]}}
+  # rapor 27/K1: yalnız arayüzde görünen (mst_structures_for_system süzgecinden geçen) eski kodlar silinmiş sayılır
+  removed=old_by.flat_map{|s,rows|((rows & mst_structures_for_system(s,model))-clean[s]).reject{|c|froms.include?([s,c])}.map{|c|[s,c]}}
   unless removed.empty?
     okd=x['removed_used_structures'].is_a?(Array) ? x['removed_used_structures'].map(&:to_s) : []
     usage||=mst_code_usage(model);pl_model||=mst_structure_placements(model)

@@ -152,11 +152,14 @@ module MAG
    # (mst_precast_new_type_name: aynı tür + temel tip + ölçüde kayıtlı tip varsa o ad, yoksa "<temel>-B…"). Salt okuma.
    # => [yeni ad, temel tip] ya da nil (tip adı yok / değişmiyor). Mevcut anahtarlar: precast_type_id, precast_type, precast_base_type_id.
    def precast_type_after(model,e,type,values)
-    old=api.mst_precast_type_id(e);return nil if old.empty?
-    others=ProjectWorkspace.entries(model).map{|x|x[:entity]}.uniq.reject{|x|x==e}
-    reg=api.mst_precast_type_registry(others,model);reg['used'][old.upcase]=true
+    # 27/K2: yalnız kayıtlı tip adı (precast_type_id) — precast_id fiziksel kimliktir, ondan tip adı üretilmez
+    old=e.get_attribute(DICT,'precast_type_id','').to_s;return nil if old.strip.empty?
     mm=->(k){(values[k].to_f*1000.0).round}
     dims=type=='channel_precast' ? %w[length_m inner_width_m inner_depth_m base_thickness_m wall_thickness_m].map(&mm) : %w[length_m width_m height_m].map(&mm)
+    return nil if dims==api.mst_precast_dims_key(e)   # 27/K3: mm altı değişiklik tip ölçüsünü değiştirmez
+    all=[];api.collect_elements(model.entities,all)   # BK boyutlandırmayla aynı kapsam (iç içe prekast dahil)
+    others=all.uniq.reject{|x|x==e}
+    reg=api.mst_precast_type_registry(others,model);reg['used'][old.upcase]=true
     name=api.mst_precast_new_type_name(e,nil,reg,dims)
     name==old ? nil : [name,api.mst_precast_base_type(e)]
    end

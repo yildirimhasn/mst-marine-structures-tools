@@ -91,6 +91,17 @@ d, pc, pd2 = setup_pd(name1: nil)
 pv, err, ops = edit(d, pc, 'C35/45', 'length_m' => 6.0)
 t('T4 tip adı olmayan elemana tip adı yazılmaz', [err, ops, attrs.(pc)], [[], OP, [nil, nil, nil]])
 
+# T5 (rapor 27/K2): yalnız fiziksel kimlik precast_id var (tip adı yok) → tip adı üretilmez
+d, pc, pd2 = setup_pd(name1: nil)
+pc.set_attribute(D, 'precast_id', 'PD-07')
+pv, err, ops = edit(d, pc, 'C35/45', 'length_m' => 6.0)
+t('T5 precast_id fiziksel kimlikten tip adı üretilmez', [err, ops, attrs.(pc), pc.get_attribute(D, 'precast_id', nil)], [[], OP, [nil, nil, nil], 'PD-07'])
+
+# T6 (rapor 27/K3): milimetre altı değişiklik (ölçü anahtarı aynı) → tip adı aynı
+d, pc, pd2 = setup_pd
+pv, err, ops = edit(d, pc, 'C35/45', 'length_m' => 5.0004)
+t('T6 mm altı boy değişikliği: tip adı PD-01 kalır, önizlemede tip satırı yok', [err, ops, attrs.(pc), pv.to_s.include?('Prekast tipi')], [[], OP, ['PD-01', 'PD-01', nil], false])
+
 # --- A: arayüz (sahte DOM) ---
 open_pd = { model_token: 't1', keys: ['k9'], id: 'PD1', label: 'Normal prekast', concrete_class: 'C35/45', classes: %w[C30/37 C35/45], note: nil,
             fields: [{ key: 'length_m', label: 'Boy (m)', value: 5 }, { key: 'width_m', label: 'Genişlik (m)', value: 1 }, { key: 'height_m', label: 'Kalınlık (m)', value: 0.4 }] }

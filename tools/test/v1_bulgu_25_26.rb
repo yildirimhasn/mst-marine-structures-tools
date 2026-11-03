@@ -78,6 +78,25 @@ pl['code_changes'] = [{ 'system' => 'ISKELE', 'from' => 'ANO-02', 'to' => 'ANO-0
 ops, msgs = save(pl)
 t('25/1 boş hedef kod (ANO-02 → ANO-03) kabul: tek işlem, ileti yok', [ops, msgs], [COMMIT, []])
 
+# 27/K5: hedef kod denetimi büyük / küçük harf ayrımı yapmaz (JS nkey ile aynı)
+setup2
+pl = r_axis_payload
+pl['systems']['ISKELE'] = %w[ano-01]
+pl['grids'] = pl['grids'].reject { |k, _| k.start_with?('ISKELE::') }.merge('ISKELE::ano-01' => pl['grids']['ISKELE::ANO-02'])
+pl['active']['ISKELE'] = 'ano-01'
+pl['code_changes'] = [{ 'system' => 'ISKELE', 'from' => 'ANO-02', 'to' => 'ano-01' }]
+pl['removed_used_structures'] = ['ISKELE::ANO-01']
+ops, msgs = save(pl)
+t('27/K5 silinen ANO-01 yerine ANO-02 → "ano-01" (harf farkı) → ret', [ops, msgs.any? { |m| m.include?('hedef kod') }], [[], true])
+
+# 27/K1: eski modelde sistem listesine sızmış kod (DOLFEN'de ANO-01; arayüzde görünmez) kaydı engellemez
+setup2
+$model.set_attribute(D, 'system_structures_json', '{"DOLFEN":["BD-01","ANO-01"],"ISKELE":["ANO-01","ANO-02"],"RIHTIM":["RIHTIM-01"]}')
+pl = r_axis_payload
+pl['structure_names'] = { 'ANO-02' => 'Kuzey Kolu' }
+ops, msgs = save(pl)
+t('27/K1 sızmış kodlu eski model: yalnız görünen ad kaydı tek işlem, ileti yok', [ops, msgs], [COMMIT, []])
+
 # ---------- 25/2: kullanılan yapı silme ----------
 setup2
 pl = r_axis_payload
