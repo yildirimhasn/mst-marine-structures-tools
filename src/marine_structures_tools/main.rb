@@ -12278,9 +12278,10 @@ def mst_precast_type_registry(elements,model)
   {'reg'=>reg,'used'=>used}
 end
 
-def mst_precast_new_type_name(e,new_len,registry)
+# dims: hazır ölçü anahtarı (Kontrollü Düzenleme yeni ölçüleri; verilmezse e'nin ölçüleri + new_len). Kural iki yolda aynı.
+def mst_precast_new_type_name(e,new_len,registry,dims=nil)
   base=mst_precast_base_type(e)
-  key=[e.get_attribute(DICT,'element_type','').to_s,base.upcase,mst_precast_dims_key(e,new_len)]
+  key=[e.get_attribute(DICT,'element_type','').to_s,base.upcase,dims || mst_precast_dims_key(e,new_len)]
   return registry['reg'][key] if registry['reg'][key]
   name=(('B'..'Z').to_a+(27..9999).map(&:to_s)).map{|s|"#{base}-#{s}"}.find{|n|!registry['used'][n.upcase]}
   registry['used'][name.upcase]=true;registry['reg'][key]=name

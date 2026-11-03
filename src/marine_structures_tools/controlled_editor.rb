@@ -143,8 +143,22 @@ module MAG
     unless geometry_changed
      volume=QuantityService.value(e,:concrete_m3);formwork=QuantityService.value(e,:formwork_m2)
     end
+    new_type,base_type=geometry_changed ? precast_type_after(model,e,type,normalized) : nil
+    changes<<{label:'Prekast tipi',before:api.mst_precast_type_id(e),after:new_type} if new_type
     {entry:entry,values:normalized,geometry_changed:geometry_changed,changes:changes,volume:volume,
-     formwork:formwork,dependencies:dependencies.size}
+     formwork:formwork,dependencies:dependencies.size,new_type:new_type,base_type:base_type}
+   end
+   # 03.11.2026 (kullanıcı kararı): geometri değişince prekast tip adı, BK'ye bağlı boyutlandırmayla aynı kuralla
+   # (mst_precast_new_type_name: aynı tür + temel tip + ölçüde kayıtlı tip varsa o ad, yoksa "<temel>-B…"). Salt okuma.
+   # => [yeni ad, temel tip] ya da nil (tip adı yok / değişmiyor). Mevcut anahtarlar: precast_type_id, precast_type, precast_base_type_id.
+   def precast_type_after(model,e,type,values)
+    old=api.mst_precast_type_id(e);return nil if old.empty?
+    others=ProjectWorkspace.entries(model).map{|x|x[:entity]}.uniq.reject{|x|x==e}
+    reg=api.mst_precast_type_registry(others,model);reg['used'][old.upcase]=true
+    mm=->(k){(values[k].to_f*1000.0).round}
+    dims=type=='channel_precast' ? %w[length_m inner_width_m inner_depth_m base_thickness_m wall_thickness_m].map(&mm) : %w[length_m width_m height_m].map(&mm)
+    name=api.mst_precast_new_type_name(e,nil,reg,dims)
+    name==old ? nil : [name,api.mst_precast_base_type(e)]
    end
    def sync_type(e,model)
     signature=api.element_signature(e)
@@ -182,6 +196,10 @@ module MAG
       end
       raise 'Beton metrajı önizleme ile uyuşmadı.' if (QuantityService.value(e,:concrete_m3)-plan[:volume]).abs>1e-8
       raise 'Kalıp metrajı önizleme ile uyuşmadı.' if (QuantityService.value(e,:formwork_m2)-plan[:formwork]).abs>1e-8
+      if plan[:new_type]
+       e.set_attribute(DICT,'precast_base_type_id',plan[:base_type])
+       api.mst_set_precast_type!(e,plan[:new_type])
+      end
      else
       e.set_attribute(DICT,'concrete_class',plan[:values]['concrete_class'])
      end

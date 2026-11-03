@@ -405,12 +405,11 @@ label{font-size:11px;color:#4c687f;font-weight:500}
   <section class="pw-inspector">
    <div class="pw-panel-head"><div><h3 id="pwTitle">Eleman Özellikleri</h3><p id="pwSelection" class="note">Ağaçtan bir kapsam seçin veya modelde bir eleman seçin.</p></div><span id="pwModelSelection" class="pw-badge">Model: 0 seçili</span></div>
    <div class="pw-toolbar"><button id="pwShow" class="action">Modelde Göster</button><button id="pwEdit" class="secondary">Elemanı Düzenle</button><button id="pwElevation" class="secondary" disabled>Bağlı Kot Uyumu</button><button id="pwMaterial" class="secondary" disabled>Bağlı Beton Sınıfı</button><button id="pwHealth" class="secondary" disabled>İncelenen Kapsamı Kontrol Et</button><button id="pwQTO" class="secondary">Metrajı Aç</button><button class="secondary" type="button" onclick="sketchup.model_health()">Model Sağlığı</button><button class="secondary" onclick="sketchup.relationship_audit()">Mesnet ve Bağlantı Kontrolü</button></div>
-   <p class="note">Kazık düzenleme, seçili kazık panelini açar. Başlık kirişi, normal ve kanal prekastları önizlemeli düzenleyicide açılır. İç içe eleman için ilgili grup/bileşen açılır.</p>
+   <p class="note">Elemanı Düzenle, elemanın kendi sayfasındaki ortak formu açar: kazık → Kazık sayfası, başlık kirişi → Başlık Kirişi sayfası, normal ve kanal prekastı → Prekast sayfası (önizlemeli düzenleme). Component prekast ve alt gruplu kanal bu formda düzenlenemez.</p>
    <div id="pwMetrics" class="pw-metrics"></div>
    <div id="pwIssues" class="pw-issues" role="status"></div>
    <dl id="pwProperties" class="pw-properties"></dl>
    <section id="pwDeps" class="pw-deps" aria-labelledby="pwDepTitle"><div class="pw-dep-head"><h4 id="pwDepTitle">Bağımlılıklar</h4><button id="pwDepRun" class="secondary" type="button" disabled>Bağımlılıkları Göster</button></div><p id="pwDepStatus" class="note" role="status" aria-live="polite">Bağımlılıklar tek eleman için gösterilir. Bir eleman seçin.</p><div id="pwDepBody"></div></section>
-   <section id="controlledEditor" class="card" hidden style="margin-top:16px"><h3 id="ceTitle">Kontrollü Eleman Düzenleme</h3><p id="ceStatus" role="status"></p><div id="ceFields" class="grid2"></div><div id="cePreview"></div><div style="display:flex;gap:10px;margin-top:12px"><button id="ceCheck" type="button">Değişikliği Önizle</button><button id="ceApply" type="button" disabled>Önizlenen Değişikliği Uygula</button><button id="ceClose" type="button">Kapat</button></div></section>
 <details><summary>Kapsamdaki elemanlar</summary>
 <div id="pwElements" class="pw-elements"></div></details>
   </section>
@@ -784,6 +783,8 @@ label{font-size:11px;color:#4c687f;font-weight:500}
  <div><h2>▤ &nbsp; Prekast (PD)</h2><p>PD tiplerini tanımlayın, iki komşu BK arasındaki yerleşimi yönetin ve genişlik kontrolünü canlı izleyin.</p></div>
  <div class="stepper"><b>1</b><span>PD Tipleri</span><i>→</i><b>2</b><span>BK Aralığı</span><i>→</i><b>3</b><span>PD Dizilimi</span><i>→</i><b>4</b><span>Oluştur</span></div>
 </div>
+<!-- 03.11.2026 NCR-003 (kullanıcı kararı, seçenek A): Çalışma Alanı'ndan açılan prekast düzenleme formu Prekast sayfasında; mantık değişmedi -->
+<section id="controlledEditor" class="card" hidden style="margin:0 0 16px"><h3 id="ceTitle">Seçili Prekastı Düzenle</h3><p id="ceStatus" role="status"></p><div id="ceFields" class="grid2"></div><div id="cePreview"></div><div style="display:flex;gap:10px;margin-top:12px"><button id="ceCheck" type="button">Değişikliği Önizle</button><button id="ceApply" type="button" disabled>Önizlenen Değişikliği Uygula</button><button id="ceClose" type="button">Kapat</button></div></section>
 <div class="precast-workspace">
 <main class="precast-main">
 <div class="pd-workspace-title"><h2>▱ &nbsp; Prekast (PD) Yerleşim Yöneticisi</h2><p>Seçilen iki başlık kirişi arasına prekast döşemeleri mühendislik parametreleriyle tanımlayın ve yerleşimi oluşturun.</p></div>

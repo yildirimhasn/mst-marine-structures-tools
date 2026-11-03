@@ -8,6 +8,9 @@
  function request(){var values={};current.fields.forEach(function(f){values[f.key]=node('ce_'+f.key).value;});values.concrete_class=node('ceConcrete').value;return {model_token:current.model_token,keys:current.keys,values:values};}
  global.controlledEditorReset=function(){invalidate();current=null;node('controlledEditor').hidden=true;};
  global.controlledEditorLoaded=function(data){
+  /* 03.11.2026 NCR-003: form Prekast sayfasında; ilgili alt sekme (kanal → PK, diğer → PD) */
+  if(global.mstShowPage)global.mstShowPage('precast');
+  if(typeof global.mstPrecastTab==='function')global.mstPrecastTab(data.fields.some(function(f){return f.key==='inner_width_m';})?'pk':'pd');
   current=data;var panel=node('controlledEditor');panel.hidden=false;node('ceTitle').textContent=data.id+' · '+data.label;
   var fields=node('ceFields');clear(fields);
   data.fields.forEach(function(f){var label=text('label',f.label),input=document.createElement('input');input.id='ce_'+f.key;input.type='text';input.inputMode='decimal';input.value=f.value===null?'':f.value;input.addEventListener('input',invalidate);label.appendChild(input);fields.appendChild(label);});
