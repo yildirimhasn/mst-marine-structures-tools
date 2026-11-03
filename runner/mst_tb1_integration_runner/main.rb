@@ -8,7 +8,7 @@ require 'tempfile'
 # This runner never patches SketchUp classes or the MST API and never runs the
 # original KN1 scenarios. Test records below are ordinary in-memory Ruby objects.
 module MSTTB1Runner
-  VERSION='1.2.5'.freeze
+  VERSION='1.2.6'.freeze
   EXPECTED_VERSION='0.51.5'.freeze
   EXPECTED_BUILD='v0.51.5 TB1 FIX1'.freeze
   class Failure < StandardError;end
