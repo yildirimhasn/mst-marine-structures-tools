@@ -162,8 +162,14 @@ Kaynak: 07 §2.8, raporlar 23–28. Tüm adımlar **model kopyası** üzerinde. 
 | N-16 | `0983966` mesnetli PD | Üzerinde mesnet/bağlı eleman olan PD'de geometri değişikliği dene | Türkçe ret iletisi; model değişmez, Geri Al adımı yok | | | | |
 | N-17 | `0983966` Component prekast | Component prekastı Çalışma Alanı → Elemanı Düzenle ile düzenlemeyi dene | Türkçe ret iletisi; model değişmez (bilinen sınır, 07 §4.1; alt gruplu kanal da formda düzenlenemez) | | | | |
 | N-18 | 27/K4 performans | Büyük model kopyasında (yapı / eleman sayısı yazılır) Aks Yöneticisi'ni 3 kez aç; açılış süresini kronometreyle ölç | Süreler yazılır; değerlendirme kullanıcının (eşik belirlenmedi; aşırı gecikme yalnız raporlanır, kod değiştirilmez). Kanıt: süreler + model kopyası adı, sürüm | | | | |
+| N-19 | `dd952bb` 25/5 | Yeni bir yapı ekleyip kaydet; Aks Yöneticisi'ni kapat-aç, hiçbir şeyi değiştirmeden "Projeyi Kaydet" | "Değişiklik yok — model değişmedi, Geri Al adımı oluşmadı."; Düzen menüsünde yeni Geri Al adımı yok | | | | |
+| N-20 | `dd952bb` 25/7 | Bir yapıyı kazıklarıyla birlikte Aks Yöneticisi'nden onaylayarak sil ve kaydet; yeniden aç, "Yeni yapı kodu" önerisine bak; sonra aynı kodu elle yazıp ekle | Önerilen kod silinen kodu atlar; elle girilince "sahipsiz eleman" onayı sorulur; Vazgeç → eklenmez; onaylanırsa kazıklar yeni yapıda görünür | | | | |
+| N-21 | `dd952bb` 25/8 | Çalışma Alanı'nda BK seç → Elemanı Düzenle | Başlık Kirişi sayfası açılır; Prekast / Kontrollü Düzenleme formu açılmaz | | | | |
+| N-22 | `dd952bb` 26/1a | Keşif Excel'ini al; "Poz Metrajları" sayfasında ara toplam satırlarına bak | "Eleman toplamı · N eleman" (N = listelenen satır sayısı); "Yapı" sütunu boş; miktar toplamı önceki sürümle aynı | | | | |
+| N-23 | `dd952bb` editor_payload | Yalnız gizli sayfa; menüden erişilmez — atlanabilir. Ruby Konsolu'nda MST hatası görülmemeli | Hata yok | | | | |
 
 Toplam satır: 89 (1: 4, 2: 7, 3: 20, 4: 8, 5: 5, 6: 8, 7: 13, 8: 20, 9: 4). Parti H satırları (H-1 … H-10) `19_parti_H_uygulayici.md` "SketchUp kabul" listesi + H2 + H5 + H4a'dan; bu satırlar SketchUp'ta denenmedi.
 Ek (03.11.2026): §10 18 satır (N-1 … N-18); yeni toplam 107.
+Ek (03.11.2026, `dd952bb`): §10 5 satır (N-19 … N-23); yeni toplam 112.
 
 Ajan değerlendirmesi (mst-kabul-denetim): ______ (onay sayılmaz)
