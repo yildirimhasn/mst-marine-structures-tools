@@ -10,7 +10,7 @@ Sonuç sütunları **kullanıcı dolduracak**. Ajan değerlendirmesi (mst-kabul-
 - Tüm adımlar **model kopyası** üzerinde; asıl `.skp` açılmaz. Model kopyası adı her satıra yazılır.
 - Karşılaştırma için aynı kopya 0.51.4 ile de açılıp Keşif CSV, Ayrıntılı Metraj (Excel) ve Özet alınır (golden-master).
 - Ekran adları 0.51.5 Türkçe adlarıdır (Parti E); 0.51.4'teki İngilizce karşılığı parantezde.
-- (03.11.2026) §10 satırları kaynak `930876a` sonrası üretilecek paketi gerektirir; yukarıdaki `c8f9d70` paketi bu değişiklikleri içermez. Paket adı ve SHA-256: **paketleme sonrası yazılacak** (07 §1). Her satırda hangi paketle denendiği yazılır.
+- (03.11.2026) §10 satırları kaynak `930876a` sonrası üretilecek paketi gerektirir; yukarıdaki `c8f9d70` paketi bu değişiklikleri içermez. Paket adı ve SHA-256: **paketleme sonrası yazılacak** (07 §1). Her satırda hangi paketle denendiği yazılır. *(Yazıldı, 03.11.2026 mst-test-paketleme: §10 N-1 … N-23 için paket `MST_v0.51.5_TB1_FIX1_TEST.rbz`, src `831f0d0`, 201 dosya, SHA-256 `38d83120232e98e86ac95af02f670ee7c0b927cc34899bacc8f00c563914f50e`; runner `MST_TB1_Integration_TestRunner_v1.2.4_for_0.51.5.rbz` (sürüm 1.2.4), SHA-256 `c96075b570b1173851afbc3c27c87f2ad56d17810ce204f3ce824cdd54bd5c4d`. Teslim kopyası `OneDrive\Masaüstü\CLAUDE\MST_v0.51.5_TESLIM_5\`. Yukarıdaki `75c0ea66…` MST ve 1.2.3 runner paketleri bunun yerine geçmiştir; `dist\gecersiz_75c0ea66\`.)*
 
 Sonuç: Geçti / Kaldı / Denenmedi. "Kullanıcının sözü" kullanıcının bildirdiği ifadedir.
 

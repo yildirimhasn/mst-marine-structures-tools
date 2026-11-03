@@ -238,7 +238,7 @@ Kurulu `mst_tb1_integration_runner` 1.1.0, 0.51.4 sürüm adını ve 0.51.4 dosy
 | Statik | `ruby -c` (değişen dosyalar) hatasız; Ruby 2.5 denetimi 66 dosya / 0 hata; `node --check` project_workspace.js hatasız |
 | Sahte nesne | `tools/test` 55 dosya, hepsi 0 kalan (`u1` 89/0, `v1` 35/0, `v2` 24/0, `v3` 15/0; `v3` 25/5 testi düzeltmesiz kodda kaldığı doğrulandı). `r_gecikme` G5a beklentisi 25/5 kararına göre güncellendi |
 | Golden-master (sahte fikstür) | 10e520d ↔ çalışma ağacı 433/433 aynı; uçtan uca 0.51.4 farkı c8f9d70 farkıyla birebir. Kontrollü Düzenleme yolu ve Excel "Poz Metrajları" ara toplam düzeni golden kapsamında değil (v3 testiyle sınandı) |
-| Paket | RBZ adı / SHA-256: paketleme sonrası yazılacak |
+| Paket | RBZ adı / SHA-256: paketleme sonrası yazılacak. *(Yazıldı, 03.11.2026 mst-test-paketleme: `dist\MST_v0.51.5_TB1_FIX1_TEST.rbz`, src = `831f0d0` (son kod `dd952bb`; paket HEAD `e7e8a7c`'de üretildi, o commit yalnız runner/), 201 dosya, 1.208.568 bayt, SHA-256 `38d83120232e98e86ac95af02f670ee7c0b927cc34899bacc8f00c563914f50e`; paket ↔ src 201/201, 0.51.4 paketine göre eklenen 0 / çıkan 0, iki üretim aynı SHA, `unzip -t` hatasız. Runner 1.2.4 `dist\MST_TB1_Integration_TestRunner_v1.2.4_for_0.51.5.rbz`, 3 dosya, 17.375 bayt, SHA-256 `c96075b570b1173851afbc3c27c87f2ad56d17810ce204f3ce824cdd54bd5c4d`, expected_sources `831f0d0` src'sinden 201/201. Önceki paketler (MST `75c0ea66…`, runner 1.2.3 `a02b4383…`) `dist\gecersiz_75c0ea66\`. Bu paketleme öncesi tam statik ve `tools/test` 55 dosya 1439 geçti / 0 kaldı)* |
 | SketchUp 2020 kabulü (kullanıcı) | SketchUp içinde denenmedi |
 | Görsel | Yok |
 | Ajan incelemesi | 25, 26 (kaynak `10e520d`), 27, 28 (kaynak `0983966`); bulguların ana oturum sonucu 27 tablosunda. Onay sayılmaz |
