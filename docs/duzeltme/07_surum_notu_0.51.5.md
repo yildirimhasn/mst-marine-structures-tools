@@ -193,12 +193,20 @@ Keşif / Metraj CSV (G5): ilk 8 sütun (Kategori, Tip, Malzeme/Sinif, Adet, Boy_
 - **03.11.2026 eklenen bilinen sınırlar (kaynak `930876a`, §2.8)**:
   - Component prekast ve alt gruplu kanal Kontrollü Düzenleme formunda düzenlenemez (Component için Türkçe ret iletisi).
   - Yeni kod karakter kümesinde JS (`checkCode`) ↔ Ruby (`MST_CODE_CHAR`) küçük farkı: büyük/küçük harfi olmayan harf, birleşik işaret, 0-9 dışı rakamda JS reddeder, Ruby kabul eder. Son denetim sunucuda; veri bozulmaz, yalnız ileti farkı (27/K6, değiştirilmedi).
-  - `u1` test dosyasında 1 kalan: `editor_payload` hatası; 0.51.4'ten beri var, gizli sayfaya ait — açık.
+  - `u1` test dosyasında 1 kalan: `editor_payload` hatası; 0.51.4'ten beri var, gizli sayfaya ait — açık. *(Yerine geçti, `dd952bb`: `editor_payload` tanımlandı, `u1` 89/0.)*
   - Golden-master Kontrollü Düzenleme yolunu sınamıyor (fikstürde tip adı yok); NCR-003 tip adı ve satır ayrışması yalnız kod okumasıyla (28) değerlendirildi — SketchUp kabulü 08 §10.
   - Aks Yöneticisi her açılışta `element_type`'sız grup / bileşenlerin içine iner (27/K4); süre ölçülmedi — 08 N-18.
   - BK boyutlandırma yolunda tip adı yokken `precast_id` üzerinden ad üretme geri düşüşü ve tek örnekli tipin eski ölçüye dönünce eski ada dönmemesi değiştirilmedi (27/K2, K3; ayrı karar).
   - Ruby 2.5 çalışma zamanında `unicode_normalize` / `:turkic` çalıştırılmadı (elle eşleme yedeği var; 23).
   - Ayrı öneriler (23, 24): `project_ano_axis_manager` iki tanım; `mst_add_ano` length+1; `DependencyModelObserver` her commit'te batch dışı `dependency_graph`; kazık raporu "Aks Noktası" görünen adı; `mst_code_usage` önbelleği — açık.
+- **03.11.2026 kabul denetimi sonrası kapatılanlar (kaynak `dd952bb`; kullanıcı kararı "hepsi bu pakette")**:
+  - 25/8: Kontrollü Düzenleme başlık kirişini Ruby tarafında da reddeder (BK yalnız Başlık Kirişi sayfasında).
+  - `editor_payload` tanımlandı (salt okuma); gizli Eleman Düzenleyici "Seçimi Yenile" hata vermez.
+  - 26/1a: Keşif Excel "Poz Metrajları" ara toplamında adet etikette ("Eleman toplamı · N eleman"), "Yapı" sütunu boş; yalnız miktarı > 0 olan (listelenen) elemanlar sayılır. **Excel görünümü değişir, toplam miktar değişmez.**
+  - 25/5: Aks Yöneticisi kaydının işlem öncesi planlaması salt okuma (geçiş yazımları işlem içinde); yalnız kayıtsız varsayılan ızgaralar farklıysa kayıt değişiklik sayılmaz — **davranış farkı**: ilk değişikliksiz kayıt artık Geri Al adımı açmaz ve varsayılan ızgarayı yazmaz (okuma aynı varsayılanı üretir; başka değişiklikle birlikte eskisi gibi yazılır).
+  - 25/6: kuru çalıştırma kaydedicisi desteklemediği çağrıda açık hata verir; kayıt "değişiklik var" sayılıp normal işlemle sürer.
+  - 25/7: sahipsiz elemanlarda kullanılan kod yeni yapı kodu olarak önerilmez; elle verilirse onay istenir (yük `reattach_codes`), onaysız kayıt reddedilir. Sahipsiz `active_structure_zone__<kod>` değeri silinmez (kayıtlı veri; yeniden bağlanan yapı aynı bölgeyi kullanır).
+  - 25/12: kod değişikliği gerekmedi — gömülü sayfa `mstShowPage` → `T` yoluyla sayfa kimliğini bildiriyor (test `v3`).
 - **Kullanıcı kararları listesi** (16): ölü kod silme; K43; K32; Türkçe istisnaları; K59; B/A2 açık öneriler; belgeler (poz eşlemesi, fiyat farkı, tapa, derz, R4, REBAR_DEFAULTS, bordür oranı, DXF varsayılanı, K22 aşama 2, K10); davranış değişiklikleri (§2.7); 0.51.5 runner. *(02.11.2026 durumu: ölü kod, K43, Türkçe istisnaları, DXF varsayılanı, sürüm hattı ve 0.51.5 runner kullanıcı kararıyla karara bağlandı; K59 ADR düzeltmesiyle kapandı; K32 ve B/A2 önerileri Parti H'de; diğer belgeler ve §2.7 açık.)*
 
 ## 5. Runner uyarısı
@@ -223,6 +231,15 @@ Kurulu `mst_tb1_integration_runner` 1.1.0, 0.51.4 sürüm adını ve 0.51.4 dosy
 | Golden-master (sahte fikstür) | 433/433 aynı. Kontrollü Düzenleme yolunu sınamıyor (§4.1) |
 | Paket | RBZ adı / SHA-256: paketleme sonrası yazılacak |
 | SketchUp 2020 kabulü (kullanıcı) | SketchUp içinde denenmedi. Liste: `08_sketchup_kabul_listesi_0.51.5.md` §10 |
+
+### 6.2 Kanıt durumu — kaynak `dd952bb` (03.11.2026; ana oturum komut çıktıları) *(6.1'in yerine geçer)*
+| Düzey | Durum |
+|---|---|
+| Statik | `ruby -c` (değişen dosyalar) hatasız; Ruby 2.5 denetimi 66 dosya / 0 hata; `node --check` project_workspace.js hatasız |
+| Sahte nesne | `tools/test` 55 dosya, hepsi 0 kalan (`u1` 89/0, `v1` 35/0, `v2` 24/0, `v3` 15/0; `v3` 25/5 testi düzeltmesiz kodda kaldığı doğrulandı). `r_gecikme` G5a beklentisi 25/5 kararına göre güncellendi |
+| Golden-master (sahte fikstür) | 10e520d ↔ çalışma ağacı 433/433 aynı; uçtan uca 0.51.4 farkı c8f9d70 farkıyla birebir. Kontrollü Düzenleme yolu ve Excel "Poz Metrajları" ara toplam düzeni golden kapsamında değil (v3 testiyle sınandı) |
+| Paket | RBZ adı / SHA-256: paketleme sonrası yazılacak |
+| SketchUp 2020 kabulü (kullanıcı) | SketchUp içinde denenmedi |
 | Görsel | Yok |
 | Ajan incelemesi | 25, 26 (kaynak `10e520d`), 27, 28 (kaynak `0983966`); bulguların ana oturum sonucu 27 tablosunda. Onay sayılmaz |
 
