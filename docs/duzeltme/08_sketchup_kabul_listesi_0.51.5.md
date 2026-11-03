@@ -10,6 +10,7 @@ Sonuç sütunları **kullanıcı dolduracak**. Ajan değerlendirmesi (mst-kabul-
 - Tüm adımlar **model kopyası** üzerinde; asıl `.skp` açılmaz. Model kopyası adı her satıra yazılır.
 - Karşılaştırma için aynı kopya 0.51.4 ile de açılıp Keşif CSV, Ayrıntılı Metraj (Excel) ve Özet alınır (golden-master).
 - Ekran adları 0.51.5 Türkçe adlarıdır (Parti E); 0.51.4'teki İngilizce karşılığı parantezde.
+- (03.11.2026) §10 satırları kaynak `930876a` sonrası üretilecek paketi gerektirir; yukarıdaki `c8f9d70` paketi bu değişiklikleri içermez. Paket adı ve SHA-256: **paketleme sonrası yazılacak** (07 §1). Her satırda hangi paketle denendiği yazılır.
 
 Sonuç: Geçti / Kaldı / Denenmedi. "Kullanıcının sözü" kullanıcının bildirdiği ifadedir.
 
@@ -138,6 +139,31 @@ Sonuç: Geçti / Kaldı / Denenmedi. "Kullanıcının sözü" kullanıcının bi
 | Gb-7 | G7 | Büyük modelde BIM Kimlik Onarımı ve Bağımlılık Motoru süresi (0.51.4 ile aynı kopya) | Süre ölçülür ve iki sürüm için yazılır; sonuç imzaları/öznitelikleri aynı (sahte nesne ölçümü, kanıt değil: stamp n=200 0,537 → 0,026 s; repair n=209 1,140 → 0,013 s) | | | | |
 | H-9 | H4a (K35 / H4b performansı) | Büyük kazıklı model kopyasında (kazık sayısı ve AYRI POZ kaynak sayısı yazılır) Ruby Console: `require 'benchmark'; M=MAG::MarineStructuresTools; 3.times{ puts Benchmark.realtime{ M.boq_rows(true) } }` — `pile_boq_group_codes_json` kayıtlı ve kayıtsız (kayıtsız için ayrı kopya) durumda. Yönelim: kazık seç, `m=Sketchup.active_model; m.start_operation('ölçüm',true); t=Benchmark.realtime{ M.mst_pile_orientation_bk_openings!(m.selection.to_a,m) }; m.abort_operation; puts t` (3 kez; abort ile model değişmez) | Her ölçüm < 1 s (kullanıcı eşiği); aşılırsa yalnız raporlanır (kod değiştirilmez). Sahte nesne ölçümü (SketchUp süresi değil, kanıt değil): n=2000, 4 kaynak `boq_rows` 0,58–0,64 s; 1000 kazık / 200 BK yönelim 0,025 s (07 §6). Kanıt: konsol çıktısı + model kopyası adı, kazık/BK sayısı, sürüm | | | | |
 
+## 10. İsimlendirme, Çalışma Alanı, Keşif ve prekast Kontrollü Düzenleme (kaynak `930876a`, 03.11.2026)
+Kaynak: 07 §2.8, raporlar 23–28. Tüm adımlar **model kopyası** üzerinde. Bu satırlar SketchUp'ta denenmedi.
+
+| No | Parti / bulgu | Adım | Beklenen | Tarih | Model kopyası | Sonuç | Kullanıcının sözü |
+|---|---|---|---|---|---|---|---|
+| N-1 | `b0a2592` / `930876a` hedef kod | Aks Yöneticisi'nde bir yapıyı silip kaydet; başka bir yapının kodunu silinen koda değiştirmeyi dene (bir kez aynı, bir kez farklı büyük/küçük harfle, ör. "ANO-02" / "ano-02") | İki durumda da Türkçe ret iletisi; kayıt yapılmaz, model değişmez | | | | |
+| N-2 | `b0a2592` hedef kod | Bir yapının kodunu modelde kullanılan (başka yapıya ait) bir koda değiştirmeyi dene | Türkçe ret iletisi; model değişmez | | | | |
+| N-3 | `b0a2592` kullanılan yapı silme | Elemanı / aks görseli olan bir yapıyı sil: (a) uyarıda onay verme, (b) onay ver; sonra Ctrl+Z | (a) silme reddedilir, model değişmez; (b) uyarı onayıyla silinir, tek Ctrl+Z ile geri gelir | | | | |
+| N-4 | `b0a2592` kod karakter kümesi | Yeni yapı kodu ve yeni aks kodu olarak parantez ve virgül içeren değer yaz (ör. "A(1)", "A,1"); ardından yalnız harf, rakam, boşluk, `-` `_` `.` içeren değer yaz | Parantez/virgüllü kod reddedilir (Türkçe ileti); izinli karakterli kod kabul edilir. Modelde önceden kayıtlı eski kodlar için açılışta/kayıtta hata çıkmaz (eski kodlar denetlenmez) | | | | |
+| N-5 | `b0a2592` görünen ad | Bir yapının Görünen Ad'ına parantez içeren ad yaz (ör. "Rıhtım (Kuzey)"), kaydet | Kabul edilir; gösterim "Ad (kod)" biçiminde, ad bozulmadan | | | | |
+| N-6 | `b0a2592` Çalışma Alanı ağacı | İki farklı yapıya aynı Görünen Ad'ı ver; Proje Çalışma Alanı'nı aç | İki yapı ayrı düğüm olarak görünür (yapı koduyla ayrılır); elemanlar doğru düğümde | | | | |
+| N-7 | `b0a2592` BK bekleyişi | Çalışma Alanı'nda bir BK için Elemanı Düzenle, ardından hemen başka bir eleman seç | BK sayfası kendiliğinden açılmaz; seçilen elemana göre davranılır | | | | |
+| N-8 | `b0a2592` Keşif Motoru | Keşif Motoru'nu aç | Sayfa açılışta bir kez yenilenir (çift yükleme / ikinci yenileme yok) | | | | |
+| N-9 | `0983966` NCR-003 A | Çalışma Alanı → normal prekast (PD) seç → Elemanı Düzenle | Kontrollü Düzenleme formu Prekast sayfasında açılır; alt sekme PD | | | | |
+| N-10 | `0983966` NCR-003 A | Çalışma Alanı → kanal prekast (PK) seç → Elemanı Düzenle | Form Prekast sayfasında; alt sekme PK | | | | |
+| N-11 | `0983966` / `930876a` tip adı | Aynı tipte en az iki PD olan kopyada birinin boyunu değiştir → önizle → uygula | Önizlemede "Prekast tipi" satırı (eski → yeni ad); uygulama sonrası tip adı: aynı tür + temel tip + ölçüde tip varsa o ad, yoksa "<temel>-B…". mm altı değişiklikte (ölçü anahtarı aynı) ad değişmez | | | | |
+| N-12 | `0983966` | N-11 sonrası aynı tipteki diğer parçaları incele (Seçili Eleman Bilgisi) | Diğer parçaların geometrisi ve tip adı değişmez | | | | |
+| N-13 | `0983966` METRAJ (28) | N-11 öncesi ve sonrası Metraj sayfası prekast PD/PK tablosu + Keşif / CSV / Ayrıntılı Metraj (Excel) al | Metraj sayfası toplamları eşit kalır (düzenlenen parçanın kendi boy değişikliği farkı dışında; tip adı kaynaklı fark yok); düzenlenen parçanın satırı ayrışır (ör. PD-01 / PD-01-B); Keşif, CSV, Excel'de tip adı kaynaklı fark yok | | | | |
+| N-14 | `0983966` hakediş | Önceden onaylı ilerlemesi olan PD'de N-11 uygula, hakedişi aç | Onaylı miktar (`previous_*`) değişmez; ilerleme eşleşmesi kopmaz | | | | |
+| N-15 | `0983966` Undo | N-11 uygulamasından sonra Ctrl+Z | Tek adımda geometri ve tip adı (`precast_type_id`, `precast_type`) birlikte geri döner | | | | |
+| N-16 | `0983966` mesnetli PD | Üzerinde mesnet/bağlı eleman olan PD'de geometri değişikliği dene | Türkçe ret iletisi; model değişmez, Geri Al adımı yok | | | | |
+| N-17 | `0983966` Component prekast | Component prekastı Çalışma Alanı → Elemanı Düzenle ile düzenlemeyi dene | Türkçe ret iletisi; model değişmez (bilinen sınır, 07 §4.1; alt gruplu kanal da formda düzenlenemez) | | | | |
+| N-18 | 27/K4 performans | Büyük model kopyasında (yapı / eleman sayısı yazılır) Aks Yöneticisi'ni 3 kez aç; açılış süresini kronometreyle ölç | Süreler yazılır; değerlendirme kullanıcının (eşik belirlenmedi; aşırı gecikme yalnız raporlanır, kod değiştirilmez). Kanıt: süreler + model kopyası adı, sürüm | | | | |
+
 Toplam satır: 89 (1: 4, 2: 7, 3: 20, 4: 8, 5: 5, 6: 8, 7: 13, 8: 20, 9: 4). Parti H satırları (H-1 … H-10) `19_parti_H_uygulayici.md` "SketchUp kabul" listesi + H2 + H5 + H4a'dan; bu satırlar SketchUp'ta denenmedi.
+Ek (03.11.2026): §10 18 satır (N-1 … N-18); yeni toplam 107.
 
 Ajan değerlendirmesi (mst-kabul-denetim): ______ (onay sayılmaz)

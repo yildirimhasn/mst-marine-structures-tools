@@ -11,6 +11,7 @@ Kaynaklar: `01_plan_proje_yonetici.md`, `02_adr_mimar.md`, `03`–`06` parti rap
 | 0.51.5 önceki paketler (geçersiz) | `dist\gecersiz_e1ad035f\`; `dist\gecersiz_454daf8e\` (kaynak `eaaa858`, Parti H öncesi; 02.11.2026'da silinmeden taşındı) | 02.11.2026 | Hayır. İkisi de geçersiz; kurulmamalı, kabulde kullanılmamalı (yerine geçti: yukarıdaki `c8f9d70` paketi) |
 | mst_tb1_integration_runner 1.1.0 | Kullanıcı test eklentisi (ayrı paket) | — | 29.10.2026'da kurulu; 0.51.4'ü bekler (§5). 0.51.5 için kullanılmaz (yerine geçti: 1.2.0) |
 | mst_tb1_integration_runner 1.2.0 (0.51.5 için) | `runner\` (src dışı; `tools\package.rb` paketine girmez), temel 1.1.0. Paket `dist\MST_TB1_Integration_TestRunner_v1.2.3_for_0.51.5.rbz`, 3 dosya, 17.384 bayt, SHA-256 `a02b4383ab28514c96f3f3f96dabeae896a98d646b84b71719a0e37805cb59ea`, manifest `…manifest.txt`; `tools\package_runner.rb` ile, iki üretim aynı SHA, `unzip -t` hatasız. Beklenen sürüm `0.51.5` / `v0.51.5 TB1 FIX1`; `expected_sources.json` `c8f9d70` src'sinden (201 dosya; yeni MST paketiyle 201/201 aynı) | 02.11.2026 | Hayır (SketchUp'ta kurulmadı). Sahte nesne (SketchUp dışı) çalıştırmada çekirdek testler 31 geçti / 0 hata; 1.1.0 aynı ortamda 29 / 2 hata (sürüm, dosya SHA) |
+| 0.51.5 TB1 FIX1 — 03.11.2026 kaynak devamı | Çalışma kopyası `mst_tb1` (git), commit'ler: arayüz sadeleştirme `a5ea937`, Çalışma Alanı Bağımlılıklar `7e804c9`, isimlendirme `b99ced8` + `c1e3a59`, gecikmeler G1–G6 `10e520d`, rapor 25/26 düzeltmeleri `b0a2592`, prekast NCR-003 seçenek A `0983966`, rapor 27/28 düzeltmeleri `930876a` (son kaynak). Ayrıntı §2.8 | 03.11.2026 | Hayır (SketchUp'ta kurulmadı, denenmedi). RBZ adı, dosya sayısı ve SHA-256: **paketleme sonrası yazılacak** |
 
 Yerel `mst` deposu (0.52.0-dev1) ayrı sürüm hattıdır; bu düzeltmeler orada yoktur, oradaki değişiklikler burada var sayılmaz.
 
@@ -51,6 +52,7 @@ Değerler sahte örneklerdir (elle beklenen = test sonucu, SketchUp dışı). Sa
 | G4 (metraj kontrolü A) | Keşif ÖBF-004 donatı (REBAR), hakediş REBAR | Ayrı bordür / tretuvar öğesinin donatısı (beton hacmi × `rebar_rate('deck')`, varsayılan 150 kg/m³; ayrı oran yok) Keşif dökümüne "Bordür / Tretuvar" satırı olarak girer; REBAR izlemesi (hakediş eleman kümesi) bordürü içerir; K34 notu: bordür donatısı eleman ilerlemesiyle ödenir. Gövdesinde bordür betonu olan (DS2) döşemede ayrı bordür satırı yoktur. Yeni Model Kontrolü UYARISI: `curb_volume_m3` > 0 olan döşemeye ayrıca ayrı bordür öğesi bağlıysa (beton ve donatı çift sayılabilir). **Hakediş:** önceki dönemlerde onaylanmış bordürlerin donatısı bu dönem artışı olarak görünür; `previous_*` değişmez | fikstür (C1 1,2 + C2 0,6 + C3 0,3 m³): REBAR 19,674058 → 19,989058 t (+0,315 t); hakediş REBAR onaylı 0 → 0,18 t (önceden onaylı C1) | G-b, g4_curb_rebar |
 | G5 (metraj kontrolü C) | Keşif / Metraj CSV | CSV, Excel Ayrıntılı Metraj ile aynı satırlardan (`mst_qto_detail_rows`) üretilir: BK betonu net, kazık iç betonu tek satır (tüm kaynaklar), Celik_t = boru çeliği, yeni `Donati_t` sütunu = Keşif ÖBF-004 dökümü (sehpa düşümü dahil); "Keşif ek kalemi" satırları: Kaplama Betonu (sınıf bazında), Sehpa, Aksesuar ankrajı. Malzeme/Sinif = `qto_material_class`. Fore kazık satırları da yazılır. Keşif değişmez | fikstür: ΣDonati_t = REBAR, ΣCelik_t = PILE_STEEL (0 → 54,808 t), BK 23,7 → 22,968 m³, iç beton 9,126 → 26,251 m³ (1e-6) | G-b, g5_csv_boq |
 | G6 (metraj kontrolü B) | Pano ve Excel Özet "Toplam Beton" | Toplam Beton kaplama betonunu içerir (pano KAPLAMA kırılımı; Excel Özet'te "Beton Kaplama (sınıf)" satırları, sınıfsız kaplama C35/45); `qto3_snapshot`, Keşif ve Ayrıntılı Metraj sayfası değişmez | fikstür: 126,819 → 134,669 m³ (+7,85 m³ kaplama) | G-b, g6_total_concrete |
+| NCR-003 seçenek A (`0983966`, `930876a`) | Metraj sayfası prekast PD / PK tablosu (satır dağılımı) | Kontrollü Düzenleme ile geometrisi değişen prekastın `precast_type_id` / `precast_type` adı BK boyutlandırma kuralıyla güncellenir; PD satır anahtarı `precast_type` + sınıf + genişlik + yükseklik, PK anahtarı `precast_type_id` + iç ölçüler olduğundan düzenlenen parçanın satırı ayrışabilir | ör. PD-01 satırı PD-01 / PD-01-B olarak ikiye ayrılır; **toplam değişmez** (tip adı / gruplama kaynaklı fark yok; düzenlenen parçanın kendi geometri değişikliği metraja ayrıca yansır). Keşif, CSV, Excel (`library_type_id`), revizyon imzası ve hakediş anahtarları tip adı içermez. Sayısal golden kanıtı yok (fikstürde tip adı yok; golden Kontrollü Düzenleme yolunu sınamıyor) — kod okuması, rapor 28 | 28 |
 
 Plan G2'de metraj etkili sayılıp parti raporunda metraj etkisi yazılmayan: K42 (kazık formunda kot silinince çakım alanı temizlenir; C). K22 ADR'de "metraj: hayır" (prekast oluşturulmaz, aşama 1). Doğrulanmalı.
 
@@ -102,6 +104,34 @@ Bu partinin ayrı raporu yoktur (16 §Boşluklar); içerik ana oturum bildirimi 
 - **F1:** Ayrıntılı Metraj sayfasında kazık iç betonu tek satır; önceki Excel çıktılarıyla karşılaştırmada iç beton satırı azalır.
 - Önceden kayıtlı (B): K15 toplu yerleşim yarıda kalırsa tümü geri alınır; K62 Canlı QTO hatasında son sonuç kaydedilmez; bozuk kayıtta kaydetme reddedilir (§4'te de geçer).
 
+### 2.8 İsimlendirme, gecikmeler ve prekast Kontrollü Düzenleme (mst-dokumantasyon, 03.11.2026; kaynak `930876a`)
+Kaynaklar: `21`–`28` raporları ve ana oturumun commit bildirimi. Bu bölüm yazılırken mst-dokumantasyon komut çalıştırmadı. Hiçbiri SketchUp içinde denenmedi.
+
+**Metraj sonucunu değiştirenler:** yalnız NCR-003 Kontrollü Düzenleme prekast tip adı — §2.1 son satır (toplam değişmez, Metraj sayfası PD/PK satırı ayrışabilir). Diğer maddelerde golden 433/433 aynı (23, 24, §6.1).
+
+**Yeni uyarılar / ret iletileri (metraj değişmez):**
+- Aks Yöneticisi: yapı kodu silinmiş ya da başka yerde kullanılan bir koda değiştirilirse ret; hedef kod denetimi harf farksızdır (`mst_name_key`, sunucu ve JS aynı; 27/K5) (`b0a2592`, `930876a`).
+- Aks Yöneticisi: kullanılan yapı silinirken uyarı + onay; onaysız ret (`b0a2592`). Silme denetimi yalnız görünen yapı listesinden (`mst_structures_for_system`) yapılır (27/K1, `930876a`).
+- Yeni yapı / aks kodu karakter kümesi: harf, rakam, boşluk, `-` `_` `.`; parantez, virgül vb. ret. Görünen ad kuralı değişmedi (23: harf, işaret, rakam, boşluk, `- _ . ( ) # + &`); eski kodlar denetlenmez (`b0a2592`).
+- Kullanılan aks kodu yükten kalkarsa işlem öncesi Türkçe hata; Aks Yöneticisi önizlemesinde onaylanmışsa kaydedilir (24 G5b).
+- Model Kontrolü iletileri düzenlendi (`b0a2592`; ayrıntı 25/26 raporlarında; 27 bu kısmı incelemedi).
+- Kontrollü Düzenleme: mesnetli PD'de geometri değişikliği ve Component prekast reddedilir (Türkçe ileti) (`0983966`).
+
+**Düzeltmeler:**
+- İsimlendirme (`b99ced8`, `c1e3a59`; ADR 22, rapor 23): yapı ve aks için Görünen Ad ile Kod ayrı; gösterim "Ad (kod)"; kullanılan kod kilitli (arayüzde); C seçeneği — koşullar sağlanırsa yapı kodu değiştirilebilir (kendi ızgarası ve bölge listesi taşınır). Aks ekle/sil sonrası "JS HATASI" giderildi (`renderPlacementSelectors`).
+- Kod kullanım taraması (`mst_code_usage`): jet grout, iç içe aks görseli ve "X-01↔X-02" durumları (`b0a2592`; ayrıntı 25/26).
+- Gecikmeler G1–G6 (`10e520d`, rapor 24): Çalışma Alanı sayfa kapalıyken yenilenmez, açılınca yenilenir; Kontrollü Düzenleme parmak izi yalnız hedef + bağımlılık ağacı (bilinçli davranış farkı: ilgisiz elemanın iç geometrisi değişirse uygulama artık reddedilmez); revizyon kaydında `boq_rows` 2 → 1; Aks Yöneticisi değişikliksiz kayıtta işlem açmaz ("Değişiklik yok — Geri Al adımı oluşmadı"). Sahte ölçümler (n=600): 24 G6.
+- Keşif Motoru açılışında tek yenileme (`b0a2592`).
+- Çalışma Alanı: BK düzenle sonrası bekleyen BK sayfası açılışı, başka eleman seçilince uygulanmaz (`b0a2592`).
+- Prekast tip adı (`0983966`, `930876a`): geometri değişince `precast_type_id` / `precast_type` BK boyutlandırma kuralıyla — aynı tür + temel tip + ölçüde tip varsa o ad, yoksa "<temel>-B…"; temel tip `precast_base_type_id` (mevcut anahtar, BK yolunda da kullanılıyor). Ad yalnız kayıtlı `precast_type_id` varsa ve mm ölçü anahtarı değişince güncellenir (27/K2, K3); tip kaydı `collect_elements` kapsamından (iç içe prekast dahil; 27 ek, 28).
+
+**Arayüz:**
+- Arayüz sadeleştirme (`a5ea937`; envanter 21).
+- Çalışma Alanı "Bağımlılıklar" (`7e804c9`).
+- Çalışma Alanı ağacı yapı koduyla kurulur; aynı görünen adlı iki yapı ayrı düğümdür (`b0a2592`).
+- Excel: Keşif "Poz Metrajları" 4 → 5 sütun, Hakediş "Onaylı Metraj" 9 → 10 sütun ("Yapı" görünen ad + "Yapı Kodu"); CSV değişmedi (23). Dışarıdan sütun konumuna göre okuyan araçlar etkilenebilir (§2.7 ile aynı tür davranış değişikliği).
+- Prekast NCR-003 seçenek A (`0983966`): Çalışma Alanı → Elemanı Düzenle, prekastta Kontrollü Düzenleme formunu Prekast sayfasında açar; alt sekme PD / PK (kanal) parçaya göre seçilir; önizlemede "Prekast tipi" satırı.
+
 ## 3. Yeni attribute anahtarları ve eski modellerle uyumluluk
 Hepsi yalnız eklenir; mevcut anahtar adı/tipi değişmez (G4). Eski modelde anahtar yoksa eski davranış veya "uyarı yok" geçerlidir.
 
@@ -117,6 +147,8 @@ Hepsi yalnız eklenir; mevcut anahtar adı/tipi değişmez (G4). Eski modelde an
 | `formwork_net_error` | String | öğe | Uyarı yok |
 | `pile_boq_group_codes_json` | String | model | İlk açık kayıt işleminde (hakediş, fiyat, BOQ kalem, kazık poz modu) hakediş geçmişinden tohumlanır |
 | `progress_inherited_history_json` | String (JSON dizisi) | öğe (kopya) | Yok = boş geçmiş. Yalnız BIM Kimlik Onarımı'nda, önceki devralma kaydı (`progress_inherited_json` / `progress_inherited_status`) dolu kopyaya yazılır; kayıt: `v, at, source, from_uid, new_uid, items_json, status, prev_copied_from_uid, prev_uid_owner_pid`. Bozuksa onarım yapılmaz (G1) |
+| `structure_display_names_json` | String (JSON `{kod: ad}`) | model | Yok veya bozuk → görünen ad yok, kod gösterilir; okumada yazım yok. Boş ya da koda eşit ad kaydedilmez; bozuksa üzerine yazılmaz (`c1e3a59`/`b99ced8`, 23) |
+| `axis_display_names_json` | String (JSON `{"<ano>::<zone>": {"x":{kod:ad},"y":{kod:ad}}}`) | model | Aynı kural (23) |
 
 Kaplama bağımlılık ağı (G8, kod inceleme #4): 0.51.5'te kaplama grupları (deck_topping) bağımlılık ağına girer. Kaplaması olan eski modelde, ilk MST işleminden veya modeldeki ilk değişiklikten sonra kaplama gruplarına dependency_parent_uids/ids ve dependency_schema='2.2', döşemelere dependency_child_uids/ids yazılır. Geometri ve metraj değişmez. Yazım o MST işleminin içinde ya da kullanıcının işlemine birleşen otomatik yenilemede (dependency_rebuild.rb:217-226) yapılır; Ctrl+Z ile o işlemle birlikte geri alınır. Model değişmiş görünür. Bu anahtarlar türetilmiş veridir; kimlik veya metraj kaynağı değildir. 0.51.4 ile açılınca davranış doğrulanmadı.
 Ayrıca donatılı prekast tanım anahtarına `rebar` parametresi (`pc-v1:` + `pc_rebar_json`) eklenir; donatısız parçaların anahtarı değişmez. Konumlu kalıp yüz anahtarı (`eski@i/n`) eski anahtarın yanında kullanılır.
@@ -158,6 +190,15 @@ Keşif / Metraj CSV (G5): ilk 8 sütun (Kategori, Tip, Malzeme/Sinif, Adet, Boy_
 - **F açık**: eski foraj düzenleyicisinin "Projedeki tüm kazıklar" kapsamı (10). G-b'de `mst_resolve_pile_targets` için 'ALL' seçeneği "Projedeki tüm kazıklar" eklendi (15); bunun F'deki açık noktayı kapatıp kapatmadığı raporlarda yazılmadı — doğrulanamadı. Gizli `pile_mfg_edit` paneli ölü kod değerlendirmesinde (K30).
 - **Rapor eksikleri**: K47 (D) ve G arayüz partisi `c39c52c` için ayrı parti raporu yok. K40/K23 ara çözüm olarak sınıflanmalı (16).
 - **Golden**: uçtan uca 0.51.4 ↔ eaaa858 karşılaştırması yok (§2.1, §6). *(Yerine geçti, 02.11.2026: 0.51.4 ↔ c8f9d70 fikstür karşılaştırması yapıldı, §6; açık kalan: Excel Ayrıntılı Metraj sayfası 0.51.4 sütun düzeni nedeniyle karşılaştırılamadı; SketchUp içi CSV karşılaştırması 08 satır 0.3.)*
+- **03.11.2026 eklenen bilinen sınırlar (kaynak `930876a`, §2.8)**:
+  - Component prekast ve alt gruplu kanal Kontrollü Düzenleme formunda düzenlenemez (Component için Türkçe ret iletisi).
+  - Yeni kod karakter kümesinde JS (`checkCode`) ↔ Ruby (`MST_CODE_CHAR`) küçük farkı: büyük/küçük harfi olmayan harf, birleşik işaret, 0-9 dışı rakamda JS reddeder, Ruby kabul eder. Son denetim sunucuda; veri bozulmaz, yalnız ileti farkı (27/K6, değiştirilmedi).
+  - `u1` test dosyasında 1 kalan: `editor_payload` hatası; 0.51.4'ten beri var, gizli sayfaya ait — açık.
+  - Golden-master Kontrollü Düzenleme yolunu sınamıyor (fikstürde tip adı yok); NCR-003 tip adı ve satır ayrışması yalnız kod okumasıyla (28) değerlendirildi — SketchUp kabulü 08 §10.
+  - Aks Yöneticisi her açılışta `element_type`'sız grup / bileşenlerin içine iner (27/K4); süre ölçülmedi — 08 N-18.
+  - BK boyutlandırma yolunda tip adı yokken `precast_id` üzerinden ad üretme geri düşüşü ve tek örnekli tipin eski ölçüye dönünce eski ada dönmemesi değiştirilmedi (27/K2, K3; ayrı karar).
+  - Ruby 2.5 çalışma zamanında `unicode_normalize` / `:turkic` çalıştırılmadı (elle eşleme yedeği var; 23).
+  - Ayrı öneriler (23, 24): `project_ano_axis_manager` iki tanım; `mst_add_ano` length+1; `DependencyModelObserver` her commit'te batch dışı `dependency_graph`; kazık raporu "Aks Noktası" görünen adı; `mst_code_usage` önbelleği — açık.
 - **Kullanıcı kararları listesi** (16): ölü kod silme; K43; K32; Türkçe istisnaları; K59; B/A2 açık öneriler; belgeler (poz eşlemesi, fiyat farkı, tapa, derz, R4, REBAR_DEFAULTS, bordür oranı, DXF varsayılanı, K22 aşama 2, K10); davranış değişiklikleri (§2.7); 0.51.5 runner. *(02.11.2026 durumu: ölü kod, K43, Türkçe istisnaları, DXF varsayılanı, sürüm hattı ve 0.51.5 runner kullanıcı kararıyla karara bağlandı; K59 ADR düzeltmesiyle kapandı; K32 ve B/A2 önerileri Parti H'de; diğer belgeler ve §2.7 açık.)*
 
 ## 5. Runner uyarısı
@@ -173,6 +214,17 @@ Kurulu `mst_tb1_integration_runner` 1.1.0, 0.51.4 sürüm adını ve 0.51.4 dosy
 | SketchUp 2020 kabulü (kullanıcı) | Yapılmadı / denenmedi. Liste: `08_sketchup_kabul_listesi_0.51.5.md` |
 | Görsel | Yok |
 | Ajan değerlendirmesi | `16_kabul_denetim.md`: genel "kısmen karşılandı" (ajan incelemesi; kullanıcı onayı değil) |
+
+### 6.1 Kanıt durumu — kaynak `930876a` (03.11.2026; ana oturum bildirimi, mst-dokumantasyon komut çalıştırmadı)
+| Düzey | Durum |
+|---|---|
+| Statik | Ruby 2.5 denetimi 66 dosya / 0 hata |
+| Sahte nesne | `v1` 35 geçti / 0 kaldı; `v2` 24 geçti / 0 kaldı; 54 test dosyasının 53'ü 0 kalan; `u1` 87 geçti / 1 kaldı (`editor_payload`, 0.51.4'ten beri, §4.1). Yalnız mantığı sınar |
+| Golden-master (sahte fikstür) | 433/433 aynı. Kontrollü Düzenleme yolunu sınamıyor (§4.1) |
+| Paket | RBZ adı / SHA-256: paketleme sonrası yazılacak |
+| SketchUp 2020 kabulü (kullanıcı) | SketchUp içinde denenmedi. Liste: `08_sketchup_kabul_listesi_0.51.5.md` §10 |
+| Görsel | Yok |
+| Ajan incelemesi | 25, 26 (kaynak `10e520d`), 27, 28 (kaynak `0983966`); bulguların ana oturum sonucu 27 tablosunda. Onay sayılmaz |
 
 ## Donma düzeltmesi (02.11.2026)
 Paket yeniden üretildi: kaynak c42a0eb (donma düzeltmesi, metraj değişmez; bkz. 20_donma_duzeltmesi.md), MST SHA-256 75c0ea66779cbe8d89fb193d07f847cfcdc9549450a272c03c5f79adf278c773; runner 1.2.3 SHA-256 a02b4383ab28514c96f3f3f96dabeae896a98d646b84b71719a0e37805cb59ea. Önceki paketler dist\gecersiz_82bf9518\.
