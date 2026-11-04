@@ -1,0 +1,15 @@
+# 32 Kod incelemesi — Yapıyı Kopyala (6e6599f..ef1aa48 -- src) (mst-kod-inceleme, 04.11.2026; salt okuma, test çalıştırmadı)
+Sorunsuz: tek start_operation, commit_with_dependencies tek commit, her istisnada abort; ön kontrol `@mst_plan_ro` altında yazmaz (main.rb:12084); hata enjeksiyonu üretimde no-op; önbellekler doğrulama öncesi / abort sonrası sıfırlanır; `src` *_pid/*_uid/*_ids taramasında eşlemde eksik bağ yok (kapsam dışı: dolgu axis_ids / surface_ids); etiketler kopyalanmaz; anahtar silme/yeniden adlandırma yok, RevisionLog/PROGRESS_DICT yazımı yok, tek yeni anahtar copy_origin. İncelenmeyen: k1_axis_dirty.js.
+
+| No | Önem | Yer | Bulgu | Senaryo | Öneri |
+|---|---|---|---|---|---|
+| 1 | yüksek | structure_copy.rb:44-49, 65, 237 | Ön kontrol tipsiz Component içine iner, kopya ağacı yalnız kökteki tipsiz Component'e iner | Prekast Layout → tipsiz Component → prekastlar: prekastlar öğe listesine girmez, tanım paylaşılır, ano kaynakta kalır; tür sayısı iki tarafta da hariç → metraj sessizce yanlış | Sahibi belirlenen ama listede olmayan eleman → hata (ya da her tipsiz Component'e inip ayır) |
+| 2 | orta | :316-319 | Kardeşler sıra numarasıyla eşlenir; denetim yalnız sınıf/tür | make_unique / copy sırası farklıysa öznitelik yanlış geometriye yazılır, doğrulama yakalamaz (SketchUp sırası doğrulanamadı) | Kardeşte yerel transformation eşitliği de denetlensin |
+| 3 | orta | main.rb:9723, 9754, 9698 | Kronman axis_start/end_x/y mutlak (inç), ötelenmez | Kopya kronmanda "Revize" → kaynak konumuna yeniden çizilir | Kopyada dx/dy eklensin (taşıma yolunda da aynı eksik — ayrı öneri) |
+| 4 | orta | :208-209, 237-243; accessories.rb:72-89 | Aksesuara system/structure/ano yazılmaz | Kökteki aksesuar sayılmaz (ileti eksik); eleman grubu içindeki aksesuar kopyalanır (karar 2'ye aykırı) | Ağaçta accessory atlanıp sayılsın |
+| 5 | düşük | :382-386; bored_pile.rb:71, 116, 129 | bored_pile_data içindeki ano güncellenmez | Kopya fore kazıkta Oku → Güncelle → ano kaynağa döner | Jet grout gibi yeniden yazılsın |
+| 6 | düşük | :342-345; main.rb:7732 | Bağ değeri başına tüm eşlem taranır; yeni ID her seferinde 1'den aranır | 50 kopya × yüzlerce bağ → uzun süre | Ters indeks, son numara |
+| 7 | düşük | main.rb:10824 | mstBKAddProjectStructure ön okuması işlem dışında migrasyon yazabilir | Geri Al'a bağlı olmayan yazım | mst_plan_readonly içine alınsın |
+| 8 | düşük | :581; main.rb:13947 | Başarılı kopya sonrası pencere yenilenemezse eski pencere "temiz" görünür | O pencerede Projeyi Kaydet kopya kodlarını / yerleşimlerini siler | Başarıdan sonra JS savedKey geçersiz kılınsın |
+| 9 | soru | :323-332 | MAG_MST_View (pe_top_elevation_m) ve MAG_MST_DR kopyaya aktarılır | ADR K5 "dokunulmaz" = kaynağa yazmamak mı, kopyaya aktarmamak mı? | Karar |
+Group#copy iki davranışta da tutarlı (mst_sc_copy_attrs! MAG sözlüklerini doldurur, NOCOPY siler); fark: Group yolunda MAG dışı sözlükler kopyada kalır, Component yolunda kalmaz. Test kör noktaları: sahte make_unique kardeş sırasını hep korur; 1, 3, 4, 5 için örnek yok.

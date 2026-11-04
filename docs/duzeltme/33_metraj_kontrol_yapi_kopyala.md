@@ -1,0 +1,13 @@
+# 33 Metraj kontrolü — Yapıyı Kopyala (mst-metraj-kontrol, 04.11.2026; salt okuma, test çalıştırmadı, SketchUp kanıtı yok)
+Doğru (statik): kazık donatısı iki dalı aynı sonucu verir (main.rb:3583-3587, 9101, 13250); kazık ek/çakım/tapa/çember kazık bazında (main.rb:9073-9100), ayrı poz kesite göre (3753); sehpa ayrı satır, çift sayım yok (mst_v50_misc.rb:96-102); BK net beton = brüt − gömülme − menfez (main.rb:2665-2668) kopyada korunur; kaplama/kronman/jet grout öznitelikten, doğrusal; ano/structure/zone yeni kod (structure_copy.rb:377-380), Keşif yapı sütunu doğru; bağımlılık ano ayrımı (dependency_rebuild.rb:23-27), mst_deck_after_edit PID kesişimi (main.rb:5877) → yalnız kopya döşemesi güncellenir. Donatı sınıfı kopyada değişmez (3B/tablo: rebar_t, rebar_schedule_json, MAG_MST_DR; pursantaj: net beton × kg/m³; kaplama: hacim × oran; aksesuar ankrajı model düzeyi, çoğalmaz). Pursantaj model düzeyi ortak; ilerleme kopyaya taşınmaz.
+
+| No | Önem | Yer | Bulgu | Senaryo (beklenen ↔ kod) | Öneri |
+|---|---|---|---|---|---|
+| 1 | orta | boq_pro.rb:484-488; jet_grout.rb:106-113; main.rb:3914 | Jet grout satırının eleman listesi boş; onay satır yüzdesi (manual_progress_json) | JG 100 m %50 → 50 m; N=2 → satır 300 m, onaylı 150 m (beklenen 50 m) | Karar gerekli |
+| 2 | orta | structure_copy.rb:208-209, 547; accessories.rb:8-19, 66-68; mst_v50_misc.rb:83-91 | İleti yalnız 3B aksesuarı sayar; Keşif ve ankraj çizelgeden | 10 usturmaça çizelgede, yerleştirilmemiş → ileti yok, Keşif 10 (beklenen ×3) | İleti her zaman: "Aksesuar çizelgesi ve ankraj donatısı çoğalmaz" |
+| 3 | orta | mst_pc_rebar.rb:207-208, 229, 234 | Component prekast tanımı kaynak ↔ kopya paylaşılır; donatı tanıma yazılır | Kopyada Component prekasta donatı → kaynağın REBAR'ı da değişir | Karar: Type semantiği mi, yapı bağımsızlığı mı |
+| 4 | düşük | structure_copy.rb:546-547 ↔ 576 | Dolgu yalnız onay sorusunda, sonuç iletisinde yok | Kaya dolgu kübajı sabit | Sonuç iletisine eklensin; dolgu aidiyeti belge gerekli |
+| 5 | düşük | :377-381; main.rb:698, 3448 | qto_zone yeni koda yazılmaz | qto3_snapshot bölge listesinde kopya ANO-01 görünür (miktar etkisi yok) | qto_zone == kaynak ise yeni kod |
+| 6 | düşük | :385; jet_grout.rb:121 | jet_grout_data['ano'] yalnız kaynak koduna eşitse yazılır | Veri içi ano farklı/boşsa dışa aktarım eski ano | Üst düzey ano ile birlikte yazılsın |
+| 7 | bilgi | main.rb:3911; quantity_service.rb:100; boq_pro.rb:537-540 | prog2_row_entities kaplama / ankraj / jet grout içermez — kopyadan önce de vardı | — | — |
+k1 bölüm 6'daki S tanımı ankraj ve çizelge kalemlerini dışarıda bırakır, bulgu 2'yi yakalamaz.
