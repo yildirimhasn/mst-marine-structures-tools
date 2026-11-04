@@ -46,3 +46,9 @@ Kullanıcı kararları bu bölümün altına eklenecek.
 6. Kaydedilmemiş Aks Yöneticisi değişikliği varken kopya **reddedilir** — ana oturum önerisi.
 7. Fiziksel ID: **model genelinde sıradaki numara** (mevcut kural).
 Ek: `mstBKAddProjectStructure` operasyon düzeltmesi kullanıcının genel onayı ("gerekli teknik düzenlemeler") kapsamında bu işe dahil. Dolgu (rockfill) ortak proje verisi, kopyalanmaz.
+
+## İnceleme sonrası kararlar (04.11.2026; rapor 32 / 33)
+8. Jet grout satırında elle girilmiş ilerleme (manual_progress_json, yüzde) varken kaynak yapıda jet grout bulunursa **kopya reddedilir** (kullanıcı kararı; hakediş şişmez). Eleman bazlı jet grout ilerlemesi ayrı iş.
+9. Component prekast tanımı **ortak kalır** (Type semantiği; kaynak yapı içindeki aynı tip prekastlar bugün de paylaşır); kopya sonu iletisinde ve kabul listesinde yazılır (kullanıcı kararı).
+10. MAG_MST_DR ve MAG_MST_View kopyaya aktarılır (eleman tanımının teknik / görünüm verisi; saha kaydı değil). K5 "dokunulmaz" = kaynak ve model düzeyi kayda yazılmaz (ana oturum kararı, rapor 32/9).
+11. Rapor 32/1–8 ve 33/2, 4, 5, 6 düzeltilir.
