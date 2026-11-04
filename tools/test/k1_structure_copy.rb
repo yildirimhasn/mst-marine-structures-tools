@@ -290,7 +290,10 @@ src_items = ixs('ANO-01')
   t("1 #{c}: Component kazık gövde tanımı paylaşılır", p3c.definition.equal?(f[:pdef]), true)
   i1c = p1c.entities.find { |x| a(x, 'element_type') == 'pile_infill_concrete' }
   t("1 #{c}: kazık içi beton yeni UID, copied_from_uid, ayrı nesne", [i1c.equal?(f[:i1]), a(i1c, 'copied_from_uid'), a(i1c, 'ano')], [false, 'MST-2101-1', c])
-  t("1 #{c}: kronman segmentleri parent_crown_id = KR-001 (kronman id kuralı değişmez)", krc.entities.map { |x| a(x, 'parent_crown_id') }, %w[KR-001 KR-001])
+  # Model Kontrolü (model_health.rb:11, :41) kronman 'id' tekrarını DUPLICATE_ID hatası sayar → kopya yeni KR-nnn alır, segmentler ona bağlanır
+  t("1 #{c}: kronman yeni benzersiz id (KR-nnn) + grup adı; segmentler parent_crown_id = yeni id",
+    [a(krc, 'id') != 'KR-001', a(krc, 'id').to_s =~ /\AKR-\d{3}\z/ ? true : false, krc.name == a(krc, 'id'), krc.entities.map { |x| a(x, 'parent_crown_id') }],
+    [true, true, true, [a(krc, 'id')] * 2])
   jgc = $model.entities.find { |e| a(e, 'copied_from_uid') == '0f0e-uuid-jg' && a(e, 'ano') == c }
   t("1 #{c}: jet grout kopyası; jet_grout_data ano = #{c}", [jgc.nil?, jgc && JSON.parse(a(jgc, 'jet_grout_data'))['ano']], [false, c])
   t("1 #{c}: ano / structure / zone yeni kod, system aynı (BK1, P1, PD2)", [bk1c, p1c, pc2c].map { |e| [a(e, 'ano'), a(e, 'structure'), a(e, 'zone'), a(e, 'system')] }, [[c, c, c, 'ISKELE']] * 3)
@@ -317,8 +320,8 @@ reach = lambda { |list, out| list.each { |e| out << e; reach.(e.entities, out) i
 live = reach.($model.entities, []).uniq
 uids = live.reject { |e| a(e, 'element_uid').to_s.empty? }.group_by { |e| a(e, 'element_uid') }.select { |_u, v| v.uniq.length > 1 }.keys
 t('1 model genelinde mükerrer UID yok (iç öğeler dahil)', uids, [])
-dupid = all_t.group_by { |e| [a(e, 'element_type'), M.element_visible_id(e)] }.select { |k, v| !k[1].start_with?('PID-') && v.uniq.length > 1 && M.mst_identity_id_key(k[0]) }.keys
-t('1 fiziksel ID tür bazında benzersiz', dupid, [])
+dupid = all_t.group_by { |e| [a(e, 'element_type'), M.element_visible_id(e)] }.select { |k, v| !k[1].start_with?('PID-') && v.uniq.length > 1 && (M.mst_identity_id_key(k[0]) || k[0] == 'crown_wall') }.keys
+t('1 fiziksel ID tür bazında benzersiz (kronman dahil)', dupid, [])
 # commit_with_dependencies bütün modelin dependency_* kaydını yazar (fikstürde önceden yoktu); karşılaştırma bunlar hariç
 nodep = ->(sig) { sig.map { |r| r.each_with_index.map { |v, i| i == 3 ? v.reject { |q| q[1].start_with?('dependency_') } : v } } }
 t('1 kaynak yapı (ANO-01) imzası değişmedi (dependency_* hariç)', nodep.(M.mst_sc_signature(pl['roots'])) == nodep.(before_src), true)
@@ -400,6 +403,7 @@ rej.('çakışan kod (büyük/küçük harf, ano-05)', { 'count' => '1', 'codes'
 rej.('aynı kod iki kez', { 'codes' => %w[ANO-07 ano-07] }, 'çakışıyor')
 rej.('başka sisteme ait kod biçimi (ISKELE → RIHTIM-09)', { 'count' => '1', 'codes' => ['RIHTIM-09'] }, 'kullanılamaz')
 rej.('dönüş isteği', { 'rotation_deg' => '90' }, 'desteklenmiyor')
+rej.('Z ofseti (kot kayıtları geometriyle uyuşmaz)', { 'dz' => '1.5' }, 'Z ofseti')
 rej.('kirli Aks Yöneticisi', { 'dirty' => true }, 'kaydedilmemiş')
 rej.('kopya sayısı 0', { 'count' => '0' }, '1–50')
 rej.('kopya sayısı 51', { 'count' => '51' }, '1–50')
@@ -450,11 +454,11 @@ t('5 JS: kaydedilmemiş değişiklik denetimi (stateKey ↔ savedKey) ve addStru
 $model.ops.clear; $msgs = []; $ib = [['should-not-be-used']]
 ax.cb['axis_manager_structure_copy'].call(nil, JSON.generate('system' => 'ISKELE', 'structure' => 'ANO-01', 'dirty' => true))
 t('5 kirli istek (Ruby savunması): soru sorulmaz, işlem açılmaz', [$ib.length, k1_ops, $msgs.last.to_s.include?('kaydedilmemiş')], [1, [], true])
-$model.ops.clear; $msgs = []; $ib = [%w[2 30 0 0], ['', '']]; $timers = []
+$model.ops.clear; $msgs = []; $ib = [%w[2 30 0], ['', '']]; $timers = []
 ax.cb['axis_manager_structure_copy'].call(nil, JSON.generate('system' => 'ISKELE', 'structure' => 'ANO-01', 'dirty' => false))
 t('5 arayüz akışı: iki soru, onay, tek işlem', [$ib, $model.ops], [[], [[:start, 'MST Yapı Kopyala ×2'], [:commit]]])
 t('5 arayüz: sonuç mesajı aksesuar uyarısı içerir; pencere yenilenir (zamanlayıcı)', [$msgs.last.to_s.include?('1 aksesuar kopyalanmadı'), $timers.length >= 1], [true, true])
-$model.ops.clear; $msgs = []; $ib = [%w[1 0 0 0], ['ANO-05', '']]
+$model.ops.clear; $msgs = []; $ib = [%w[1 0 0], ['ANO-05', '']]
 ax.cb['axis_manager_structure_copy'].call(nil, JSON.generate('system' => 'ISKELE', 'structure' => 'ANO-01', 'dirty' => false))
 t('5 arayüz: çakışan kod → hata listesi, işlem açılmaz', [k1_ops, $msgs.last.to_s.include?('işlem açılmadı')], [[], true])
 
@@ -468,6 +472,38 @@ t('5b öznitelik kopyalayan Group#copy: ilerleme / bağımlılık kaydı silinir
   [rb['ok'], a(p1c, 'progress_items_json'), a(p1c, 'progress_inherited_json'), a(p1c, 'progress_status'), a(bk1c, 'element_uid') == 'MST-1201-1', a(f[:p1], 'progress_items_json') == GB_PJ],
   [true, nil, nil, 'Planlandı', false, true])
 $k1_copy_attrs = false
+# ================================================================ 6) Keşif ×3 (gerçek boq_rows; Keşif / Hakediş / Excel'in poz miktarı)
+# Beklenen (koddan bağımsız): kaynak payı S = Keşif(tam model) − Keşif(ANO-01 silinmiş model); N=2 kopya sonrası her satır = önce + 2 × S.
+# (prog2_row_entities izleme listesi bazı payları — döşeme donatısı, jet grout — yapıya dağıtmaz; ölçü olarak toplam kullanılır.)
+qmap = -> { M.boq_rows(true).to_h { |r| ["#{r[:code]}|#{r[:source]}|#{r[:unit]}", r[:quantity].to_f] } }
+k1_build
+pr6 = plan_of
+pr6['roots'].each { |r| r.erase!; $model.entities.delete(r) }   # gerçek SketchUp'ta silinen öğe koleksiyondan da çıkar
+qx = (qmap.() rescue (obs('6 boq_rows hata', $!.message); nil))
+if qx
+  k1_build
+  q0 = qmap.()
+  hk = -> { M.progress_live_rows('2026-11-04').to_h { |r| [r[:key].to_s, r[:approved_quantity].to_f] } }
+  h0 = (hk.() rescue (obs('6 progress_live_rows hata', $!.message); nil))
+  r6 = M.mst_structure_copy_apply!(plan_of, $model)
+  q2 = qmap.()
+  if h0
+    h2 = hk.()
+    t('6 hakediş: onaylı (gerçekleşen) miktar kopyayla artmaz (kopya Planlandı, ilerleme aktarılmaz)', h2.select { |_k, v| v.abs > 1e-9 }, h0.select { |_k, v| v.abs > 1e-9 })
+    t('6 hakediş: test boş değil (kaynakta onaylı ilerleme var)', h0.values.any? { |v| v.abs > 1e-9 }, true)
+  end
+  t('6 kopya başarılı', r6['ok'], true)
+  t('6 Keşif satır anahtarları aynı (yeni / kaybolan poz yok)', q2.keys.sort, q0.keys.sort)
+  sh = q0.to_h { |k, v| [k, v - qx.fetch(k, 0.0)] }
+  nz = sh.select { |_k, v| v.abs > 1e-9 }.keys
+  obs('6 ANO-01 payı olan Keşif satırları', nz)
+  t('6 ana kalemlerde ANO-01 payı var (test boş değil: beton, kalıp, donatı, kazık çeliği, prekast, jet grout)',
+    %w[HB_DECK_CONCRETE FORMWORK_CAST REBAR PILE_STEEL PRECAST_C35_45 JETGROUT].map { |w| nz.any? { |k| k.include?("|#{w}") } }, [true] * 6)
+  bad6 = q2.keys.reject { |k| (q2[k] - (q0[k] + 2 * sh.fetch(k, 0.0))).abs <= 1e-6 }.map { |k| "#{k}: #{q2[k]} ≠ #{q0[k]} + 2 × #{sh[k]}" }
+  t('6 her Keşif satırı = önce + 2 × ANO-01 payı (eş geometrili 3 yapı = kaynak × 3, çift / eksik sayım yok)', bad6, [])
+  t('6 MOBILIZATION (proje kalemi) çoğalmaz', q2.select { |k, _| k.include?('|MOBILIZATION') }.values, q0.select { |k, _| k.include?('|MOBILIZATION') }.values)
+end
+
 File.write(ENV['K1_JS_OUT'], html[%r{<script>(.*)</script>}m, 1]) if ENV['K1_JS_OUT']   # node --check için Aks Yöneticisi betiği
 File.write(ENV['K1_HTML_OUT'], html) if ENV['K1_HTML_OUT']   # tools/test/k1_axis_dirty.js girdisi
 

@@ -131,7 +131,7 @@ def mst_sc_plan(req,model)
   return (bad.('—','Aks Yöneticisinde kaydedilmemiş değişiklik var; önce "Projeyi Kaydet" ile kaydedin.');pl) if req['dirty']
   rot=req['rotation_deg']
   if !rot.nil? && !rot.to_s.strip.empty? && (mst_sc_num(rot).nil? || mst_sc_num(rot).abs>1e-9)
-    bad.('—','Dönüş ilk sürümde desteklenmiyor; yalnız ofset (dx / dy / dz) kullanılabilir.')
+    bad.('—','Dönüş ilk sürümde desteklenmiyor; yalnız X / Y ofseti (dx / dy) kullanılabilir.')
   end
   bad.('—','Model taraması sırasında çalıştırılamaz.') if @mst_scan_batch_on || @mst_read_batch_on
   bad.('—',"Geçersiz sistem: #{sys}") unless %w[DOLFEN ISKELE RIHTIM].include?(sys)
@@ -139,6 +139,8 @@ def mst_sc_plan(req,model)
   bad.('—',"Kopya sayısı 1–#{MST_SC_MAX} arasında tam sayı olmalı (girilen: #{req['count'].inspect}).") unless n && n>=1 && n<=MST_SC_MAX
   off=%w[dx dy dz].map{|k|v=req[k];(v.nil? || v.to_s.strip.empty?) ? 0.0 : mst_sc_num(v)}
   %w[dx dy dz].each_with_index{|k,i|bad.('—',"#{k} ofseti sayı olmalı (girilen: #{req[k].inspect}).") if off[i].nil?}
+  # Kot öznitelikleri (top/bottom_elevation_m vb.) Z ile taşınmaz → geometri ile kayıt uyuşmaz; ilk sürümde reddedilir
+  bad.('—','Z ofseti (dz) ilk sürümde desteklenmiyor: kot kayıtları geometriyle birlikte taşınmaz. Yalnız X / Y ofseti kullanın.') if off[2] && off[2].abs>1e-9
   %w[system_structures_json axis_grids_json structure_placements_json structure_display_names_json].each do |k|
     bad.('—',"#{k} kaydı okunamadı (bozuk JSON); üzerine yazılmaz.") if mst_json_attr_bad?(model,k,Hash)
   end
@@ -280,6 +282,8 @@ def mst_sc_collect!(pl,model,bad)
 end
 # Görünen ID (element_visible_id; kronmanda 'id' = grup adı, parent_crown_id bunu gösterir)
 def mst_sc_ident(e);(element_visible_id(e) rescue "PID-#{e.persistent_id}");end
+# Kopyada yeniden numaralanan görünür kimlik anahtarı: mst_identity_id_key + kronman 'id' (Model Kontrolü ID_KEYS, model_health.rb:11/41)
+def mst_sc_id_key(t);mst_identity_id_key(t) || (t=='crown_wall' ? 'id' : nil);end
 
 # ---- uygulama
 def mst_sc_copy_root(r,tr,model)
@@ -406,7 +410,7 @@ def mst_sc_build_copy!(plan,model,i,code,used,st)
       d.set_attribute(DICT,'copied_from_uid',u);d.set_attribute(DICT,'copy_origin','structure_copy')
       mp[:uid][u]=nu
     end
-    key=mst_identity_id_key(t)
+    key=mst_sc_id_key(t)
     if key
       nid=mst_next_unique_physical_id(bim_type_prefix(t),used[t]);used[t][nid]=true
       d.set_attribute(DICT,key,nid);d.name=nid if d.respond_to?(:name=)
@@ -461,7 +465,7 @@ def mst_structure_copy_verify(plan,model,built)
   ex=[];mst_code_usage_extra(model.entities,seen,ex,Hash.new(0),{})
   pool=(all+ex+plan['items']+built.flat_map{|b|b['pairs'].map(&:last)}).select{|e|e.valid? && !mst_sc_type(e).empty?}.uniq
   by_uid=Hash.new{|h,k|h[k]=[]};pool.each{|e|u=e.get_attribute(DICT,'element_uid','').to_s;by_uid[u] << e unless u.empty?}
-  by_id=Hash.new{|h,k|h[k]=[]};all.uniq.each{|e|next unless e.valid?;t=mst_sc_type(e);by_id[[t,mst_sc_ident(e)]] << e if mst_identity_id_key(t)}
+  by_id=Hash.new{|h,k|h[k]=[]};all.uniq.each{|e|next unless e.valid?;t=mst_sc_type(e);by_id[[t,mst_sc_ident(e)]] << e if mst_sc_id_key(t)}
   built.each do |b|
     i=b['index'];c=b['code'];tag="kopya #{i} (#{c})"
     ds=b['pairs'].map(&:last).reject{|d|mst_sc_type(d).empty?}
@@ -472,7 +476,7 @@ def mst_structure_copy_verify(plan,model,built)
     ds.each do |d|
       el=mst_sc_vid(d);u=d.get_attribute(DICT,'element_uid','').to_s
       errs << "#{tag} / #{el}: UID #{u} benzersiz değil" if !u.empty? && by_uid[u].uniq.length!=1
-      errs << "#{tag} / #{el}: fiziksel ID benzersiz değil" if mst_identity_id_key(mst_sc_type(d)) && by_id[[mst_sc_type(d),mst_sc_ident(d)]].uniq.length>1
+      errs << "#{tag} / #{el}: fiziksel ID benzersiz değil" if mst_sc_id_key(mst_sc_type(d)) && by_id[[mst_sc_type(d),mst_sc_ident(d)]].uniq.length>1
       MST_SC_PID_KEYS.each{|k|mst_sc_tokens(d.get_attribute(DICT,k,nil)).each{|tok|errs << "#{tag} / #{el}: #{k} PID #{tok} kopya dışı" unless tok.to_i<=0 || d_pid[tok.to_i]}}
       MST_SC_UID_KEYS.each{|k|mst_sc_tokens(d.get_attribute(DICT,k,nil)).each{|tok|errs << "#{tag} / #{el}: #{k} UID #{tok} kopya dışı" unless d_uid[tok]}}
       MST_SC_ID_KEYS.each do |k,types|
@@ -541,7 +545,6 @@ def mst_structure_copy_apply!(plan,model=Sketchup.active_model)
   kinds=plan['kinds'].map{|k,v|"#{v} #{k}"}.join(', ')
   msg="Yapıyı Kopyala tamamlandı — #{src} → #{plan['codes'].join(', ')} (tek Geri Al).\nHer kopyada: #{kinds.empty? ? 'eleman yok (yalnız aks ağı ve yapı kayıtları)' : kinds}."
   msg+="\n#{plan['accessories']} aksesuar kopyalanmadı, çizelgeye elle ekleyin." if plan['accessories'].to_i>0
-  msg+="\nZ ofseti uygulandı (geometri); kot öznitelikleri (üst / alt kot) değiştirilmedi." if plan['dz'].to_f.abs>1e-9
   {'ok'=>true,'message'=>msg,'codes'=>plan['codes']}
 end
 
@@ -554,13 +557,13 @@ def mst_structure_copy_ui(_d,json)
     UI.messagebox('Yapıyı Kopyala: Aks Yöneticisinde kaydedilmemiş değişiklik var. Önce "Projeyi Kaydet" ile kaydedin; hiçbir şey değişmedi.')
     return
   end
-  a=UI.inputbox(['Kopya sayısı (1–50)','X ofseti dx (m; kopya i için i × dx)','Y ofseti dy (m)','Z ofseti dz (m)'],['1','0.00','0.00','0.00'],"Yapıyı Kopyala — #{src}")
+  a=UI.inputbox(['Kopya sayısı (1–50)','X ofseti dx (m; kopya i için i × dx)','Y ofseti dy (m)'],['1','0.00','0.00'],"Yapıyı Kopyala — #{src}")
   return unless a
   n=(Integer(a[0].to_s.strip,10) rescue 0)
   sugg=(n>=1 && n<=MST_SC_MAX) ? mst_structure_copy_suggest_codes(sys,src,n,model) : []
   b=UI.inputbox(['Yeni yapı kodları (virgülle, sırayla)','Görünen adlar (isteğe bağlı; ; ile ayrılır)'],[sugg.join(', '),''],"Yapıyı Kopyala — #{src} → #{a[0]} kopya")
   return unless b
-  req={'system'=>sys,'structure'=>src,'count'=>a[0],'dx'=>a[1],'dy'=>a[2],'dz'=>a[3],'codes'=>b[0].to_s.split(','),'names'=>b[1].to_s.split(';')}
+  req={'system'=>sys,'structure'=>src,'count'=>a[0],'dx'=>a[1],'dy'=>a[2],'codes'=>b[0].to_s.split(','),'names'=>b[1].to_s.split(';')}
   plan=mst_structure_copy_plan(req,model)
   unless plan['errors'].empty?
     e=plan['errors']
@@ -569,7 +572,7 @@ def mst_structure_copy_ui(_d,json)
   end
   kinds=plan['kinds'].map{|k,v|"#{v} #{k}"}.join(', ')
   q="Yapıyı Kopyala — #{sys} / #{src} → #{plan['codes'].join(', ')}\n\nHer kopyada: #{kinds.empty? ? 'eleman yok (yalnız aks ağı ve yapı kayıtları)' : kinds}\n"+
-    "Ofset (kopya i için i ×): dx #{format('%.2f',plan['dx'])} m, dy #{format('%.2f',plan['dy'])} m, dz #{format('%.2f',plan['dz'])} m\n"+
+    "Ofset (kopya i için i ×): dx #{format('%.2f',plan['dx'])} m, dy #{format('%.2f',plan['dy'])} m\n"+
     "Kopyalanmaz: aksesuar (#{plan['accessories']}), dolgu, etiketler; aks görseli yeni ızgaradan yeniden çizilir.\n"+
     "İlerleme 'Planlandı'; hakediş / ilerleme geçmişi aktarılmaz. Tip ve revizyon numaraları aynen taşınır.\nTek işlem, tek Geri Al.\n\nDevam edilsin mi?"
   return unless UI.messagebox(q,MB_YESNO)==IDYES
