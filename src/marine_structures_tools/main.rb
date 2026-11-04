@@ -10827,6 +10827,8 @@ def show_dialog
   src=d['source'].to_s;raise 'Kopyalanacak yapı bulunamadı' if !src.empty? && !rows.include?(src)
   mst_json_attr_guard!(model,'axis_grids_json',Hash,'Aks ağı') unless src.empty?
   mst_json_attr_guard!(model,'structure_zones_json',Hash,'Yapı / bölge listesi')
+  model.start_operation('MST Yeni Yapı',true)   # ADR-0515-K1 ek düzeltme: model yazımı tek işlemde (tek Geri Al); hata → abort
+  begin
   mst_save_structures_for_system(sys,rows+[name],model)
   if !src.empty?
     grids=mst_axis_grids(model);old=grids[mst_axis_grid_key(src,src)];old=mst_axis_grid_for(src,model,src) unless old.is_a?(Hash);grids[mst_axis_grid_key(name,name)]=JSON.parse(JSON.generate(old)) if old.is_a?(Hash)
@@ -10834,6 +10836,11 @@ def show_dialog
   end
   model.set_attribute(DICT,'project_system_type',sys);mst_set_active_system_structure(sys,name,model)
   systems={};active={};%w[DOLFEN ISKELE RIHTIM].each{|x|systems[x]=mst_structures_for_system(x,model);active[x]=mst_active_structure_for_system(x,model)}
+  model.commit_operation
+  rescue Exception
+  model.abort_operation
+  raise
+  end
   @d.execute_script("mstBKProjectSaved(#{JSON.generate({'project'=>model.get_attribute(DICT,'project_name','').to_s,'system'=>sys,'structure'=>name,'systems'=>systems,'active'=>active}.merge(mst_structure_label_maps(systems,model)))})")
  rescue=>e;UI.messagebox("BK yeni yapı: #{e.message}");end}
  @d.add_action_callback('mstBKDeleteProjectStructure'){|_,raw|begin
@@ -13892,7 +13899,7 @@ function axisLock(d,code){var a=locks.axes[key(currentSystem,currentStructure)]|
 function nameClash(v,own){var k=nkey(v),hit='';allCodes().forEach(function(c){if(c!==own&&nkey(c)===k)hit=c+' kodu'});Object.keys(names).forEach(function(c){if(c!==own&&names[c]&&nkey(names[c])===k)hit=c+' yapısının görünen adı'});return hit}
 function axisDisplaySnap(){var o={};Object.keys(grids).forEach(function(k){var g=grids[k]||{};o[k]={x:{},y:{}};['x','y'].forEach(function(d){(g[d]||[]).forEach(function(r){if(r.display)o[k][d][r.name]=r.display})})});return o}
 function takeSnap(){snap={names:JSON.parse(JSON.stringify(names)),axes:axisDisplaySnap()};origCodes={};Object.keys(systems).forEach(function(s){origCodes[s]=systems[s].slice()})}
-window.mstNamesSaved=function(){codeChanges={};removedOk={};reattachOk={};takeSnap();renderIdentity()};
+window.mstNamesSaved=function(){codeChanges={};removedOk={};reattachOk={};takeSnap();renderIdentity();savedKey=stateKey()};
 function dec(v){var n=parseFloat(String(v==null?'':v).replace(',','.'));return isFinite(n)?n:0}
 function z2(n){return String(n).padStart(2,'0')}
 function defaultStructure(sys,i){if(sys==='DOLFEN')return 'BD-'+z2(i);if(sys==='RIHTIM')return 'RIHTIM-'+z2(i);return 'ANO-'+z2(i)}
@@ -13932,6 +13939,12 @@ function setStructCode(){var o=currentStructure,v,sys=currentSystem;if(el('struc
 var a=systems[sys];a[a.indexOf(o)]=v;grids[key(sys,v)]=grids[key(sys,o)];delete grids[key(sys,o)];if(placements[key(sys,o)]){placements[key(sys,v)]=placements[key(sys,o)];delete placements[key(sys,o)]}if(locks.axes[key(sys,o)]){locks.axes[key(sys,v)]=locks.axes[key(sys,o)];delete locks.axes[key(sys,o)]}if(names[o]){names[v]=names[o];delete names[o]}if(names[v]&&nkey(names[v])===nkey(v))delete names[v];
 var org=origOf(sys,o);if((origCodes[sys]||[]).indexOf(org)>=0){if(v===org)delete codeChanges[key(sys,org)];else codeChanges[key(sys,org)]=v}currentStructure=v;active[sys]=v;renderStructureSelect();status('Kod '+o+' → '+v+' (Projeyi Kaydet ile modele yazılır; eleman verisi değişmez).')}
 function addStructure(copy){var n,nm,h;try{n=checkCode(el('newStructure').value,40,'Yeni yapı kodu');if(!n)throw new Error('Yeni yapı kodunu girin.');h=nameClash(n,null);if(h)throw new Error(n+': '+h+' ile çakışıyor (büyük / küçük harf ve I / İ ayrımı yapılmaz).');nm=checkName(el('newStructureName').value,40,'Yeni yapı görünen adı');h=nm?nameClash(nm,null):'';if(h)throw new Error('"'+nm+'" görünen adı '+h+' ile çakışıyor.')}catch(e){alert(e.message);return}if(reserved[n]){if(!confirm(n+' kodu '+reserved[n]+' sahipsiz elemanda kullanılıyor. Bu kodla yeni yapı eklenirse bu elemanlar yeni yapıya bağlanır. Devam edilsin mi?'))return;reattachOk[key(currentSystem,n)]=true}systems[currentSystem].push(n);if(nm&&nkey(nm)!==nkey(n))names[n]=nm;grids[key(currentSystem,n)]=copy?JSON.parse(JSON.stringify(grid())):emptyGrid();currentStructure=n;active[currentSystem]=n;renderStructureSelect();status(label(n)+' oluşturuldu.')}
+// ADR-0515-K1 (31): kaydedilmemiş değişiklik denetimi (açılış / son kayıt durumuyla karşılaştırma) ve tam yapı kopyası
+var savedKey='';
+function canon(v){if(v===null||v===undefined||typeof v!=='object')return JSON.stringify(v===undefined?null:v);if(Array.isArray(v))return '['+v.map(canon).join(',')+']';return '{'+Object.keys(v).sort().map(function(k){return JSON.stringify(k)+':'+canon(v[k])}).join(',')+'}'}
+function plKey(p){p=p||{};if(!('x_link' in p)&&!('y_link' in p)&&p.mode&&p.mode!=='INDEPENDENT'){var fam=(p.axis_family||'X').toUpperCase(),ln={mode:p.mode,ref_system:p.ref_system||'',ref_structure:p.ref_structure||'',ref_axis:p.ref_axis||'',target_axis:p.target_axis||'',distance_m:Number(p.distance_m||0),direction:p.direction||(fam==='X'?'+X':'+Y')};return [fam==='X'?ln:null,fam==='Y'?ln:null]}return [p.x_link||null,p.y_link||null]}
+function stateKey(){var g={},p={};Object.keys(grids).forEach(function(k){var q=grids[k]||{};g[k]={x_dir:q.x_dir||'+X',y_dir:q.y_dir||'+Y'};['x','y'].forEach(function(d){g[k][d]=(q[d]||[]).map(function(r,i){return [String(r.name),r.display||'',i?Math.round(Math.max(0,dec(r.gap_m))*1e6):0,r.line_type||'AXIS',r.pattern||'DASHED',String(r.lineweight||(r.weight==='THICK'?'0.20':'0.005')),r.extent||'FINITE']})})});Object.keys(placements).forEach(function(k){p[k]=plKey(placements[k])});return canon({s:systems,g:g,p:p,n:names,c:codeChanges,r:removedOk})}
+function copyStructureFull(){if(stateKey()!==savedKey){alert('Yapıyı Kopyala: kaydedilmemiş değişiklik var. Önce "Projeyi Kaydet" ile kaydedin; hiçbir şey değişmedi.');status('Yapıyı Kopyala yapılmadı: kaydedilmemiş değişiklik var.');return}status('Yapıyı Kopyala: '+label(currentStructure)+' — kopya sayısı, kodlar ve ofset soruluyor...');sketchup.axis_manager_structure_copy(JSON.stringify({system:currentSystem,structure:currentStructure,dirty:false}))}
 function deleteStructure(){if(systems[currentSystem].length<=1){alert('En az bir yapı kalmalıdır.');return}var lk=locks.structures[key(currentSystem,origOf(currentSystem,currentStructure))];if(!confirm(label(currentStructure)+' silinsin mi?'+(lk?'\\n\\nUyarı — '+lk:'')))return;if(lk)removedOk[key(currentSystem,origOf(currentSystem,currentStructure))]=true;var i=systems[currentSystem].indexOf(currentStructure);systems[currentSystem].splice(i,1);delete grids[key(currentSystem,currentStructure)];delete placements[key(currentSystem,currentStructure)];delete names[currentStructure];delete codeChanges[key(currentSystem,origOf(currentSystem,currentStructure))];currentStructure=systems[currentSystem][Math.max(0,i-1)];active[currentSystem]=currentStructure;renderStructureSelect()}
 function placement(){var k=key(currentSystem,currentStructure),p=placements[k];if(!p)p={};if(!('x_link' in p)&&!('y_link' in p)&&p.mode&&p.mode!=='INDEPENDENT'){var fam=(p.axis_family||'X').toUpperCase(),ln={mode:p.mode,ref_system:p.ref_system||'',ref_structure:p.ref_structure||'',ref_axis:p.ref_axis||'',target_axis:p.target_axis||'',distance_m:Number(p.distance_m||0),direction:p.direction||(fam==='X'?'+X':'+Y')};p={x_link:fam==='X'?ln:null,y_link:fam==='Y'?ln:null};placements[k]=p}if(!('x_link' in p))p.x_link=null;if(!('y_link' in p))p.y_link=null;return p}
 function localAxisCoord(sys,name,fam,axis){var g=grids[key(sys,name)]||emptyGrid(),a=g[String(fam||'X').toLowerCase()]||[];for(var i=0;i<a.length;i++){if(a[i].name===axis){var sg=fam==='X'?(g.x_dir==='-X'?-1:1):(g.y_dir==='-Y'?-1:1);return sg*Number(a[i].coord_m||0)}}throw new Error(name+' / '+axis+' aksı bulunamadı.')}
@@ -13959,7 +13972,7 @@ if(!L.length)return '';var more=L.length>25?'\\n… '+(L.length-25)+' satır dah
 function saveAll(show){var t=previewText();if(t&&!confirm(t)){status('Kaydetme iptal edildi; hiçbir şey değişmedi.');return false}sketchup.axis_manager_v2_save(JSON.stringify(payload()));if(show)status('Kaydediliyor...');return true}
 function showGrid(){if(saveAll(false)===false)return;sketchup.axis_manager_v2_show(JSON.stringify({system:currentSystem,structure:currentStructure}))}
 function status(t){el('status').textContent=t}
-function bind(){takeSnap();el('system').value=currentSystem;el('system').addEventListener('change',switchSystem);el('structName').addEventListener('change',setStructName);el('structCode').addEventListener('change',setStructCode);el('structure').addEventListener('change',switchStructure);el('addStructure').addEventListener('click',function(){addStructure(false)});el('copyStructure').addEventListener('click',function(){addStructure(true)});el('deleteStructure').addEventListener('click',deleteStructure);el('addX').addEventListener('click',function(){addAxis('x')});el('addY').addEventListener('click',function(){addAxis('y')});el('xLocalDir').addEventListener('change',function(){grid().x_dir=this.value;renderChain();status('Yerel X yönü: '+this.value)});el('yLocalDir').addEventListener('change',function(){grid().y_dir=this.value;renderChain();status('Yerel Y yönü: '+this.value)});el('genX').addEventListener('click',function(){generate('x')});el('genY').addEventListener('click',function(){generate('y')});el('saveGrid').addEventListener('click',function(){saveAll(true)});el('saveAll').addEventListener('click',function(){saveAll(true)});el('showGrid').addEventListener('click',showGrid);['X','Y'].forEach(function(fam){var f=fam.toLowerCase();el(f+'Mode').addEventListener('change',function(){if(this.value==='INDEPENDENT')mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});el(f+'RefSystem').addEventListener('change',function(){renderLinkSelectors(fam)});el(f+'RefStructure').addEventListener('change',function(){renderAxisSelectors(fam)})});el('savePlacement').addEventListener('click',savePlacement);el('independent').addEventListener('click',function(){['X','Y'].forEach(function(fam){el(fam.toLowerCase()+'Mode').value='INDEPENDENT';mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});savePlacement()});renderStructureSelect();status('Hazır — '+currentSystem+' / '+label(currentStructure))}
+function bind(){takeSnap();el('system').value=currentSystem;el('system').addEventListener('change',switchSystem);el('structName').addEventListener('change',setStructName);el('structCode').addEventListener('change',setStructCode);el('structure').addEventListener('change',switchStructure);el('addStructure').addEventListener('click',function(){addStructure(false)});el('copyStructure').addEventListener('click',copyStructureFull);el('deleteStructure').addEventListener('click',deleteStructure);el('addX').addEventListener('click',function(){addAxis('x')});el('addY').addEventListener('click',function(){addAxis('y')});el('xLocalDir').addEventListener('change',function(){grid().x_dir=this.value;renderChain();status('Yerel X yönü: '+this.value)});el('yLocalDir').addEventListener('change',function(){grid().y_dir=this.value;renderChain();status('Yerel Y yönü: '+this.value)});el('genX').addEventListener('click',function(){generate('x')});el('genY').addEventListener('click',function(){generate('y')});el('saveGrid').addEventListener('click',function(){saveAll(true)});el('saveAll').addEventListener('click',function(){saveAll(true)});el('showGrid').addEventListener('click',showGrid);['X','Y'].forEach(function(fam){var f=fam.toLowerCase();el(f+'Mode').addEventListener('change',function(){if(this.value==='INDEPENDENT')mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});el(f+'RefSystem').addEventListener('change',function(){renderLinkSelectors(fam)});el(f+'RefStructure').addEventListener('change',function(){renderAxisSelectors(fam)})});el('savePlacement').addEventListener('click',savePlacement);el('independent').addEventListener('click',function(){['X','Y'].forEach(function(fam){el(fam.toLowerCase()+'Mode').value='INDEPENDENT';mstIndependentAtCurrent(fam);renderLinkSelectors(fam)});savePlacement()});renderStructureSelect();savedKey=stateKey();status('Hazır — '+currentSystem+' / '+label(currentStructure))}
 window.addEventListener('error',function(e){status('JS HATASI: '+e.message)});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
@@ -14033,6 +14046,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       UI.messagebox("Aks görseli hatası: #{e.message}")
     end
   end
+  # ADR-0515-K1 (31): "Yapıyı Kopyala" — aktif yapının tamamı tek işlemde N kopya (structure_copy.rb)
+  d.add_action_callback('axis_manager_structure_copy') do |_ctx,json|
+    begin
+      mst_structure_copy_ui(d,json)
+    rescue=>e
+      UI.messagebox("Yapıyı Kopyala hatası: #{e.message}")
+    end
+  end
   d.show
   @project_manager_dialog=d
 end
@@ -14054,6 +14075,7 @@ require_relative 'mst_pc_rebar'     # v0.50 PC2 — prekast donatısı
 require_relative 'mst_dx_rebar'     # v0.50 DX1 — paftadan donatı metrajı
 require_relative 'mst_dr_auto'      # v0.51 DR5 — paftadan 3B donatı (otomatik)
 require_relative 'mst_v50_misc'     # v0.50 TP1 / SH2 / AN1 / MS1 / RS2
+require_relative 'structure_copy'   # ADR-0515-K1 (31) — Aks Yöneticisi Yapıyı Kopyala (tam yapı, tek işlem)
 
 end
 end
