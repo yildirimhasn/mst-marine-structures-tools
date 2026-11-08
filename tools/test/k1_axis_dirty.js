@@ -40,5 +40,13 @@ t('kayıt sonrası (mstNamesSaved) temiz: çağrı yapılır', copies(D).length,
 el('newStructure').value = 'ANO-09'; el('addStructure').click();
 el('copyStructure').click();
 t('kaydedilmemiş yeni yapı: çağrı yok, uyarı var', [copies(D).length, D.alerts.length], [0, 1]);
+// 32/8: başarılı kopyadan sonra (Ruby mstStructureCopied çağırır) pencere yenilenmezse eski durum kaydedilemez / kopyalanamaz
+({ D } = page());
+t('32/8 mstStructureCopied tanımlı', typeof D.ctx.mstStructureCopied, 'function');
+if (typeof D.ctx.mstStructureCopied === 'function') D.ctx.mstStructureCopied();
+const saves = () => D.calls.filter((c) => c[0] === 'axis_manager_v2_save').length;
+el('saveAll').click(); el('saveGrid').click(); el('showGrid').click(); el('copyStructure').click();
+t('32/8 kopya sonrası eski pencere: Projeyi Kaydet / Aks Kaydet / Göster ve Yapıyı Kopyala çağrı yapmaz, uyarı verir',
+  [saves(), copies(D).length, D.calls.filter((c) => c[0] === 'axis_manager_v2_show').length, D.alerts.length >= 4, (D.alerts[0] || '').indexOf('yeniden açın') >= 0], [0, 0, 0, true, true]);
 console.log(ok + ' geçti, ' + bad + ' kaldı');
 process.exit(bad ? 1 : 0);

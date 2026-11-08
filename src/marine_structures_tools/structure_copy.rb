@@ -47,10 +47,14 @@ def mst_sc_descend?(e,root)
   t=mst_sc_type(e)
   t=='head_beam' || (e.equal?(root) && !MST_COLLECTED_TYPES.include?(t) && !MST_SC_EXTRA_TYPES.include?(t))
 end
-# Kök öğenin kopyalanan alt ağacı (kök dahil; derinlik öncelikli, kaynak sırası)
-def mst_sc_tree(root,e=root,out=[])
+# 32/4: aksesuar (ağacın her düzeyinde) kopyalanmaz; sayılır
+def mst_sc_acc?(e);mst_sc_type(e)=='accessory';end
+# Kök öğenin kopyalanan alt ağacı (kök dahil; derinlik öncelikli, kaynak sırası). acc verilirse atlanan aksesuarlar eklenir.
+def mst_sc_tree(root,e=root,out=[],acc=nil)
   out << e
-  mst_sc_kids(e).each{|c|mst_sc_tree(root,c,out)} if mst_sc_descend?(e,root)
+  if mst_sc_descend?(e,root)
+    mst_sc_kids(e).each{|c|mst_sc_acc?(c) ? (acc << c if acc) : mst_sc_tree(root,c,out,acc)}
+  end
   out
 end
 # Kapsayıcının ilk tipli düzeyi (tipsiz grup / bileşen içine inilir; etiket grupları atlanır)
@@ -234,9 +238,45 @@ def mst_sc_collect!(pl,model,bad)
     end
   end
   pl['roots']=roots
-  items=roots.flat_map{|r|mst_sc_tree(r)}.reject{|e|mst_sc_type(e).empty?}
+  nacc=[];items=roots.flat_map{|r|mst_sc_tree(r,r,[],nacc)}.reject{|e|mst_sc_type(e).empty?}
+  pl['accessories']+=nacc.length
   pl['items']=items
   inset={}.compare_by_identity;items.each{|e|inset[e]=true}
+  # 32/1: bu yapıya ait olup kopya öğe listesine girmeyen tipli eleman (ör. kapsayıcı → tipsiz iç içe Component → prekast) → ret.
+  # Paylaşılan tanımlı Component öğelerin (kazık gövdesi, prekast) tanım içi öğeleri bilerek paylaşılır; onlar kapsanmış sayılır.
+  covered={}.compare_by_identity;defs={}.compare_by_identity
+  walk=lambda do |ents|
+    ents.to_a.each do |x|
+      next unless mst_sc_inst?(x)
+      covered[x]=true
+      if x.is_a?(Sketchup::Group) then walk.(x.entities)
+      elsif !defs[x.definition] then defs[x.definition]=true;walk.(x.definition.entities)
+      end
+    end
+  end
+  roots.each do |r|
+    mst_sc_tree(r).each do |x|
+      next unless x.is_a?(Sketchup::ComponentInstance) && !mst_sc_type(x).empty? && !mst_sc_descend?(x,r) && !defs[x.definition]
+      defs[x.definition]=true;walk.(x.definition.entities)
+    end
+  end
+  pool.each do |e|
+    t=mst_sc_type(e)
+    next if inset[e] || covered[e] || t.empty? || t=='accessory' || MST_SC_SKIP_TYPES.include?(t)
+    next unless belongs.(e)==:yes
+    bad.(mst_sc_vid(e),'bu yapıya ait ama kopya kapsamına girmiyor (tipsiz iç içe Component içinde olabilir; paylaşılan tanım ayrılmadan kopyalanamaz). Component\'i Group yapın ya da patlatın.')
+  end
+  # karar 8: jet grout satırında elle girilmiş ilerleme (manual_progress_json; okuma, PROGRESS_DICT'e yazılmaz) → ret
+  jg=items.select{|e|mst_sc_type(e)=='jet_grout'}
+  if !jg.empty? && respond_to?(:prog2_manual)
+    pre=jg.map{|e|d=(jg_validate(JSON.parse(e.get_attribute(DICT,'jet_grout_data','{}').to_s)) rescue nil);d ? "JETGROUT:#{d['type_id']}:#{d['diameter']}:#{d['system']}:" : nil}.compact.uniq
+    hit=prog2_manual.select do |k,rec|
+      next false unless pre.any?{|p|prog2_base(k).start_with?(p)}
+      m=prog2_norm(rec);m && [prog2_clamp(m['claim']),prog2_rec_frac(m)].max>0
+    end
+    bad.(hit.keys.first(3).join(', '),'Jet grout satırında elle girilmiş ilerleme var; kopya onaylı miktarı çoğaltır. Jet grout eleman bazlı ilerlemesi ayrı iş.') unless hit.empty?
+  end
+  pl['component_precast']=items.any?{|e|e.is_a?(Sketchup::ComponentInstance) && %w[flat_precast channel_precast crane_precast].include?(mst_sc_type(e))}
   # iç öğe başka yapıda mı
   items.each do |e|
     next if mst_sc_type(e)=='pile_layout' || MST_SC_SKIP_TYPES.include?(mst_sc_type(e))
@@ -275,8 +315,10 @@ def mst_sc_collect!(pl,model,bad)
         bad.(mst_sc_vid(e),"#{k}: '#{tok}' #{outside.(x)}")
       end
     end
-    raw=e.get_attribute(DICT,'jet_grout_data',nil)
-    bad.(mst_sc_vid(e),'jet_grout_data okunamadı (bozuk JSON).') if !raw.nil? && !raw.to_s.strip.empty? && !(JSON.parse(raw.to_s) rescue nil).is_a?(Hash)
+    %w[jet_grout_data bored_pile_data].each do |k|
+      raw=e.get_attribute(DICT,k,nil)
+      bad.(mst_sc_vid(e),"#{k} okunamadı (bozuk JSON).") if !raw.nil? && !raw.to_s.strip.empty? && !(JSON.parse(raw.to_s) rescue nil).is_a?(Hash)
+    end
   end
   pl
 end
@@ -316,8 +358,15 @@ def mst_sc_pair!(s,d,root,out)
   a=mst_sc_kids(s);b=mst_sc_kids(d)
   same=a.length==b.length && a.zip(b).all?{|x,y|x.class==y.class && (mst_sc_type(y).empty? || mst_sc_type(x)==mst_sc_type(y))}
   raise "#{mst_sc_vid(s)}: kopyanın iç öğeleri kaynakla eşleşmedi (#{a.length} ↔ #{b.length})." unless same
-  a.zip(b).each{|x,y|mst_sc_pair!(x,y,root,out)}
+  # 32/2: kardeşler sırayla eşlenir; SketchUp'ın kopya / make_unique sırası doğrulanmadığından yerel konum (transformation) da aynı olmalı
+  a.zip(b).each do |x,y|
+    next if mst_sc_tr_key(x)==mst_sc_tr_key(y)
+    raise "#{mst_sc_vid(x)}: kopyadaki eşi farklı yerel konumda (iç öğe sırası değişmiş olabilir); öznitelik yanlış geometriye yazılmasın diye durduruldu."
+  end
+  # 32/4 (karar 2): eleman grubu içindeki aksesuar kopyalanmaz; kopyaya geçen eşi (ayrılmış kopya içinde) silinir
+  a.zip(b).each{|x,y|mst_sc_acc?(x) ? y.erase! : mst_sc_pair!(x,y,root,out)}
 end
+def mst_sc_tr_key(e);(e.transformation.to_a.map{|v|v.to_f.round(6)} rescue nil);end
 def mst_sc_nocopy?(k);MST_SC_NOCOPY_KEYS.include?(k) || k.start_with?('dependency_');end
 # MST sözlükleri (MAG_*; PROGRESS_DICT hariç) açıkça kopyalanır; ilerleme / bağımlılık / kimlik kayıtları kopyaya geçmez
 def mst_sc_copy_attrs!(s,d)
@@ -339,8 +388,16 @@ def mst_sc_used_ids(model)
   all.each{|e|next unless e.valid?;v=mst_sc_ident(e);used[mst_sc_type(e)][v]=true unless v.start_with?('PID-')}
   used
 end
+# 32/6: mst_next_unique_physical_id ile aynı sonuç (ilk boş numara); işlem içinde used yalnız büyüdüğünden arama son verilen numaradan sürer
+def mst_sc_next_id(t,used,st)
+  pre=bim_type_prefix(t);h=(st[:id_hint] ||= {});n=h[t] || 1
+  n+=1 while used[t]["#{pre}-#{n.to_s.rjust(3,'0')}"]
+  h[t]=n+1
+  "#{pre}-#{n.to_s.rjust(3,'0')}"
+end
 def mst_sc_vid_map(mp,types,tok)
-  hit=mp[:vid].select{|(t,v),_|v==tok && (types.nil? || types.include?(t))}.values.uniq
+  # 32/6: ters indeks (görünen ID → {tür → yeni ID}, :vid ile aynı içerik); tüm eşlem taranmaz
+  hit=(mp[:vtok][tok] || {}).select{|t,_|types.nil? || types.include?(t)}.values.uniq
   hit.length==1 ? hit.first : nil
 end
 def mst_sc_rewrite_links!(s,d,mp)
@@ -378,12 +435,16 @@ def mst_sc_set_structure!(s,d,src,code,owner)
     v=s.get_attribute(DICT,k,nil)
     d.set_attribute(DICT,k,code) if owner || (!v.nil? && !v.to_s.strip.empty?)
   end
-  %w[structure_zone ano_id].each{|k|d.set_attribute(DICT,k,code) if s.get_attribute(DICT,k,'').to_s==src && !src.empty?}
-  raw=s.get_attribute(DICT,'jet_grout_data',nil)
-  return if raw.nil? || raw.to_s.strip.empty?
-  h=JSON.parse(raw.to_s)
-  return unless h.is_a?(Hash) && h['ano'].to_s==src
-  h['ano']=code;d.set_attribute(DICT,'jet_grout_data',JSON.generate(h))
+  # 33/5: qto_zone kaynak koduna eşitse yeni kod
+  %w[structure_zone ano_id qto_zone].each{|k|d.set_attribute(DICT,k,code) if s.get_attribute(DICT,k,'').to_s==src && !src.empty?}
+  # 32/5 + 33/6: veri içindeki ano, üst düzey ano ile birlikte yazılır (sahip öğe) ya da kaynak koduna eşitse
+  %w[jet_grout_data bored_pile_data].each do |k|
+    raw=s.get_attribute(DICT,k,nil)
+    next if raw.nil? || raw.to_s.strip.empty?
+    h=JSON.parse(raw.to_s)
+    next unless h.is_a?(Hash) && (owner || h['ano'].to_s==src)
+    h['ano']=code;d.set_attribute(DICT,k,JSON.generate(h))
+  end
 end
 def mst_sc_add_global!(e,keys,dx,dy)
   keys.each_with_index{|k,i|v=e.get_attribute(DICT,k,nil);e.set_attribute(DICT,k,v.to_f+(i==0 ? dx : dy)) unless v.nil?}
@@ -397,7 +458,7 @@ def mst_sc_build_copy!(plan,model,i,code,used,st)
     mst_sc_pair!(r,mst_sc_copy_root(r,tr,model),r,pairs)
   end
   pairs.each{|s,d|st[:elem]=mst_sc_vid(s);mst_sc_copy_attrs!(s,d)}
-  mp={pid:{},uid:{},vid:{}}
+  mp={pid:{},uid:{},vid:{},vtok:{}}
   now=Time.now.to_i
   pairs.each do |s,d|
     t=mst_sc_type(s);next if t.empty?
@@ -412,10 +473,10 @@ def mst_sc_build_copy!(plan,model,i,code,used,st)
     end
     key=mst_sc_id_key(t)
     if key
-      nid=mst_next_unique_physical_id(bim_type_prefix(t),used[t]);used[t][nid]=true
+      nid=mst_sc_next_id(t,used,st);used[t][nid]=true
       d.set_attribute(DICT,key,nid);d.name=nid if d.respond_to?(:name=)
     end
-    mp[:vid][[t,mst_sc_ident(s)]]=mst_sc_ident(d)
+    sv=mst_sc_ident(s);dv=mst_sc_ident(d);mp[:vid][[t,sv]]=dv;(mp[:vtok][sv] ||= {})[t]=dv
   end
   pairs.each do |s,d|
     next if mst_sc_type(s).empty?
@@ -434,6 +495,12 @@ def mst_sc_build_copy!(plan,model,i,code,used,st)
     elsif !t.empty?
       mst_sc_add_global!(c,%w[global_x_m global_y_m],dx,dy)
     end
+  end
+  # 32/3: kronman aks uçları mutlak model koordinatı (inç, main.rb:9698/9723/9754); kopyada ofset eklenir, Z aynı
+  pairs.each do |s,d|
+    next unless mst_sc_type(s)=='crown_wall'
+    %w[axis_start_x axis_end_x].each{|k|v=s.get_attribute(DICT,k,nil);d.set_attribute(DICT,k,v.to_f+dx.m) unless v.nil?}
+    %w[axis_start_y axis_end_y].each{|k|v=s.get_attribute(DICT,k,nil);d.set_attribute(DICT,k,v.to_f+dy.m) unless v.nil?}
   end
   {'index'=>i,'code'=>code,'pairs'=>pairs,'map'=>mp}
 end
@@ -544,12 +611,21 @@ def mst_structure_copy_apply!(plan,model=Sketchup.active_model)
   end
   kinds=plan['kinds'].map{|k,v|"#{v} #{k}"}.join(', ')
   msg="Yapıyı Kopyala tamamlandı — #{src} → #{plan['codes'].join(', ')} (tek Geri Al).\nHer kopyada: #{kinds.empty? ? 'eleman yok (yalnız aks ağı ve yapı kayıtları)' : kinds}."
-  msg+="\n#{plan['accessories']} aksesuar kopyalanmadı, çizelgeye elle ekleyin." if plan['accessories'].to_i>0
+  msg+="\nYapıda yerleştirilmiş #{plan['accessories']} aksesuar kopyalanmadı, çizelgeye elle ekleyin." if plan['accessories'].to_i>0
+  msg+="\n"+mst_sc_notes(plan)
   {'ok'=>true,'message'=>msg,'codes'=>plan['codes']}
+end
+MST_SC_PRECAST_SHARED='Component prekast tipleri yapılar arasında ortak; tipe yapılan donatı / geometri değişikliği tüm yapılardaki aynı tip prekastlara uygulanır.'
+# Onay sorusu ve sonuç iletisinde ortak notlar (33/2 aksesuar çizelgesi, 33/4 dolgu, karar 9 Component prekast)
+def mst_sc_notes(plan)
+  n=['Aksesuar çizelgesi ve aksesuar ankraj donatısı çoğalmaz (model düzeyi kayıt); kopya yapılar için gerekiyorsa çizelgeye elle ekleyin.',
+     'Dolgu (kaya dolgu) kopyalanmadı; ortak proje verisidir, miktarı değişmez.']
+  n << MST_SC_PRECAST_SHARED if plan['component_precast']
+  n.join("\n")
 end
 
 # Aks Yöneticisi "Yapıyı Kopyala" (axis_manager_structure_copy). json: {system, structure, dirty}
-def mst_structure_copy_ui(_d,json)
+def mst_structure_copy_ui(dlg,json)
   model=Sketchup.active_model
   x=(JSON.parse(json.to_s) rescue nil);x={} unless x.is_a?(Hash)
   sys=x['system'].to_s.upcase;src=x['structure'].to_s
@@ -574,9 +650,12 @@ def mst_structure_copy_ui(_d,json)
   q="Yapıyı Kopyala — #{sys} / #{src} → #{plan['codes'].join(', ')}\n\nHer kopyada: #{kinds.empty? ? 'eleman yok (yalnız aks ağı ve yapı kayıtları)' : kinds}\n"+
     "Ofset (kopya i için i ×): dx #{format('%.2f',plan['dx'])} m, dy #{format('%.2f',plan['dy'])} m\n"+
     "Kopyalanmaz: aksesuar (#{plan['accessories']}), dolgu, etiketler; aks görseli yeni ızgaradan yeniden çizilir.\n"+
-    "İlerleme 'Planlandı'; hakediş / ilerleme geçmişi aktarılmaz. Tip ve revizyon numaraları aynen taşınır.\nTek işlem, tek Geri Al.\n\nDevam edilsin mi?"
+    "İlerleme 'Planlandı'; hakediş / ilerleme geçmişi aktarılmaz. Tip ve revizyon numaraları aynen taşınır.\n"+
+    (plan['component_precast'] ? "#{MST_SC_PRECAST_SHARED}\n" : '')+"Tek işlem, tek Geri Al.\n\nDevam edilsin mi?"
   return unless UI.messagebox(q,MB_YESNO)==IDYES
   r=mst_structure_copy_apply!(plan,model)
+  # 32/8: pencere yenilenemese bile eski durum kaydedilmesin / kopyalanmasın (kayıtlı kodlar ve yerleşimler silinmesin)
+  (dlg.execute_script('window.mstStructureCopied&&window.mstStructureCopied()') rescue nil) if r['ok'] && dlg
   UI.messagebox(r['message'])
   UI.start_timer(0,false){project_ano_axis_manager rescue nil} if r['ok']
 end

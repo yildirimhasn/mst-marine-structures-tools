@@ -67,7 +67,10 @@ class Sketchup::Group
     d = definition
     return self if d.count_instances <= 1
     d.instances.delete(self)
-    ne = Sketchup::Entities.new(@entities.map { |c| k1_clone(c) }); ne.parent = self; ne.each { |c| c.parent = ne }
+    kids = @entities.map { |c| k1_clone(c) }
+    # 32/2: SketchUp'ın make_unique sonrası kardeş sırası doğrulanmadı — isteğe bağlı olarak kronman segmentlerinin sırası ters çevrilir
+    kids.reverse! if $k1_reverse_unique && kids.length > 1 && kids.all? { |c| c.get_attribute(D, 'element_type') == 'crown_wall_segment' }
+    ne = Sketchup::Entities.new(kids); ne.parent = self; ne.each { |c| c.parent = ne }
     @entities = ne
     nd = Sketchup::ComponentDefinition.new(nil, {}); nd.entities = ne; nd.instances << self; @definition = nd
     ($k1_log ||= []) << [:group_unique, persistent_id]
@@ -84,6 +87,17 @@ class Sketchup::ComponentInstance
     $model.definitions << nd
     ($k1_log ||= []) << [:ci_unique, persistent_id]
     self
+  end
+end
+# gerçek SketchUp'ta silinen öğe üst koleksiyondan da çıkar (32/4: kopyadaki iç aksesuar silinir); geri yükleme Entities içeriğini kapsar
+[Sketchup::Group, Sketchup::ComponentInstance].each do |kl|
+  kl.class_eval do
+    def erase!
+      @erased = true
+      pr = parent
+      ents = pr.is_a?(Sketchup::Entities) ? pr : (pr.respond_to?(:entities) ? pr.entities : nil)
+      ents.delete(self) if ents.respond_to?(:delete)
+    end
   end
 end
 # anlık görüntü / geri yükleme: bilinen bütün varlıkların durumu + Entities içerikleri
@@ -458,6 +472,7 @@ $model.ops.clear; $msgs = []; $ib = [%w[2 30 0], ['', '']]; $timers = []
 ax.cb['axis_manager_structure_copy'].call(nil, JSON.generate('system' => 'ISKELE', 'structure' => 'ANO-01', 'dirty' => false))
 t('5 arayüz akışı: iki soru, onay, tek işlem', [$ib, $model.ops], [[], [[:start, 'MST Yapı Kopyala ×2'], [:commit]]])
 t('5 arayüz: sonuç mesajı aksesuar uyarısı içerir; pencere yenilenir (zamanlayıcı)', [$msgs.last.to_s.include?('1 aksesuar kopyalanmadı'), $timers.length >= 1], [true, true])
+t('5 (32/8) başarı sonrası eski pencerenin kayıt durumu geçersiz kılınır (mstStructureCopied)', ax.out.any? { |s| s.include?('mstStructureCopied') }, true)
 $model.ops.clear; $msgs = []; $ib = [%w[1 0 0], ['ANO-05', '']]
 ax.cb['axis_manager_structure_copy'].call(nil, JSON.generate('system' => 'ISKELE', 'structure' => 'ANO-01', 'dirty' => false))
 t('5 arayüz: çakışan kod → hata listesi, işlem açılmaz', [k1_ops, $msgs.last.to_s.include?('işlem açılmadı')], [[], true])
@@ -539,10 +554,127 @@ t('6 BK yeni yapı hata: start + abort, açık işlem yok, model aynı, hata bil
 $model.ops.clear
 dlg.cb['mstBKAddProjectStructure'].call(nil, JSON.generate('system' => 'ISKELE', 'name' => 'ANO-01', 'source' => ''))
 t('6 BK yeni yapı doğrulama reddi (mevcut kod): işlem açılmaz', k1_ops, [])
+# 32/7: ön okuma (mst_structures_for_system) migrasyon yazımı işlem dışında yapılmaz
+$model.k1_set(D, 'system_structures_json', '{"DOLFEN":["BD-01"],"ISKELE":["ANO-01","RIHTIM-05"],"RIHTIM":["RIHTIM-01"]}')
+$model.ops.clear; $k1_msets = []
+dlg.cb['mstBKAddProjectStructure'].call(nil, JSON.generate('system' => 'ISKELE', 'name' => 'ANO-01', 'source' => ''))
+t('6 (32/7) BK yeni yapı reddi: ön okuma işlem dışında yazmaz (mst_plan_readonly)', [k1_ops, $k1_msets.map(&:first)], [[], []])
 t('6 (statik) mstBKAddProjectStructure gövdesinde start/commit/abort', (lambda {
   s = main_src[main_src.index("@d.add_action_callback('mstBKAddProjectStructure')")...main_src.index("@d.add_action_callback('mstBKDeleteProjectStructure')")]
   [s.scan('start_operation').length, s.scan('commit_operation').length, s.scan('abort_operation').length]
 }).call, [1, 1, 1])
+
+# ================================================================ 7) inceleme düzeltmeleri (rapor 32 / 33; ADR 31 kararlar 8–11)
+kr_of = ->(roots) { roots.find { |e| e.get_attribute(D, 'element_type') == 'crown_wall' } }
+# 32/1: Prekast Layout → tipsiz Component → prekast (paylaşılan tanım; kopya ağacı inmez) → ön kontrol reddi
+k1_build(extra: lambda { |roots|
+  udef = CD.new(3301, {})
+  pc3 = g(1303, own('ANO-01').merge('element_type' => 'flat_precast', 'precast_id' => 'PD-003', 'element_uid' => 'MST-1303-1', 'concrete_volume_m3' => 1.0))
+  udef.entities = Sketchup::Entities.new([pc3]); pc3.parent = udef.entities; k1_reg(pc3)
+  ui = CI.new(1304, {}); ui.definition = udef; k1_reg(ui)
+  roots << g(1810, { 'element_type' => 'precast_layout' }, [ui])
+})
+d0 = k1_dump; $model.ops.clear
+p71 = plan_of
+t('7 (32/1) Layout → tipsiz Component → prekast: ön kontrol reddi, işlem yok, model aynı',
+  [p71['errors'].any? { |x| x.include?('PD-003') && x.include?('kopya kapsamına girmiyor') }, k1_ops, k1_dump == d0], [true, [], true])
+obs('7 32/1 hata', p71['errors'].first(2))
+# 32/2: make_unique kardeş sırasını değiştirirse (aynı tür iki segment, farklı konum) → hata, abort, model aynı
+k1_build(extra: ->(roots) { kr_of.(roots).entities[1].transformation = tr(5, 0) })
+d0 = k1_dump; $model.ops.clear; $k1_reverse_unique = true
+r72 = M.mst_structure_copy_apply!(plan_of('count' => '1'), $model)
+$k1_reverse_unique = false
+t('7 (32/2) kardeş sırası değişti (yerel konum uyuşmuyor): başarısız, start + abort, model aynı',
+  [r72['ok'], r72['stage'], r72['error'].to_s.include?('konum'), k1_ops, k1_dump == d0], [false, 'kopya', true, %i[start abort], true])
+obs('7 32/2 hata', r72['error'])
+# 32/3 kronman aks noktaları (inç, mutlak) · 32/4 iç içe aksesuar · 32/5 bored_pile_data ano · 33/6 jet_grout_data ano · 33/5 qto_zone
+# 33/2 + 33/4 + karar 9 iletileri
+f7 = k1_build(extra: lambda { |roots|
+  kr = kr_of.(roots)
+  { 'axis_start_x' => 1.0.m, 'axis_start_y' => 2.0.m, 'axis_start_z' => 0.0, 'axis_end_x' => 11.0.m, 'axis_end_y' => 2.0.m, 'axis_end_z' => 0.0 }.each { |k, v| kr.set_attribute(D, k, v) }
+  bk1 = roots.find { |e| e.get_attribute(D, 'element_uid') == 'MST-1201-1' }
+  acc2 = g(1702, 'element_type' => 'accessory', 'element_uid' => 'acc-uuid-2', 'accessory_type' => 'Baba'); bk1.entities << acc2; acc2.parent = bk1.entities
+  roots << g(1950, own('ANO-01').merge('element_type' => 'bored_pile', 'bored_pile_data' => JSON.generate('type_id' => 'FK-01', 'diameter' => 1000, 'ano' => 'ANO-01'),
+                                       'element_uid' => 'MST-1950-1', 'concrete_volume_m3' => 3.0, 'concrete_class' => 'C30/37'))
+  roots.find { |e| e.get_attribute(D, 'element_type') == 'jet_grout' }.set_attribute(D, 'jet_grout_data', JSON.generate(JSON.parse(JG_DATA).merge('ano' => 'ESKI')))
+  roots.find { |e| e.get_attribute(D, 'element_type') == 'pile_layout' }.entities.first.set_attribute(D, 'qto_zone', 'ANO-01')
+  pkd = CD.new(3401, {}); pk = CI.new(1305, own('ANO-01').merge('element_type' => 'channel_precast', 'precast_id' => 'KP-001', 'element_uid' => 'MST-1305-1',
+                                                                   'concrete_volume_m3' => 3.0, 'concrete_class' => 'C35/45'))
+  pk.definition = pkd; roots << pk
+})
+$model.ops.clear; $msgs = []; $ib = [%w[2 30 0], ['', '']]
+p7 = plan_of
+t('7 (32/4) ön kontrol: yerleştirilmiş aksesuar sayısı iç içe olanlar dahil (kök 1 + BK içi 1)', [p7['errors'], p7['accessories'], p7['kinds'].map(&:first).include?('accessory')], [[], 2, false])
+M.mst_structure_copy_ui(nil, JSON.generate('system' => 'ISKELE', 'structure' => 'ANO-01', 'dirty' => false))
+q7 = $msgs[-2].to_s; m7 = $msgs[-1].to_s
+obs('7 sonuç iletisi', m7)
+t('7 kopya başarılı (arayüz akışı)', k1_ops, %i[start commit])
+krs = $model.entities.select { |e| a(e, 'copied_from_uid') == 'MST-1501-1' }.sort_by { |e| a(e, 'axis_start_x') }
+t('7 (32/3) kronman aks başlangıç / bitiş X, Y kopyada k × ofset (inç); Z ve kaynak aynı',
+  [krs.map { |e| [a(e, 'axis_start_x').round(6), a(e, 'axis_end_x').round(6), a(e, 'axis_start_y').round(6), a(e, 'axis_start_z')] }, a(f7[:kr], 'axis_start_x').round(6)],
+  [[[(31.0.m).round(6), (41.0.m).round(6), (2.0.m).round(6), 0.0], [(61.0.m).round(6), (71.0.m).round(6), (2.0.m).round(6), 0.0]], (1.0.m).round(6)])
+bk1s = $model.entities.select { |e| a(e, 'copied_from_uid') == 'MST-1201-1' }
+t('7 (32/4) BK içindeki aksesuar kopyaya geçmez; kaynakta kalır', [bk1s.map { |b| b.entities.count { |x| a(x, 'element_type') == 'accessory' } }, f7[:bk1].entities.count { |x| a(x, 'element_type') == 'accessory' }], [[0, 0], 1])
+t('7 aksesuar UID mükerrer değil', reach.($model.entities, []).uniq.count { |e| a(e, 'element_uid') == 'acc-uuid-2' }, 1)
+%w[ANO-02 ANO-03].each do |c|
+  bp = $model.entities.find { |e| a(e, 'copied_from_uid') == 'MST-1950-1' && a(e, 'ano') == c }
+  jg = $model.entities.find { |e| a(e, 'copied_from_uid') == '0f0e-uuid-jg' && a(e, 'ano') == c }
+  p1q = ixs(c).find { |e| a(e, 'copied_from_uid') == 'MST-1101-1' }
+  t("7 #{c}: (32/5) bored_pile_data ano, (33/6) jet_grout_data ano (kaynakta farklı), (33/5) qto_zone",
+    [bp && JSON.parse(a(bp, 'bored_pile_data'))['ano'], jg && JSON.parse(a(jg, 'jet_grout_data'))['ano'], p1q && a(p1q, 'qto_zone')], [c, c, c])
+end
+t('7 kaynak bored_pile_data / jet_grout_data değişmedi', [JSON.parse(a(f7[:jg], 'jet_grout_data'))['ano']], ['ESKI'])
+t('7 (33/2) sonuç iletisi: aksesuar çizelgesi ve ankraj donatısı çoğalmaz + yerleştirilmiş sayı', [m7.include?('Aksesuar çizelgesi ve aksesuar ankraj donatısı çoğalmaz'), m7.include?('yerleştirilmiş 2 aksesuar')], [true, true])
+t('7 (33/4) sonuç iletisi: dolgu (kaya dolgu) kopyalanmadı', m7.include?('olgu (kaya dolgu) kopyalanmadı'), true)
+w9 = 'Component prekast tipleri yapılar arasında ortak; tipe yapılan donatı / geometri değişikliği tüm yapılardaki aynı tip prekastlara uygulanır.'
+t('7 (karar 9) Component prekast uyarısı onay sorusunda ve sonuç iletisinde', [q7.include?(w9), m7.include?(w9)], [true, true])
+k1_build
+r79 = M.mst_structure_copy_apply!(plan_of('count' => '1'), $model)
+t('7 (karar 9) Component prekast yokken uyarı yok; (33/2) aksesuar cümlesi her zaman', [r79['message'].include?(w9), r79['message'].include?('Aksesuar çizelgesi ve aksesuar ankraj donatısı çoğalmaz')], [false, true])
+# karar 8: jet grout satırında elle girilmiş ilerleme → ret (PROGRESS_DICT okunur, yazılmaz)
+jkey = 'JETGROUT:JG-01:800.0:single:length'
+k1_build
+$model.set_attribute('MAG_MST_Progress', 'manual_progress_json', JSON.generate(jkey => { 'claim' => 50.0, 'ok' => [['2026-11-01', 50.0, 'test']] }))
+d0 = k1_dump; $model.ops.clear; $writes = []
+p8 = plan_of
+t('7 (karar 8) jet grout elle ilerleme > 0: ön kontrol reddi, işlem / yazım yok',
+  [p8['errors'].any? { |x| x.include?('Jet grout satırında elle girilmiş ilerleme var; kopya onaylı miktarı çoğaltır. Jet grout eleman bazlı ilerlemesi ayrı iş.') }, k1_ops, $writes.length, k1_dump == d0], [true, [], 0, true])
+$model.set_attribute('MAG_MST_Progress', 'manual_progress_json', JSON.generate(jkey => { 'claim' => 0.0, 'ok' => [] }))
+t('7 (karar 8) elle ilerleme 0 → ret yok', plan_of['errors'], [])
+# 32/6: yeni fiziksel ID'ler mst_next_unique_physical_id (1'den arama) ile birebir aynı
+k1_build
+M.mst_structure_copy_apply!(plan_of, $model)
+hb = $model.entities.select { |e| a(e, 'copy_origin') == 'structure_copy' && a(e, 'element_type') == 'head_beam' }.map { |e| a(e, 'head_beam_id') }.sort
+t('7 (32/6) yeni BK ID\'leri: ilk boş numaralar sırayla (BK-001/002/009/101 dolu)', hb, %w[BK-003 BK-004 BK-005 BK-006])
+
+# ================================================================ 8) performans: 50 kopya × ≈200 eleman (sahte model; ölçüm, eşik yok)
+k1_build(extra: lambda { |roots|
+  piles = (1..150).map do |i|
+    pid = 20_000 + i
+    inf = g(30_000 + i, 'element_type' => 'pile_infill_concrete', 'concrete_volume_m3' => 1.0, 'element_uid' => "MST-#{30_000 + i}-1")
+    g(pid, gf_pile_attrs("Q-#{format('%03d', i)}", own('ANO-20').merge('element_uid' => "MST-#{pid}-1", 'global_x_m' => i.to_f, 'global_y_m' => 0.0)), [inf], tr(i, 0))
+  end
+  roots << g(19_999, { 'element_type' => 'pile_layout', 'system' => 'ISKELE', 'structure' => 'ANO-20' }, piles)
+  40.times do |j|
+    ps = piles[j * 3, 3]
+    rs = g(40_000 + j, 'element_type' => 'head_beam_rebar_set', 'element_uid' => "MST-#{40_000 + j}-1", 'parent_uid' => "MST-#{41_000 + j}-1")
+    roots << g(41_000 + j, own('ANO-20').merge('element_type' => 'head_beam', 'head_beam_id' => "HB-#{format('%03d', j + 1)}", 'element_uid' => "MST-#{41_000 + j}-1",
+                                              'connected_pile_persistent_ids' => ps.map(&:persistent_id).join(', '), 'connected_pile_ids' => ps.map { |p| a(p, 'pile_id') }.join(','),
+                                              'concrete_volume_m3' => 5.0), [rs], tr(j * 3, 0, 2))
+  end
+  10.times do |j|
+    roots << g(42_000 + j, own('ANO-20').merge('element_type' => 'flat_precast', 'precast_id' => "PX-#{format('%03d', j + 1)}", 'element_uid' => "MST-#{42_000 + j}-1",
+                                              'support_left_pid' => 41_000 + j, 'support_right_pid' => 41_001 + j, 'support_left_uid' => "MST-#{41_000 + j}-1",
+                                              'support_right_uid' => "MST-#{41_001 + j}-1", 'concrete_volume_m3' => 1.0))
+  end
+})
+walk8 = ->(list) { list.each { |e| k1_reg(e); walk8.(e.entities) if e.is_a?(G) } }; walk8.($model.entities)
+$model.set_attribute(D, 'system_structures_json', '{"DOLFEN":["BD-01"],"ISKELE":["ANO-01","ANO-05","ANO-20"],"RIHTIM":["RIHTIM-01"]}')
+clk = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
+t0 = clk.(); p8x = M.mst_structure_copy_plan(req('structure' => 'ANO-20', 'count' => '50'), $model); t1 = clk.()
+r8x = M.mst_structure_copy_apply!(p8x, $model); t2 = clk.()
+t('8 50 kopya × ' + p8x['items'].length.to_s + ' öğe: başarılı, tek işlem', [p8x['errors'], r8x['ok'], k1_ops.count(:start)], [[], true, 1])
+puts format('ÖLÇÜM 8 performans: ön kontrol %.2f s, uygulama (kopya + kayıt + doğrulama + commit) %.2f s; %d kaynak öğe × 50 kopya', t1 - t0, t2 - t1, p8x['items'].length)
 
 puts "#{$ok} geçti, #{$bad} kaldı"
 exit($bad.zero? ? 0 : 1)
