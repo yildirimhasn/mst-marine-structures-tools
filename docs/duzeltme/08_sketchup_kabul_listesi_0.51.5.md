@@ -191,3 +191,24 @@ Kaynak: 07 §2.9, raporlar 29–30. Tüm adımlar **model kopyası** üzerinde. 
 | N-33 | genel | Keşif Excel'i ve Hakediş Excel'ini al | Yeni satırlar Excel'de; Ruby Konsolu'nda MST hatası yok | | | | |
 
 Ek (04.11.2026, `2cc5c29`): §11 10 satır (N-24 … N-33); yeni toplam 122.
+
+## 12. Yapıyı Kopyala (kaynak `96c194d`, 09.11.2026)
+Kaynak: 07 §2.10, ADR 31, raporlar 32–33. Tüm adımlar **model kopyası** üzerinde. Bu satırlar SketchUp'ta denenmedi. Her senaryodan önce kaynak yapının Keşif Excel'ini alın. Üç sistemde (İSKELE, RIHTIM, DOLFEN) birer yapı ile yapın.
+
+| No | Parti / bulgu | Adım | Beklenen | Tarih | Model kopyası | Sonuç | Kullanıcının sözü |
+|---|---|---|---|---|---|---|---|
+| N-34 | K1 | Aks Yöneticisi → aktif yapı → Yapıyı Kopyala; 2 kopya, dx = yapı boyu + 10 m, dy 0, önerilen kodlar → onay | Onay sorusunda eleman türleri / sayıları ve kopyalanmayanlar; sonuçta iki yeni yapı aks ağı ve elemanlarıyla doğru yerde; Ruby Konsolu'nda hata yok | | | | |
+| N-35 | K1 metraj | Keşif'i aç (yapı sütunu) ve Excel al | Her kopya yapının satırları kaynakla aynı miktar; proje toplamı = kaynak × 3; kaynak yapının satırları önceki Excel ile aynı | | | | |
+| N-36 | K1 Undo | Kopyadan hemen sonra tek Ctrl+Z; sonra Ctrl+Y | Ctrl+Z: iki kopya, yeni yapı kodları, aks ağları ve yerleşimler tümüyle kalkar, kaynak aynı; Ctrl+Y geri getirir | | | | |
+| N-37 | K1 bağımsızlık | Kopya yapıda bir BK'nın boyunu / menfezini değiştir; bir kazığı düzenle | Yalnız o kopya değişir; kaynak ve diğer kopyanın BK / kazık / döşeme metrajı aynı; Component BK ise kaynak tanımı değişmez | | | | |
+| N-38 | K1 kimlik | Model Kontrolü çalıştır | Mükerrer UID / fiziksel ID (BK, KR, kazık …) uyarısı yok; Kimlik Onarımı kopyaları "onarılacak" göstermez | | | | |
+| N-39 | K1 kayıt | Modeli kaydet, SketchUp'ı kapatıp aç; Keşif ve Aks Yöneticisi'ni aç | Kopya yapılar, kodlar, görünen adlar ve yerleşimler duruyor; Keşif N-35 ile aynı | | | | |
+| N-40 | 32/3 | Kopya yapıda kronmanı seç → Revize / yeniden çiz | Kronman kopyanın kendi yerinde kalır (kaynağın yerine çizilmez) | | | | |
+| N-41 | 32/4, 33/2 | BK içinde ve kökte aksesuar (usturmaça) olan yapıyı kopyala | Aksesuarlar kopyaya geçmez; iletide "yerleştirilmiş N aksesuar kopyalanmadı" ve "Aksesuar çizelgesi ve aksesuar ankraj donatısı çoğalmaz"; Keşif aksesuar satırı değişmez | | | | |
+| N-42 | karar 9 | Component prekastlı yapıyı kopyala; sonra kopyadaki bir Component prekasta donatı ekle | Onay ve sonuç iletisinde "Component prekast tipleri yapılar arasında ortak…" uyarısı; donatı aynı tipteki kaynak prekastta da görünür (bilinen, kararla kabul) | | | | |
+| N-43 | 32/8 | Kopyadan sonra pencere yenilenmeden önceki Aks Yöneticisi'nde (yenilenmezse) Projeyi Kaydet'e bas | "pencerenin bilgileri eski … yeniden açın" uyarısı, kayıt yapılmaz; yeniden açınca kopya yapılar listede | | | | |
+| N-44 | ret | (a) Aks Yöneticisi'nde aks ekleyip kaydetmeden Yapıyı Kopyala; (b) mevcut bir kodu yaz; (c) jet grout satırına elle ilerleme girilmiş yapıyı kopyala | Her birinde neden listesi, "işlem açılmadı, model değişmedi"; Ctrl+Z geçmişinde yeni işlem yok | | | | |
+| N-45 | 32/7 | BK sayfası → Yeni Yapı: önce var olan kodla (ret), sonra yeni kodla; Ctrl+Z | Ret iletisi, model değişmez; yeni yapı tek Ctrl+Z ile kalkar | | | | |
+| N-46 | perf | 10 kopya (gerçek boyutlu yapı) yap; süreyi not et | Tamamlanır; süre kaydedilir (eşik yok; sahte modelde 50 × 391 öğe ≈ 6 s) | | | | |
+
+Ek (09.11.2026, `96c194d`): §12 13 satır (N-34 … N-46); yeni toplam 135.
