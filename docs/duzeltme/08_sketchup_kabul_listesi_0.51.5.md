@@ -211,4 +211,6 @@ Kaynak: 07 §2.10, ADR 31, raporlar 32–33. Tüm adımlar **model kopyası** ü
 | N-45 | 32/7 | BK sayfası → Yeni Yapı: önce var olan kodla (ret), sonra yeni kodla; Ctrl+Z | Ret iletisi, model değişmez; yeni yapı tek Ctrl+Z ile kalkar | | | | |
 | N-46 | perf | 10 kopya (gerçek boyutlu yapı) yap; süreyi not et | Tamamlanır; süre kaydedilir (eşik yok; sahte modelde 50 × 391 öğe ≈ 6 s) | | | | |
 
-Ek (09.11.2026, `96c194d`): §12 13 satır (N-34 … N-46); yeni toplam 135.
+| N-47 | 34/1, 32/2 | İçinde iç içe Group'lar (BK donatı / menfez, kronman segmentleri) ve bir Component BK bulunan yapıyı kopyala; kopyada bir segmentin / donatının özelliğini aç | Kopya tamamlanır (konum uyuşmazlığı iptali yok); her iç öğenin özellikleri kaynaktaki karşılığıyla aynı (yer değiştirmemiş) | | | | |
+
+Ek (09.11.2026, `96c194d`): §12 14 satır (N-34 … N-47); yeni toplam 136.
