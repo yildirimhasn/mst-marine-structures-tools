@@ -55,7 +55,7 @@ ok(/BK üstü 2,500 m/.test(pinfo) && /VARSAYILAN/.test(pinfo), 'referans üst k
 // seçim: kütüphane tipi ilk PK satırına atanır; model tipinde düğme yok
 js("mstPkUseType('pt_pk_1')");
 ok(js("Array.prototype.slice.call(document.querySelectorAll('.pd-layout-row')).filter(function(r){return r.querySelector('.pd-family').value==='PK'})[0].querySelector('.pd-type').value") === 'pt_pk_1', 'PK satırına tip atandı');
-ok(js("document.querySelectorAll('#pkPickList .pk-item')[1].querySelectorAll('button').length") === 0, 'yalnız modeldeki tipte yerleşim düğmesi yok');
+ok(!/Yerleşimde kullan/.test(js("document.querySelectorAll('#pkPickList .pk-item')[1].textContent")), 'yalnız modeldeki tipte yerleşim düğmesi yok (K3 P1: yalnız "Tip kütüphanesine ekle" var)');
 
 // karar 13: kayıt kopyasında eski alanlar kesitle eşit; bilinmeyen alan korunur; kesitsiz kayıt aynı nesne
 const lib = js("(function(){var a=[{uid:'u1',family:'PK',name:'PK-X',inner_width:9,inner_depth:9,base:9,wall:9,concrete:'C30/37',section:" + JSON.stringify(secL) + ",ozel_alan:'kalsin'},{uid:'u2',family:'PK',name:'PK-Y',inner_width:.8,inner_depth:.6,base:.2,wall:.2},{uid:'u3',family:'PK',name:'PK-Z',inner_width:1,inner_depth:1,base:1,wall:1,section:" + JSON.stringify(secU) + "}];var s=mstPkLibraryForSave(a);return {s:s,same:s[1]===a[1],orig:a[0].inner_width}})()");

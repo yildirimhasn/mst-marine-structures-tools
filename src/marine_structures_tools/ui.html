@@ -797,7 +797,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
     <section class="pd-panel"><h3>1. Prekast Tip Kütüphanesi</h3>
       <div class="channel-layout-note"><b>PD</b>: Normal &nbsp;•&nbsp; <b>PDÖ</b>: Dişli/Değişken &nbsp;•&nbsp; <b>PV</b>: Vinç &nbsp;•&nbsp; <b>PK</b>: Kanal. Tip adını Başlık Kirişinde olduğu gibi serbestçe verebilirsiniz.</div>
       <div id="precastTypeLibrary" style="margin-top:8px"></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="secondary" onclick="addPrecastType('PD')">＋ PD</button><button type="button" class="secondary" onclick="addPrecastType('PDO')">＋ PDÖ</button><button type="button" class="secondary" onclick="addPrecastType('PV')">＋ PV</button><button type="button" class="secondary" onclick="addPrecastType('PK')">＋ PK</button></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="secondary" onclick="addPrecastType('PD')">＋ PD</button><button type="button" class="secondary" onclick="addPrecastType('PDO')">＋ PDÖ</button><button type="button" class="secondary" onclick="addPrecastType('PV')">＋ PV</button><button type="button" class="secondary" id="pkNewChannelBtn" onclick="mstPkNewChannelType()" title="Kanal Prekastı formuna gider: kesiti tasarlayın, PK Tip Kaydı bölümünden kaydedin">＋ Yeni PK Kanal Tipi Oluştur</button></div>
       <input id="pd_type" value="PD-01" type="hidden"><input id="pd_height_m" value="0.30" type="hidden"><input id="pd_seat_m" value="0.15" type="hidden">
       <label style="margin-top:8px">Varsayılan Beton Sınıfı<select id="pd_concrete_class"><option selected>C30/37</option><option>C35/45</option><option>C40/50</option><option>C45/55</option><option>C50/60</option></select></label>
     </section>
@@ -811,6 +811,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
       <div class="channel-layout-note">Liste modelde kayıtlı tip kütüphanesinden ve modeldeki PK'lardan okunur. Formda kaydedilmemiş tip değişiklikleri, yerleşim oluşturulunca listeye girer. Cep uyumu için modelde <b>iki BK</b> seçin ve <b>Cep Uyumunu Denetle</b>'ye basın; yerleşim satırları değişirse denetimi yenileyin.</div>
       <div style="margin-top:7px"><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkRefresh()">↻ PK Listesini Yenile</button><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkCheckPockets()">⊔ Cep Uyumunu Denetle</button></div>
       <div id="pkPickStatus" class="pk-status" role="status" aria-live="polite"></div>
+      <div id="pkPickSave" class="pk-pocket-info" role="status" aria-live="polite"></div>
       <div id="pkPocketInfo" class="pk-pocket-info"></div>
       <div id="pkPickList" class="pk-list"></div>
     </section>
@@ -878,7 +879,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
 </div>
 
 
-<section class="pd-panel channel-precast-panel channel-pro">
+<section class="pd-panel channel-precast-panel channel-pro" id="channelPrecastForm">
  <div class="channel-tabs"><button type="button" class="ghost">Normal Prekast (PD)</button><button type="button" class="active">Kanal Prekastı</button><button type="button" class="ghost">Vinç Prekastı</button></div>
  <div class="channel-pro-grid">
   <div class="channel-card ch-wide"><h3>⌄ Kanal Geometrisi</h3>
@@ -958,6 +959,18 @@ label{font-size:11px;color:#4c687f;font-weight:500}
    <div class="fw-checks"><label><input id="channel_fw_bottom" type="checkbox" checked> Taban Kalıbı (Alt)</label><label><input id="channel_fw_sides" type="checkbox" checked> Sol/Sağ Dış Yan Kalıbı</label><label><input id="channel_fw_inner" type="checkbox" checked> Kanal İç Yüzeyleri (İç Taban + İç Yanlar)</label><label><input id="channel_fw_ledge" type="checkbox" checked> Taban Üstü (Ledge) Kalıbı</label><label><input id="channel_fw_ends" type="checkbox" checked> Uç Kalıpları</label><label><input id="channel_fw_top" type="checkbox" disabled> Duvar Üst Yüzeyleri (kalıp değil)</label></div>
    <p class="ch-preset-note" id="channelFwLedgeNote" style="padding:0 10px"></p>
    <div class="ch-form" style="margin-top:9px"><label>Kalıp Yüzeyi Rengi<span class="form-color-control"><select id="channel_formwork_preset" onchange="applyFormworkPreset('channel_formwork_preset','channel_formwork_color')"><option value="#66A9E8">Mavi</option><option value="#F4B183">Turuncu</option><option value="#6DBE73" selected>Yeşil</option><option value="#FFD966">Sarı</option><option value="#E06666">Kırmızı</option><option value="#8E7CC3">Mor</option><option value="#A6A6A6">Gri</option><option value="CUSTOM">Özel</option></select><input id="channel_formwork_color" type="color" value="#6DBE73" onchange="syncFormworkPreset('channel_formwork_preset',this.value)"></span></label><label>Beton Rengi<span><input id="channel_concrete_color" type="color" value="#D9D9D9"></span></label></div>
+  </div>
+  <!-- ADR-0515-K3 P1: PK Tip Kaydı — formdaki kesit tip kütüphanesine (sketchup.pk_type_save → mstPkTypeSaved) -->
+  <div class="channel-card" id="pkSaveCard"><h3>⌄ PK Tip Kaydı</h3>
+   <div class="ch-form">
+    <label>PK kodu<span><input id="pk_save_kod" type="text" style="width:120px" oninput="mstPkSaveEdited('kod')" aria-describedby="pkSaveWhy"></span></label>
+    <label>Tip adı<span><input id="pk_save_ad" type="text" style="width:190px" oninput="mstPkSaveEdited('ad')" aria-describedby="pkSaveWhy"></span></label>
+    <label>Üst yüzey (kot referansı)<span><select id="pk_save_top_ref" style="width:190px"></select></span></label>
+   </div>
+   <p class="ch-preset-note" style="padding:0 10px">Kayıt; formdaki kesiti, beton sınıfını, kalıp seçimlerini (taban, dış yan, iç, taban üstü, uç), sol/sağ oturma payını ve üst yüzey seçimini tip kütüphanesine yazar. Modele PK konmaz; kayıtlı tip Prekast Yerleşimi'nde (2b listesi ve yerleşim satırı) seçilir. Kod ve ad önerisi değiştirilebilir.</p>
+   <button id="pkSaveBtn" class="channel-model" type="button" onclick="mstPkSaveFromForm()">PK Tipi Olarak Kaydet</button>
+   <div id="pkSaveWhy" class="ch-preset-note" style="padding:0 10px"></div>
+   <div id="pkSaveResult" class="pk-pocket-info" role="status" aria-live="polite"></div>
   </div>
   <div class="channel-card"><h3>⌄ İşlemler</h3>
    <label class="channel-enable"><input id="channel_precast_enabled" type="checkbox" checked onchange="updateChannelPrecastUI()"> Kanal Prekastı Aktif</label>
@@ -1495,9 +1508,9 @@ function setPT(uid,key,val){var t=typeByUid(uid);if(!t)return;t[key]=(key==='nam
 function renderPrecastTypes(){
  var box=document.getElementById('precastTypeLibrary');if(!box)return;
  box.innerHTML=precastTypes.map(function(t){
-  var common='<label>Tip Adı<input value="'+esc(t.name)+'" onchange="setPT(\''+t.uid+'\',\'name\',this.value)"></label><label>Sınıf<input value="'+familyLabel(t.family)+'" readonly></label>';
   var lg=t.family==='PK'?mstPkLegacyOf(t):null;
-  var geo=lg?'<label>İç Genişlik<input value="'+esc(String(lg.inner_width))+'" readonly></label><label>İç Derinlik<input value="'+esc(String(lg.inner_depth))+'" readonly></label><label>Taban<input value="'+esc(String(lg.base))+'" readonly></label><label>Duvar<input value="'+esc(String(lg.wall))+'" readonly></label><div class="hint" style="grid-column:1 / -1">Kesit tip kaydından (ön ayar '+esc(lg.sec.preset)+', toplam genişlik '+esc(window.mstChSection.f3(lg.sec.total_width_m))+' m). Eski alanlar kesitle eşitlenir'+(window.mstChSection.uEquiv(lg.sec)?'':'; U dışı kesitte 0')+'. Bu kesit burada düzenlenmez.</div>'+mstPkTopRefField(t,lg.sec)+mstPkDeckField(t,lg.sec)+mstPkFwLedgeField(t,lg.sec):t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
+  var common='<label>'+(lg?'PK Kodu':'Tip Adı')+'<input value="'+esc(t.name)+'" onchange="setPT(\''+t.uid+'\',\'name\',this.value)"></label><label>Sınıf<input value="'+familyLabel(t.family)+'" readonly></label>';
+  var geo=lg?mstPkCardSummary(t,lg.sec)+mstPkTopRefField(t,lg.sec)+mstPkDeckField(t,lg.sec)+mstPkFwLedgeField(t,lg.sec):t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
   if(t.family==='PDO'||t.family==='PV')geo+='<label>Diş Derinliği<input type="number" step=".01" value="'+t.extra+'" onchange="setPT(\''+t.uid+'\',\'extra\',this.value)"></label><label>Sol Diş<input type="number" step=".01" value="'+t.left+'" onchange="setPT(\''+t.uid+'\',\'left\',this.value)"></label><label>Sağ Diş<input type="number" step=".01" value="'+t.right+'" onchange="setPT(\''+t.uid+'\',\'right\',this.value)"></label>';
   return '<div style="border:1px solid #d8e3ea;border-radius:8px;padding:8px;margin:7px 0"><div style="display:grid;grid-template-columns:repeat(3,minmax(110px,1fr));gap:6px">'+common+geo+'<label>Beton<select onchange="setPT(\''+t.uid+'\',\'concrete\',this.value)"><option'+(t.concrete==='C30/37'?' selected':'')+'>C30/37</option><option'+(t.concrete==='C35/45'?' selected':'')+'>C35/45</option><option'+(t.concrete==='C40/50'?' selected':'')+'>C40/50</option></select></label></div><div style="text-align:right;margin-top:5px"><button type="button" class="secondary" onclick="deletePrecastType(\''+t.uid+'\')">Tipi Sil</button></div></div>';
  }).join('');
@@ -2289,6 +2302,7 @@ function updateChannelPrecastUI(){
  var btn=document.getElementById('channelModelBtn');
  if(btn){btn.disabled=!ok;btn.title=ok?'':'Kesit geçersiz: önizleme altındaki hataları düzeltin.'}
  var mr=document.getElementById('channelManualRow');if(mr)mr.style.opacity=mode==='AUTO'?'.45':'1';
+ if(typeof mstPkSaveSync==='function')mstPkSaveSync(sec,ok,errs);   // K3 P1: PK Tip Kaydı düğmesi / öneriler
 }
 function readChannelFromBK(){if(window.sketchup&&sketchup.read_channel_bk)sketchup.read_channel_bk()}
 function createChannelPrecast(){
@@ -2381,7 +2395,7 @@ function mstPkRender(){
  // tip listesi
  if(mstPk.catErr){box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">LİSTE OKUNAMADI</span> '+esc(mstPk.catErr)+'</div>';return}
  if(!mstPk.cat){box.innerHTML='';return}
- if(!mstPk.cat.length){box.innerHTML='<div class="hint">Modelde kayıtlı PK tipi yok. Tip kütüphanesinde PK tanımlayıp yerleşim oluşturunca veya modelde PK bulununca listelenir.</div>';return}
+ if(!mstPk.cat.length){box.innerHTML='<div class="hint">Modelde kayıtlı PK tipi yok. Kanal Prekastı formunda kesiti tasarlayıp "PK Tipi Olarak Kaydet"e basınca veya modelde PK bulununca listelenir.</div>';return}
  box.innerHTML=mstPk.cat.map(function(en,i){
   var lib=en.kaynak==='kütüphane',fit=mstPkFitOf(en.kod,en.kaynak),ok=fit.length&&fit.every(function(x){return x.uyumlu}),bad=fit.filter(function(x){return !x.uyumlu});
   var pr=String(en.on_ayar||''),prl=CH_PRESET_LABELS[pr]||pr;
@@ -2390,11 +2404,12 @@ function mstPkRender(){
   if(en.eski_kayit)tags+='<span class="pk-tag est">ESKİ U KAYDI (kesit verisi yok, U alanlarından)</span>';
   var why=bad.map(function(x){return '<li>'+esc(x.taraf_ad)+' cebi: '+esc(x.nedenler.concat(x.uyarilar).join('; ')||'cep uygun değil')+'</li>'}).join('');
   var errs=(en.hatalar||[]).map(function(e){return '<li>'+esc(e)+'</li>'}).join('');
-  var act=lib?(typeByUid(en.uid)?'<button type="button" class="secondary" onclick="mstPkUseType(mstPk.cat['+i+'].uid)"'+(en.gecerli?'':' disabled title="Kesit geçersiz"')+'>Yerleşimde kullan'+(bad.length?' (uyumsuz)':'')+'</button>':'<div class="hint">Formdaki tip kütüphanesinde yok (silinmiş veya kaydedilmemiş olabilir).</div>'):'<div class="hint">Yalnız modelde var; yerleşimde kullanmak için tip kütüphanesine ekleyin.</div>';
+  var act=lib?(typeByUid(en.uid)?'<button type="button" class="secondary" onclick="mstPkUseType(mstPk.cat['+i+'].uid)"'+(en.gecerli?'':' disabled title="Kesit geçersiz"')+'>Yerleşimde kullan'+(bad.length?' (uyumsuz)':'')+'</button>':'<div class="hint">Formdaki tip kütüphanesinde yok (silinmiş veya kaydedilmemiş olabilir).</div>'):mstPkAddAct(en);
+  var meta=mstPkMeta(en);
   return '<div class="pk-item'+(fit.length?(ok?' pk-ok':' pk-bad'):'')+'"><svg class="pk-mini" id="pkMini'+i+'" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet" role="img" aria-label="'+esc(en.kod)+' kesit önizlemesi"></svg><div>'+
-   '<div class="pk-head"><b>'+esc(en.kod)+'</b> · '+esc(prl)+' ('+esc(pr)+')<span class="pk-src'+(lib?'':' model')+'">'+esc(en.kaynak_ad||en.kaynak)+(en.adet_modelde?' · modelde '+en.adet_modelde+' adet':'')+'</span></div>'+
+   '<div class="pk-head"><b>'+esc(en.kod||en.etiket||'Kayıtsız')+'</b> ·'+esc(prl)+' ('+esc(pr)+')<span class="pk-src'+(lib?'':' model')+'">'+esc(en.kaynak_ad||en.kaynak)+(en.adet_modelde?' · modelde '+en.adet_modelde+' adet':'')+'</span></div>'+
    '<div class="pk-dims">Toplam genişlik '+mstPkF3(en.toplam_genislik_m)+' m · toplam yükseklik '+mstPkF3(en.toplam_yukseklik_m)+' m · taban '+mstPkF3(en.taban_m)+' m'+(typeof en.kesit_alani_m2==='number'?' · kesit alanı '+mstPkF3(en.kesit_alani_m2)+' m²':'')+(en.beton?' · '+esc(en.beton):'')+'</div>'+
-   (en.cikinti_ozet?'<div class="pk-dims">'+esc(en.cikinti_ozet)+'</div>':'')+
+   (en.cikinti_ozet?'<div class="pk-dims">'+esc(en.cikinti_ozet)+'</div>':'')+(meta?'<div class="pk-dims">'+meta+'</div>':'')+
    '<div>'+tags+'</div>'+(why?'<ul class="pk-why">'+why+'</ul>':'')+(errs?'<ul class="pk-err">'+errs+'</ul>':'')+
    '<div class="pk-pick-actions" style="margin-top:4px">'+act+'</div></div></div>';
  }).join('');
@@ -2506,6 +2521,162 @@ function mstPkSetFwLedge(uid,on){var t=typeByUid(uid);if(!t||t.family!=='PK')ret
 function mstPkFwLedgeField(t,sec){
  return '<label class="check" style="grid-column:1 / -1"><input type="checkbox"'+(mstPkFwLedgeOn(t)?' checked':'')+' onchange="mstPkSetFwLedge(\''+t.uid+'\',this.checked)"> Taban üstü (ledge) kalıbı</label>'+
   '<div class="hint" style="grid-column:1 / -1">'+esc(chFwLedgeNote(sec,'Tip kesitinden'))+' Seçim tip kaydına yazılır ve bu tipten yerleştirilen PK\'larda kullanılır.</div>';
+}
+
+/* ADR-0515-K3 P1 — PK Tipi Olarak Kaydet (Kanal Prekastı formu) ve 2b "Tip kütüphanesine ekle" (yalnız modelde var). Tek callback
+   sketchup.pk_type_save(json) → window.mstPkTypeSaved(p) (main.rb). Aynı geometri / kod çakışması denetimi Ruby'dedir; burada yalnız
+   istek, öneri (kod, ad) ve yanıt gösterimi. İstek: {kod, ad, section, concrete, fw:{bottom,sides,inner,ends,ledge}, seat_left_m,
+   seat_right_m, channel_top_ref?, kaynak_pid?, karar: null|"mevcut"|"yeni", kutuphane: mstPkLibraryForSave(precastTypes)}. */
+var mstPkSave={req:null,origin:'form',busy:false,res:null,useUid:'',edited:{kod:false,ad:false},add:null};
+var PK_SAVE_NAMES={U:'U Kanal',L:'L Kanal',UU:'Çift Gözlü Kanal',K:'Kademeli Plak Kanal',OZEL:'Özel Kanal'};
+// Sıradaki kod: kütüphanedeki ve listedeki "PK-<sayı>" kodlarının en büyüğü + 1, üç hane (PK-002)
+function mstPkNextCode(){
+ var n=0,f=function(s){var m=/^PK-(\d+)$/i.exec(String(s===null||s===undefined?'':s).trim());if(m&&+m[1]>n)n=+m[1]};
+ precastTypes.forEach(function(t){if(t&&t.family==='PK')f(t.name)});
+ if(mstPk.cat)mstPk.cat.forEach(function(en){f(en&&en.kod)});
+ var s=String(n+1);while(s.length<3)s='0'+s;return 'PK-'+s;
+}
+// Ad önerisi: ön ayar + toplam genişlik (mm), ör. "L Kanal 1000"
+function mstPkSuggestName(sec){var S=window.mstChSection,p=sec?String(sec.preset||''):'',w=sec?S.num(sec.total_width_m):NaN;return (PK_SAVE_NAMES[p]||'Özel Kanal')+(isFinite(w)&&w>0?' '+Math.round(w*1000):'')}
+function mstPkDate(s){var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s));return m?m[3]+'.'+m[2]+'.'+m[1]:String(s)}
+function mstPkTopRefOpts(sec,cur){
+ var S=window.mstChSection,a=S.active(sec),hit=false;
+ var o=a.map(function(x){var s=x.part===cur;if(s)hit=true;return '<option value="'+x.part+'"'+(s?' selected':'')+'>'+S.LABELS[x.part]+' çıkıntı üstü (alttan '+S.f3(S.height(sec,x.part))+' m)</option>'}).join('');
+ return {html:'<option value=""'+(hit?'':' selected')+'>En yüksek açık çıkıntı (varsayılan, '+S.f3(S.height(sec))+' m)</option>'+o,val:hit?cur:''};
+}
+function mstPkSaveEdited(k){
+ mstPkSave.edited[k]=true;
+ if(k==='kod'){var f=document.getElementById('pk_save_kod');if(f){f.removeAttribute('aria-invalid');f.style.borderColor=''}}
+ mstPkSaveSync();
+}
+// Düğme durumu + öneriler (kullanıcı alanı değiştirmediyse). Geçersiz kesitte / boş kod-adda pasif, neden görünür.
+function mstPkSaveSync(sec,ok,errs){
+ var S=window.mstChSection,g=function(id){return document.getElementById(id)},kd=g('pk_save_kod'),ad=g('pk_save_ad'),tr=g('pk_save_top_ref'),btn=g('pkSaveBtn'),why=g('pkSaveWhy');
+ if(!btn)return;
+ if(!sec){sec=chReadSection();errs=S.valid(sec);ok=!errs.length}
+ if(kd&&!mstPkSave.edited.kod)kd.value=mstPkNextCode();
+ if(ad&&!mstPkSave.edited.ad&&ok)ad.value=mstPkSuggestName(sec);
+ if(tr){if(ok){var to=mstPkTopRefOpts(sec,String(tr.value||''));tr.innerHTML=to.html;tr.value=to.val}else{tr.innerHTML='<option value="">— (kesit geçersiz)</option>';tr.value=''}tr.disabled=!ok}
+ var r=[];
+ if(!ok)r.push('Kesit geçersiz; önizleme altındaki hataları düzeltin.');
+ if(kd&&!String(kd.value).trim())r.push('PK kodunu girin (ör. '+mstPkNextCode()+').');
+ if(ad&&!String(ad.value).trim())r.push('Tip adını girin.');
+ if(mstPkSave.busy)r.push('Kayıt yanıtı bekleniyor.');
+ btn.disabled=r.length>0;btn.title=r.join(' ');
+ if(why)why.textContent=r.length?'Kaydedilemez: '+r.join(' '):'';
+}
+function mstPkFormRequest(){
+ var g=function(id){return document.getElementById(id)},ck=function(id){var e=g(id);return !!(e&&e.checked)},v=function(id){var e=g(id);return e?String(e.value||'').trim():''};
+ var q={kod:v('pk_save_kod'),ad:v('pk_save_ad'),section:chReadSection(),concrete:v('channel_concrete_class')||'C30/37',
+  fw:{bottom:ck('channel_fw_bottom'),sides:ck('channel_fw_sides'),inner:ck('channel_fw_inner'),ends:ck('channel_fw_ends'),ledge:ck('channel_fw_ledge')},
+  seat_left_m:chNum('channel_seat_left_m',.15),seat_right_m:chNum('channel_seat_right_m',.15)};
+ var tr=v('pk_save_top_ref').toLowerCase();if(window.mstChSection.PARTS.indexOf(tr)>=0)q.channel_top_ref=tr;
+ q.karar=null;return q;
+}
+function mstPkSaveSend(q,origin){
+ if(!(window.sketchup&&sketchup.pk_type_save))return;
+ q.kutuphane=mstPkLibraryForSave(precastTypes);
+ mstPkSave.req=q;mstPkSave.origin=origin;mstPkSave.busy=true;mstPkSave.res={durum:'gonderildi'};
+ mstPkSaveRender();mstPkSaveSync();if(origin==='2b')mstPkRender();
+ sketchup.pk_type_save(JSON.stringify(q));
+}
+function mstPkSaveFromForm(){
+ if(window.mstChSection.valid(chReadSection()).length){updateChannelPrecastUI();return}
+ var q=mstPkFormRequest();if(!q.kod||!q.ad||mstPkSave.busy){mstPkSaveSync();return}
+ mstPkSaveSend(q,'form');
+}
+// Aynı geometri yanıtından sonra kullanıcı kararı: aynı istek karar ile yeniden gönderilir (kütüphane güncel haliyle)
+function mstPkSaveDecide(k){
+ var q=mstPkSave.req,c={},x;if(!q||(k!=='mevcut'&&k!=='yeni')||mstPkSave.busy)return;
+ for(x in q)if(Object.prototype.hasOwnProperty.call(q,x)&&x!=='kutuphane')c[x]=q[x];
+ c.karar=k;mstPkSaveSend(c,mstPkSave.origin);
+}
+window.mstPkTypeSaved=function(p){
+ p=(p&&typeof p==='object')?p:{ok:false,neden:'Kayıt yanıtı okunamadı.'};
+ mstPkSave.busy=false;mstPkSave.res=p;
+ var d=String(p.durum||''),done=!!p.ok&&(d==='kaydedildi'||d==='mevcut_secildi');
+ if(done){
+  var kj=p.kutuphane_json;if(kj!==null&&kj!==undefined&&typeof kj!=='string')kj=JSON.stringify(kj);
+  if(kj)loadPrecastTypeLibrary(kj);
+  mstPkSave.edited={kod:false,ad:false};mstPkSave.add=null;
+ }
+ mstPkSaveRender();mstPkSaveSync();
+ if(done)mstPkRefresh();else if(mstPkSave.origin==='2b')mstPkRender();
+ if(d==='kod_cakisma'){var f=document.getElementById(mstPkSave.origin==='2b'?'pkAddKod':'pk_save_kod');if(f){f.setAttribute('aria-invalid','true');f.style.borderColor='#c0392b';f.focus()}}
+};
+function mstPkSaveRender(){
+ var fb=document.getElementById('pkSaveResult'),pb=document.getElementById('pkPickSave'),box=mstPkSave.origin==='2b'?pb:fb,other=box===fb?pb:fb;
+ if(other)other.innerHTML='';if(!box)return;
+ var p=mstPkSave.res;if(!p){box.innerHTML='';return}
+ var d=String(p.durum||''),m=(p.mevcut&&typeof p.mevcut==='object')?p.mevcut:{},t=(p.tip&&typeof p.tip==='object')?p.tip:{};
+ var nm=function(o){var k=o.kod||o.name||'?',a=o.ad||o.title||'';return esc(k)+(a?' ('+esc(a)+')':'')};
+ if(d==='gonderildi'){box.innerHTML='<div class="pk-pair">Kaydediliyor… tip kütüphanesi denetleniyor.</div>';return}
+ if(d==='ayni_geometri'){box.innerHTML='<div class="pk-pair"><span class="pk-tag est">AYNI GEOMETRİ</span> Bu geometri zaten '+nm(m)+' olarak kayıtlı. Mevcut tipi kullanın ya da ayrı bir tip olarak kaydedin.<div class="pk-pick-actions" style="margin-top:4px"><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkSaveDecide(\'mevcut\')">Mevcut tipi kullan</button><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkSaveDecide(\'yeni\')">Yine de yeni tip kaydet</button></div></div>';return}
+ if(d==='kod_cakisma'){var rk=(mstPkSave.req&&mstPkSave.req.kod)||'';box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">KOD KULLANILIYOR</span> '+esc(rk)+' kodu başka bir PK tipinde kayıtlı'+(m.kod?' ('+nm(m)+')':'')+'; PK kodu alanına farklı bir kod verin ve yeniden kaydedin.'+(p.neden?'<div class="pk-dims">'+esc(p.neden)+'</div>':'')+'</div>';return}
+ if(p.ok&&(d==='kaydedildi'||d==='mevcut_secildi')){
+  var o=d==='mevcut_secildi'&&m.uid?m:t,uid=o.uid||t.uid||m.uid||'';mstPkSave.useUid=uid;
+  box.innerHTML='<div class="pk-pair"><span class="pk-tag ok">'+(d==='kaydedildi'?'KAYDEDİLDİ':'MEVCUT TİP SEÇİLDİ')+'</span> '+(d==='kaydedildi'?nm(o)+' tip kütüphanesine kaydedildi.':'Yeni kayıt açılmadı; mevcut '+nm(o)+' kullanılacak.')+
+   (uid?'<div class="pk-pick-actions" style="margin-top:4px"><button type="button" class="secondary" onclick="mstPkGoUse(mstPkSave.useUid)">Prekast Yerleşimi\'nde kullan</button></div>':'<div class="pk-dims">Tip kimliği yanıtta yok; PK listesinden seçin.</div>')+'</div>';
+  return;
+ }
+ box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">KAYDEDİLMEDİ</span> '+esc(p.neden||'PK tipi kaydedilemedi.')+'</div>';
+}
+// Kayıtlı tipi ilk PK yerleşim satırına atar (mstPkUseType) ve Prekast sayfasında yerleşim satırlarına götürür
+function mstPkGoUse(uid){
+ var pg=document.getElementById('precast'),bs,i;
+ if(pg&&!pg.classList.contains('on')){bs=document.querySelectorAll('button');for(i=0;i<bs.length;i++)if(/T\('precast'/.test(bs[i].getAttribute('onclick')||'')){T('precast',bs[i]);break}}
+ if(!uid)return;
+ mstPkUseType(uid);
+ var r=document.getElementById('pdLayoutRows');if(r&&r.scrollIntoView)r.scrollIntoView({block:'center'});
+}
+// Talimat 6: "+ Yeni PK Kanal Tipi Oluştur" eski U kartını açmaz; Kanal Prekastı formuna götürür
+function mstPkNewChannelType(){
+ var f=document.getElementById('channelPrecastForm');if(f&&f.scrollIntoView)f.scrollIntoView({block:'start'});
+ var w=document.getElementById('channel_total_width_m');if(w)w.focus();
+ var why=document.getElementById('pkSaveWhy');if(why&&!why.textContent)why.textContent='Yeni PK tipi: kesiti bu formda tasarlayın, PK Tip Kaydı bölümünde kod ve adı verip "PK Tipi Olarak Kaydet"e basın.';
+}
+// Tip kartı (kesitli PK): ön ayar, ölçüler, tip adı / revizyon / oluşturma tarihi (varsa)
+function mstPkCardSummary(t,sec){
+ var S=window.mstChSection,pr=String(sec.preset||''),meta=[];
+ if(t.title)meta.push('Tip adı: '+esc(t.title));
+ if(typeof t.pk_rev==='number'&&isFinite(t.pk_rev)&&t.pk_rev>0)meta.push('revizyon '+t.pk_rev);
+ if(t.created_at)meta.push('oluşturma '+esc(mstPkDate(t.created_at)));
+ return '<div class="hint" style="grid-column:1 / -1"><b>'+esc(CH_PRESET_LABELS[pr]||pr)+'</b> · toplam genişlik '+S.f3(S.num(sec.total_width_m))+' m × yükseklik '+S.f3(S.height(sec))+' m · taban '+S.f3(S.num(sec.base_m))+' m'+
+  (meta.length?'<br>'+meta.join(' · '):'')+'<br>Kesit Kanal Prekastı formundan tasarlanır; kayıtlı kesit bu kartta değiştirilmez (yalnız aşağıdaki seçimler).</div>';
+}
+// 2b satırı: tip adı, revizyon, oluşturma, yapı bazlı kullanım (katalog kullanim: [{yapi, adet}], öğelerden)
+function mstPkMeta(en){
+ var a=[];
+ if(en.title)a.push('Tip adı: '+esc(en.title));
+ if(typeof en.pk_rev==='number'&&isFinite(en.pk_rev)&&en.pk_rev>0)a.push('revizyon '+en.pk_rev);   // 0 = kayıtsız (modeldeki PK)
+ if(en.created_at)a.push('oluşturma '+esc(mstPkDate(en.created_at)));
+ if(Array.isArray(en.kullanim))a.push(en.kullanim.length?'kullanım (modeldeki PK\'lar): '+en.kullanim.map(function(u){u=u||{};return esc(u.yapi_ad||u.yapi||'Yapı belirtilmemiş')+' '+(typeof u.adet==='number'?u.adet:'?')+' adet'}).join('; '):'modelde kullanılmıyor');
+ return a.join(' · ');
+}
+// 2b "Yalnız modelde var" satırı: Tip kütüphanesine ekle (kaynak_pid ile aynı callback)
+function mstPkHasPid(en){var p=en?en.kaynak_pid:null;return p!==null&&p!==undefined&&p!==''}
+function mstPkAddAct(en){
+ var a=mstPkSave.add,has=mstPkHasPid(en);
+ if(a&&has&&a.pid===en.kaynak_pid){
+  return '<div class="ch-form"><label>PK kodu<span><input id="pkAddKod" type="text" style="width:120px" value="'+esc(a.kod)+'" oninput="mstPkSave.add.kod=this.value;this.removeAttribute(\'aria-invalid\');this.style.borderColor=\'\'"></span></label><label>Tip adı<span><input id="pkAddAd" type="text" style="width:190px" value="'+esc(a.ad)+'" oninput="mstPkSave.add.ad=this.value"></span></label></div>'+
+   '<button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkAddSend()"'+(mstPkSave.busy?' disabled title="Kayıt yanıtı bekleniyor"':'')+'>Tip kütüphanesine kaydet</button><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkAddClose()">Vazgeç</button>';
+ }
+ var dis=!has?' disabled title="Bu satırda modeldeki PK\'nın kimliği yok; listeyi yenileyin"':(!en.gecerli?' disabled title="Kesit geçersiz"':'');
+ return '<div class="hint">Yalnız modelde var; yerleşimde kullanmak için tip kütüphanesine ekleyin.</div><button type="button" class="secondary pk-add-btn" onclick="mstPkAddOpen('+esc(JSON.stringify(has?en.kaynak_pid:null))+')"'+dis+'>Tip kütüphanesine ekle</button>'+
+  (has?'':'<div class="hint">Eklenemez: modeldeki PK okunamadı (kimlik bilgisi yok). PK Listesini Yenile ile tekrar deneyin.</div>');
+}
+function mstPkCatByPid(pid){var c=mstPk.cat||[],i;for(i=0;i<c.length;i++)if(c[i]&&c[i].kaynak!=='kütüphane'&&mstPkHasPid(c[i])&&c[i].kaynak_pid===pid)return c[i];return null}
+function mstPkAddOpen(pid){
+ var en=mstPkCatByPid(pid);if(!en)return;
+ mstPkSave.add={pid:pid,kod:mstPkNextCode(),ad:mstPkSuggestName(en.section)};mstPkRender();
+ var f=document.getElementById('pkAddKod');if(f)f.focus();
+}
+function mstPkAddClose(){mstPkSave.add=null;mstPkRender()}
+function mstPkAddSend(){
+ var a=mstPkSave.add,en=a?mstPkCatByPid(a.pid):null;if(!en||mstPkSave.busy)return;
+ var kod=String(a.kod||'').trim(),ad=String(a.ad||'').trim();
+ if(!kod||!ad){mstPk.msg='Tip kütüphanesine eklemek için PK kodu ve tip adı girin.';mstPkRender();return}
+ mstPkSaveSend({kod:kod,ad:ad,section:en.section,concrete:en.beton||'C30/37',kaynak_pid:en.kaynak_pid,karar:null},'2b');
 }
 
 
