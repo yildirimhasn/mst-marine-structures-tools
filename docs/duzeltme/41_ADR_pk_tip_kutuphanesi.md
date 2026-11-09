@@ -49,3 +49,13 @@ Dokunulmayacak (ADR 37): `dependency_rebuild.rb`, `finalize_bim_identity`, `mst_
 PK silindikten sonra döşeme yeniden kurulumunun yalnız ilgili açıklığı değiştirdiği (SketchUp'ta denenmeli); `mst_deck_after_edit`'in normal işlem içinden güvenle çağrılabildiği (kendi işlem açma yolu okunmadı).
 
 Kullanıcı kararları bu bölümün altına eklenecek.
+
+## Kullanıcı kararları (10.11.2026)
+1. Kütüphane: **C** — model kopyası esas + kullanıcı dosyası (`%APPDATA%\MarineStructuresTools\PKLibrary\pk_types.json`), elle içe al / dışa ver, otomatik eşzamanlama yok, aynı kod + farklı geometri birleşmez.
+2. (ana oturum, mimar önerisi) Yeni anahtarlar `precast_type_uid` (öğe), `pk_rev` (kayıt), `precast_type_rev` (öğe); eski modelde adla eşleme.
+3. "Yalnız bu eleman" düzenlemesi zorunlu yeni tip açar.
+4. "Tüm örnekleri güncelle": varsayılan seçili yapı, seçenekle tüm model; önce plan (yapı başına adet, cep uyumu), uymayan örnek varsa başlamaz, tek Geri Al.
+5. (ana oturum, mimar önerisi) Tip değişince kot öğenin kot yöntemiyle yeniden hesaplanır.
+6. Alt kot: yeni **`SUPPORT`** modu (alt yüz BK üstüne, BK değişince izler; eski sürüm TOP okur). TOP/POCKET/MANUAL kayıtlı değerleri değişmez.
+7. PK silme: **"PK Sil" komutu** (PK + ilgili döşeme aynı normal işlemde, tek Geri Al); SketchUp Delete ile silmede karar 7 (uyarı + elle güncelle) geçerli kalır.
+8. (ana oturum, mimar önerisi) 3B önizleme: SVG izometrik, WebGL yok.
