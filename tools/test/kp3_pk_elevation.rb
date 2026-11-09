@@ -319,5 +319,47 @@ if HAVE
     [near(pp.get_attribute(D, 'bottom_elevation_m'), 2.1), $op_args.first && $op_args.first[0], $op_args.first && $op_args.first[3], $model.ops.include?([:abort])], [true, 'MST Kanal Prekastı Cebe Oturt', true, false])
 end
 
+# ---------------------------------------------------------------- 7. P3 sonrası (kp3c): cep uyumu yükünde BK üstü; denetimde tanımlı üst yüzey
+if HAVE
+  # 7a. mst_pk_pocket_candidates → ciftler[].bk_ust_m (cep bölgesindeki BK üstü, dünya kutusu)
+  fresh_model
+  $model.set_attribute(D, 'precast_type_library_json', JSON.generate(LIB))
+  l = bk_y(9501, 0.0, 1.0); r = bk_y(9502, 4.0, 5.0)
+  pd = Sketchup::Group.new(9503, 'element_type' => 'flat_precast', 'precast_id' => 'PD9503', 'support_left_pid' => 9501, 'support_right_pid' => 9502, 'joint_m' => 0.02)
+  pd.bounds = Geom::BoundingBox.new([0.85 * IN, 4.0 * IN, 2.7 * IN], [4.15 * IN, 5.0 * IN, 3.0 * IN]); put(pd)
+  c = M.mst_pk_pocket_candidates($model, [l, r])['ciftler'][0]
+  t('7.1 bk_ust_m = BK üstü 3,00; uyarı yok; mevcut alanlar aynı (referans üst = PD üstü, uyarı yok, cep uygun)',
+    [near(c['bk_ust_m'], 3.0), c['bk_ust_uyari'], near(c['referans_ust_m'], 3.0), c['uyarilar'], c['cep_uygun']], [true, nil, true, [], true])
+  fresh_model
+  l = bk_y(9511, 0.0, 1.0, 3.0, 0.8); r = bk_y(9512, 4.0, 5.0, 3.1, 0.9)   # cep tabanları eşit (2,20), BK üstleri farklı
+  c = M.mst_pk_pocket_candidates($model, [l, r], nil, { 'ref_top_m' => 3.0 })['ciftler'][0]
+  t('7.2 BK üstleri farklı → bk_ust_m nil + Türkçe uyarı (ayrı alan); uyarilar / cep_uygun değişmez',
+    [c['bk_ust_m'], c['bk_ust_uyari'].to_s.include?('farklı'), c['uyarilar'], c['cep_uygun']], [nil, true, [], true])
+  fresh_model
+  l = bk_y(9521, 0.0, 1.0); r = bk_y(9522, 4.0, 5.0, 3.0, 0.8, 2.0, false)
+  c = M.mst_pk_pocket_candidates($model, [l, r], nil, { 'ref_top_m' => 3.0 })['ciftler'][0]
+  t('7.3 karşı cep yok → bk_ust_m nil, neden yazılı', [c.key?('bk_ust_m'), c['bk_ust_m'], c['bk_ust_uyari'].to_s.empty?], [true, nil, false])
+
+  # 7b. mst_kn_audit: channel_top_ref seçili PK'da PD üstü karşılaştırması tanımlı üst yüzeyle (alt + mst_ch_height(cs, ref))
+  aud = lambda do |ref, real_top, pd_top|
+    fresh_model
+    bk_y(9531, 0.0, 1.0); bk_y(9532, 4.0, 5.0)
+    pd = Sketchup::Group.new(9533, 'element_type' => 'flat_precast', 'precast_id' => 'PD9533', 'support_left_pid' => 9531, 'support_right_pid' => 9532, 'joint_m' => 0.02)
+    pd.bounds = Geom::BoundingBox.new([0.85 * IN, 4.0 * IN, (pd_top - 0.3) * IN], [4.15 * IN, 5.0 * IN, pd_top * IN]); put(pd)
+    a = { 'element_type' => 'channel_precast', 'precast_family' => 'PK', 'precast_id' => 'PK9534', 'support_left_pid' => 9531, 'support_right_pid' => 9532, 'joint_m' => 0.02,
+          'bottom_elevation_m' => 2.2, 'top_elevation_m' => real_top, 'channel_section_json' => M.mst_ch_json(sec_uu) }
+    a['channel_top_ref'] = ref if ref
+    pk = Sketchup::Group.new(9534, a)
+    pk.bounds = Geom::BoundingBox.new([0.85 * IN, 2.02 * IN, 2.2 * IN], [4.15 * IN, 3.22 * IN, real_top * IN]); put(pk)
+    els = []; M.collect_elements($model.entities, els)
+    M.mst_kn_audit(els)[0].select { |x| x[3].to_s.include?('PD üstü') }.map { |x| x[3] }.uniq   # iki BK cebi aynı PK'yı ayrı denetler
+  end
+  t('7.4 channel_top_ref orta: tanımlı üst 2,70 = PD üstü 2,70 → uyarı yok (gerçek üst 3,00 korunur)', aud.('mid', 3.0, 2.7), [])
+  w = aud.('mid', 3.0, 3.0)
+  t('7.5 channel_top_ref orta, PD üstü 3,00: uyarı tanımlı üst 2,700 ile', [w.length, w[0].to_s.include?('2.700'), w[0].to_s.include?('3.000 m, PD')], [1, true, false])
+  t('7.6 channel_top_ref yok: eski davranış (gerçek üst 3,00 = PD 3,00 → uyarı yok; PD 2,70 → uyarı 3,000)',
+    [aud.(nil, 3.0, 3.0), aud.(nil, 3.0, 2.7).map { |x| x.include?('üst kotu 3.000 m') }], [[], [true]])
+end
+
 puts "\nKP3: #{$ok} geçti, #{$bad} kaldı"
 exit($bad.zero? ? 0 : 1)

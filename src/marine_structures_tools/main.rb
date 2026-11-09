@@ -12895,8 +12895,12 @@ def mst_kn_audit(elems,pockets_of=nil)
       mates=pre.select{|e|typ[e]!='channel_precast' && e.get_attribute(DICT,'support_left_pid',0).to_i==c.get_attribute(DICT,'support_left_pid',-1).to_i && e.get_attribute(DICT,'support_right_pid',0).to_i==c.get_attribute(DICT,'support_right_pid',-1).to_i}
       next if mates.empty?
       pdt=mates.map{|e|wb[e]['z'][1]}.max
-      if (cb['z'][1]-pdt).abs>MST_KN_TOL
-        out << ['WARNING',c,'Kanal Cebi',"#{cid} üst kotu #{f3[cb['z'][1]]} m, PD üstü #{f3[pdt]} m (eşit olmalı).","'PD Kotlarını BK ile Güncelle' kanalı PD üstüne hizalar.",[c.persistent_id]]
+      # ADR-0515-K2 P3 sonrası (karar 2): channel_top_ref seçiliyse PD üstüyle tanımlı üst yüzey karşılaştırılır (alt + kesit yüksekliği);
+      # öğenin gerçek en üst noktası (top_elevation_m, dünya kutusu) değişmez. Seçim yoksa eski karşılaştırma.
+      ccs=mst_ch_custom_section(c);ctr=ccs ? mst_pk_top_ref(c,ccs) : nil
+      ct=ctr ? cb['z'][0]+mst_ch_height(ccs,ctr) : cb['z'][1]
+      if (ct-pdt).abs>MST_KN_TOL
+        out << ['WARNING',c,'Kanal Cebi',"#{cid} #{ctr ? 'tanımlı üst yüzey kotu' : 'üst kotu'} #{f3[ct]} m, PD üstü #{f3[pdt]} m (eşit olmalı).","'PD Kotlarını BK ile Güncelle' kanalı PD üstüne hizalar.",[c.persistent_id]]
       end
     end
   end
@@ -13095,9 +13099,20 @@ def mst_pk_pocket_candidates(model,bk_ref,side_or_pair=nil,opts={},elems=nil,poc
     {'aciklik'=>span,'sol_bk'=>element_visible_id(l),'sag_bk'=>element_visible_id(r),'taraf'=>p['side'],'taraf_ad'=>mst_kn_side_label(p),
      'cep_genisligi_m'=>pw,'cep_derinligi_m'=>p['depth'],'cep_tabani_m'=>p['floor_z'],'karsi_cep_tabani_m'=>q ? q['floor_z'] : nil,
      'derz_m'=>joint,'derz_kaynagi'=>jsrc,'referans_ust_m'=>top,'referans_kaynagi'=>tsrc,
-     'beklenen'=>{'dis_genislik_m'=>ow,'toplam_yukseklik_m'=>oh},'uyarilar'=>warns,'cep_uygun'=>warns.empty?,'adaylar'=>ads}
+     'beklenen'=>{'dis_genislik_m'=>ow,'toplam_yukseklik_m'=>oh},'uyarilar'=>warns,'cep_uygun'=>warns.empty?,'adaylar'=>ads}.merge(mst_pk_bk_top(p,q))
   end
   {'ok'=>true,'neden'=>nil,'ciftler'=>pairs}
+end
+
+# P3 sonrası: cep çiftinin BK üstü (arayüz ref_top_m = bk_ust_m + en kalın PD için). Kaynak: iki cebin dünya kutusunun üstü
+# (mst_bk_pockets: BK yerel üst yüzeyi, mst_world_tr × transformation zinciri) — eğik BK'da cep bölgesindeki en üst nokta.
+# İki BK üstü farklıysa (> MST_KN_TOL) ya da karşı cep yoksa nil + bk_ust_uyari (tahmin edilmez: düşük olanı seçmek diğer BK'da
+# PD üstünü yanlış verir). Salt okuma; uyarilar / cep_uygun'a katılmaz (uyum sonucu değişmez).
+def mst_pk_bk_top(p,q)
+  return {'bk_ust_m'=>nil,'bk_ust_uyari'=>'karşı BK cebi bulunamadı; BK üst kotu belirlenemedi'} if q.nil?
+  a=p['box']['z'][1];b=q['box']['z'][1]
+  return {'bk_ust_m'=>nil,'bk_ust_uyari'=>"iki BK'nın üst kotu farklı (#{mst_pk_f3c(a)} / #{mst_pk_f3c(b)} m); BK üst kotu belirlenemedi"} if (a-b).abs>MST_KN_TOL
+  {'bk_ust_m'=>a,'bk_ust_uyari'=>nil}
 end
 
 # HtmlDialog (Prekast Yerleşimi) — salt okuma; okuma işlevlerinin geçiş yazımları mst_plan_readonly ile kapalı, işlem açılmaz.
