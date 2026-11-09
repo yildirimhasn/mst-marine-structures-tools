@@ -20,6 +20,7 @@ if NEW
   a2_const(Host, main, 'MST_AUDIT_ERROR_FLAGS')
   A1.load(Host, A1.src('mst_rebar_tools.rb'), 'def mst_rt_world_tr(')
   A1.load(Host, bm, 'def mst_vk_support_state(')
+  A1.load_opt(Host, main, 'def mst_deck_pk_missing_audit(')   # ADR-0515-K2 P4: mst_audit_v0515 silinen PK denetimi
   %w[mst_topping_parent_deck mst_uid_owner].each { |f| A1.load(Host, A1.src('dependency_rebuild.rb'), "def #{f}(") }
 end
 h = Host.new

@@ -16,6 +16,11 @@ MST_CH_PART_LABELS={'left'=>'Sol','mid'=>'Orta','right'=>'Sağ'}.freeze
 # Ön ayarlar yalnız açık / kapalı bayraklarını değiştirir; ölçüler korunur (K ile L farkı yalnız ad / etiket).
 MST_CH_PRESETS={'U'=>%w[left right],'L'=>%w[right],'UU'=>%w[left mid right],'K'=>%w[right]}.freeze
 MST_CH_EPS=1e-9
+# P4 (ADR K6, kararlar 3, 11): döşemede sol / sağ taban üstü (en dış çıkıntının dış tarafı, "dış ledge") açık kalır ('open') ya da
+# döşeme betonuyla dolar ('fill'). Seçim kesitte deck_ledge_left / deck_ledge_right; yoksa ön ayar varsayılanı:
+# U, L, UU açık; K ve OZEL dolu (karar 3 genel kuralı). Geometri anahtarına / imzaya girmez.
+MST_CH_DECK_KEYS=%w[deck_ledge_left deck_ledge_right].freeze
+MST_CH_DECK_FILL_PRESETS=%w[K OZEL].freeze
 # Kalıp rolleri: U'da 4 rol (eski); U dışı kesitte 5. rol taban üst ledge'i (karar 4: ayrı rol, varsayılan kalıplı).
 MST_CH_FW_ROLES_U=[%w[OUTER_BOTTOM],%w[OUTER_SIDE],%w[INNER_FLOOR INNER_SIDE],%w[END_FACE]].freeze
 MST_CH_FW_ROLES_X=[%w[OUTER_BOTTOM],%w[OUTER_SIDE],%w[INNER_FLOOR INNER_SIDE],%w[END_FACE],%w[BASE_LEDGE]].freeze
@@ -71,6 +76,7 @@ def mst_ch_parse(raw)
   p=h[k].is_a?(Hash) ? h[k].each_with_object({}){|(a,b),o|o[a.to_s]=b} : {}
   out[k]={'on'=>mst_ch_bool(p['on']),'width_m'=>mst_ch_num(p['width_m']),'height_m'=>mst_ch_num(p['height_m']),'offset_m'=>mst_ch_num(p['offset_m'])}
  end
+ MST_CH_DECK_KEYS.each{|k|v=mst_ch_deck_flag(h[k]);out[k]=v if v}   # P4: yalnız geçerli seçim taşınır
  out
 end
 
@@ -309,10 +315,45 @@ def mst_ch_geom_sig(sec)
  (["kesit:#{mmv[sec['total_width_m']]}/#{mmv[sec['base_m']]}"]+mst_ch_active(sec).map{|a|p=sec[a['part']];"#{a['part']}:#{mmv[p['width_m']]}x#{mmv[p['height_m']]}@#{mmv[p['offset_m']]}"}).join('/')
 end
 
-# Öğeye yazılacak JSON (tüm alanlar; pasif çıkıntı değerleri saklanır).
+# Öğeye yazılacak JSON (tüm alanlar; pasif çıkıntı değerleri saklanır). P4: döşeme ledge seçimi yalnız varsa yazılır.
 def mst_ch_json(sec)
  s=mst_ch_parse(sec) || sec
- JSON.generate({'v'=>1,'preset'=>s['preset'],'total_width_m'=>s['total_width_m'],'base_m'=>s['base_m']}.merge(Hash[MST_CH_PARTS.map{|k|[k,s[k]]}]))
+ JSON.generate({'v'=>1,'preset'=>s['preset'],'total_width_m'=>s['total_width_m'],'base_m'=>s['base_m']}.merge(Hash[MST_CH_PARTS.map{|k|[k,s[k]]}]).merge(s.select{|k,v|MST_CH_DECK_KEYS.include?(k) && v}))
+end
+
+# ---- P4 (ADR K6, kararlar 3, 11): döşeme boşluğu ----
+def mst_ch_deck_flag(v)
+ s=v.to_s.strip.downcase
+ return 'open' if %w[open acik açık].include?(s)
+ return 'fill' if %w[fill dolu].include?(s)
+ nil
+end
+
+def mst_ch_deck_ledges(sec)
+ dflt=MST_CH_DECK_FILL_PRESETS.include?(sec['preset'].to_s.upcase) ? 'fill' : 'open'
+ {'left'=>mst_ch_deck_flag(sec['deck_ledge_left']) || dflt,'right'=>mst_ch_deck_flag(sec['deck_ledge_right']) || dflt}
+end
+
+# Kesit boyunca döşeme şeritleri (yerel metre, taban altı z = 0): [y0, y1, kesim üstü, katı üstü, tür]
+#  'proj' — en dış çıkıntı: döşeme çıkıntı üstüne oturur (kesim = katı = çıkıntı üstü);
+#  'open' — çıkıntılar arası göz(ler), aradaki çıkıntılar ve açık ledge: kesim PK üstüne (H; eski U'daki prekast kutusu anlamı),
+#           üstü döşeme açıklığı; katı üstü taban (göz / ledge) ya da ara çıkıntı üstü;
+#  'fill' — dolu ledge: kesim = katı = taban üstü, döşeme betonu taban üstüne iner.
+# 'opens': bitişik açık şeritlerin birleşimi [[y0, y1]] — her biri bir döşeme açıklığı (taban üstünden döşeme üstüne).
+def mst_ch_deck_strips(sec)
+ a=mst_ch_active(sec);t=sec['total_width_m'].to_f;b=sec['base_m'].to_f;hh=mst_ch_height(sec)
+ return {'strips'=>[],'opens'=>[],'base'=>b,'height'=>hh} if a.empty?
+ lg=mst_ch_deck_ledges(sec);st=[]
+ add=->(y0,y1,kind,top){st << (kind=='open' ? [y0,y1,hh,top,kind] : [y0,y1,top,top,kind]) if y1-y0>MST_CH_EPS}
+ add.(0.0,a.first['y0'],lg['left'],b)
+ a.each_with_index do |p,i|
+  add.(a[i-1]['y1'],p['y0'],'open',b) if i>0
+  add.(p['y0'],p['y1'],(i==0 || i==a.length-1) ? 'proj' : 'open',b+p['h'])
+ end
+ add.(a.last['y1'],t,lg['right'],b)
+ opens=[]
+ st.each{|y0,y1,_,_,k|next unless k=='open';(opens.last && (opens.last[1]-y0).abs<=MST_CH_EPS) ? opens.last[1]=y1 : opens << [y0,y1]}
+ {'strips'=>st,'opens'=>opens,'base'=>b,'height'=>hh}
 end
 
 end

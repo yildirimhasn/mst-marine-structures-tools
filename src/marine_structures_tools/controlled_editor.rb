@@ -217,6 +217,8 @@ module MAG
      model.abort_operation if opened
      raise
     end
+    # ADR-0515-K2 P4: PK ölçüsü değişti → destek BK'larına dayanan döşeme, işlem kapandıktan sonra transparent (tek Geri Al)
+    api.mst_pk_deck_after_edit([e],model) if plan[:geometry_changed] && e.get_attribute(DICT,'element_type')=='channel_precast'
     {id:api.element_visible_id(e),message:'Eleman, metraj ve tip kimliği güncellendi. Tek geri alma işlemiyle geri dönebilirsiniz.'}
    end
   end

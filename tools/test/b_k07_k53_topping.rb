@@ -98,6 +98,7 @@ NEWA = A1.load_opt(Host, main, 'def mst_audit_v0515(')
 if NEWA
   a2_const(Host, main, 'MST_AUDIT_ERROR_FLAGS')
   %w[mst_tr_scale_info mst_bk_span_frame_error mst_pv_tooth_seat_warnings mst_attr_hash].each { |f| A1.load_opt(Host, main, "def #{f}(") }
+  A1.load_opt(Host, main, 'def mst_deck_pk_missing_audit(')   # ADR-0515-K2 P4: mst_audit_v0515 silinen PK denetimi
   A1.load_opt(Host, A1.src('mst_rebar_tools.rb'), 'def mst_rt_world_tr(')
   A1.load_opt(Host, A1.src('mst_v50_beams.rb'), 'def mst_vk_support_state(')
 end

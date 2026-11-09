@@ -4642,7 +4642,7 @@ def create_flat_precast(data=nil)
 end
 
 def sync_precast_to_head_beams
- model=Sketchup.active_model;all=[];collect_elements(model.entities,all);map={};all.select{|e|e.get_attribute(DICT,'element_type')=='head_beam'}.each{|g|map[g.persistent_id]=g};moved=0;skip=0
+ model=Sketchup.active_model;all=[];collect_elements(model.entities,all);map={};all.select{|e|e.get_attribute(DICT,'element_type')=='head_beam'}.each{|g|map[g.persistent_id]=g};moved=0;skip=0;pk_moved=[]
  model.start_operation("PD Kotlarını BK ile Güncelle",true)
  begin
   all.select{|e|['flat_precast','channel_precast','crane_precast'].include?(e.get_attribute(DICT,'element_type'))}.each do |g|
@@ -4663,14 +4663,16 @@ def sync_precast_to_head_beams
     if l==r;target_bottom=z1.to_f;target_top=target_bottom+u_h;end
     target_top=target_bottom+mst_ch_height(cs) if tref   # üst kot = gerçek üst
     old=g.get_attribute(DICT,'bottom_elevation_m',target_bottom).to_f;dz=target_bottom-old
-    if dz.abs>0.0005;g.transform!(Geom::Transformation.translation([0,0,m(dz)]));g.set_attribute(DICT,'bottom_elevation_m',target_bottom);g.set_attribute(DICT,'top_elevation_m',target_top);moved+=1;end
+    if dz.abs>0.0005;g.transform!(Geom::Transformation.translation([0,0,m(dz)]));g.set_attribute(DICT,'bottom_elevation_m',target_bottom);g.set_attribute(DICT,'top_elevation_m',target_top);moved+=1;pk_moved << g;end
    else
     old=g.get_attribute(DICT,'bottom_elevation_m',z1.to_f).to_f;dz=z1.to_f-old
     if dz.abs>0.0005;g.transform!(Geom::Transformation.translation([0,0,m(dz)]));hh=g.get_attribute(DICT,'height_m',0).to_f;g.set_attribute(DICT,'bottom_elevation_m',z1.to_f);g.set_attribute(DICT,'top_elevation_m',z1.to_f+hh);moved+=1;end
    end
   end
   commit_with_dependencies(model);UI.messagebox("PD kot güncellemesi: #{moved} güncellendi, #{skip} atlandı.")
- rescue=>e;model.abort_operation;UI.messagebox("PD kot güncelleme hatası: #{e.message}");end
+ rescue=>e;model.abort_operation;UI.messagebox("PD kot güncelleme hatası: #{e.message}");return;end
+ # ADR-0515-K2 P4: kotu değişen PK'nın döşemesi — işlem kapandıktan sonra, transparent (tek Geri Al, abort yok)
+ mst_pk_deck_after_edit(pk_moved,model) unless pk_moved.empty?
 end
 
 def read_channel_bk(dialog)
@@ -4911,6 +4913,7 @@ def mst_deck_plan(bks,pcs,th,curbs=[])
  bks.each{|b|warn << "#{b['id']}: BK eni döşeme eninden kısa (#{format('%.3f',b['v0'])}–#{format('%.3f',b['v1'])}); BK dışında kalan şerit taşıyıcısız." if b['v0']>gv0+0.005 || b['v1']<gv1-0.005}
  inside=->(p){p['u1']>gu0+MST_DECK_TOL && p['u0']<gu1-MST_DECK_TOL && p['v1']>gv0+MST_DECK_TOL && p['v0']<gv1-MST_DECK_TOL}
  pcs=pcs.select{|p|inside.(p) && p['z1']>z0+MST_DECK_TOL && p['z0']<zt-MST_DECK_TOL}
+ pcs.each{|p|warn << p['sec_warn'] if p['sec_warn']}   # P4: U dışı kesit yönü / geçerliliği
  # açıklıklar
  spans=[]
  bks.each_cons(2).with_index(1) do |(a,b),i|
@@ -4945,13 +4948,18 @@ def mst_deck_plan(bks,pcs,th,curbs=[])
   ou0=[p['u0'],gu0].max;ou1=[p['u1'],gu1].min
   {'id'=>p['id'],'u0'=>ou0,'u1'=>ou1,'v0'=>[vc-p['iw']/2.0,gv0].max,'v1'=>[vc+p['iw']/2.0,gv1].min,'zf'=>p['z0']+p['base'].to_f}
  end.select{|o|o['u1']>o['u0'] && o['v1']>o['v0']}
+ # P4 (K6): U dışı kesit — PK başına çok aralık (kesitteki açık şeritler, dünya yönüyle); kanalın tüm boyunca açık (DS1.4 ile aynı)
+ opens+=pcs.select{|p|p['strips']}.flat_map do |p|
+  ou0=[p['u0'],gu0].max;ou1=[p['u1'],gu1].min
+  p['opens'].map{|v0,v1|{'id'=>p['id'],'u0'=>ou0,'u1'=>ou1,'v0'=>[v0,gv0].max,'v1'=>[v1,gv1].min,'zf'=>p['zf']}}
+ end.select{|o|o['u1']>o['u0'] && o['v1']>o['v0']}
  ub=mst_breaks(spans.flat_map{|s|s['pu']}+bks.flat_map{|b|[b['u0'],b['u1']]}+pcs.flat_map{|p|[p['u0'],p['u1']]}+opens.flat_map{|o|[o['u0'],o['u1']]}+curbs.flat_map{|c|[c['u0'],c['u1']]},gu0,gu1)
- vb=mst_breaks(bks.flat_map{|b|[b['v0'],b['v1']]}+pcs.flat_map{|p|[p['v0'],p['v1']]}+opens.flat_map{|o|[o['v0'],o['v1']]}+curbs.flat_map{|c|[c['v0'],c['v1']]}+spans.flat_map{|s|(s['gaps']+s['joints']).flatten},gv0,gv1)
+ vb=mst_breaks(bks.flat_map{|b|[b['v0'],b['v1']]}+pcs.flat_map{|p|[p['v0'],p['v1']]}+opens.flat_map{|o|[o['v0'],o['v1']]}+curbs.flat_map{|c|[c['v0'],c['v1']]}+spans.flat_map{|s|(s['gaps']+s['joints']).flatten}+pcs.flat_map{|p|(p['strips']||[]).flat_map{|s|[s[0],s[1]]}},gv0,gv1)
  nu=ub.length-1;nv=vb.length-1
  cov2=->(r,um,vm){um>r['u0'] && um<r['u1'] && vm>r['v0'] && vm<r['v1']}
  cells=Array.new(nu){Array.new(nv)}
  state=Array.new(nu){Array.new(nv)}
- open_vol=0.0;span_area=0.0;open_area=0.0;gap_area=0.0;add_vol=Hash.new(0.0);add_skip=[]
+ open_vol=0.0;span_area=0.0;open_area=0.0;gap_area=0.0;add_vol=Hash.new(0.0);add_skip=[];fill_vol=0.0
  nu.times do |i|
   um=(ub[i]+ub[i+1])/2.0
   nv.times do |j|
@@ -4962,7 +4970,9 @@ def mst_deck_plan(bks,pcs,th,curbs=[])
    gap=false
    # DS1.3: prekast cebi (açıklık + oturma payları, derzler dahil) prekast üstüne kadar dökülmez
    pk=spans.find{|s|um>s['pu'][0] && um<s['pu'][1] && s['cov'].any?{|a0,a1|vm>a0 && vm<a1}}
-   ivs=mst_iv_sub(ivs,z0,z0+pk['hs']) if pk
+   # P4 (karar 3, 11): U dışı PK'nın dolu şeridinde (dış çıkıntı / dolu ledge) döşeme betonu katı üstüne iner — prekast cebi kesilmez
+   fl=pcs.map{|p|next unless p['strips'] && cov2.(p,um,vm);s=p['strips'].find{|a|a[4]!='open' && vm>a[0] && vm<a[1]};s && s[3]}.compact.min
+   ivs=mst_iv_sub(ivs,z0,z0+pk['hs']) if pk && fl.nil?
    unless onbk
     sp=spans.find{|s|um>s['u0'] && um<s['u1']}
     # DS1.2: PD olmayan şerit (derz değil) tam kalınlıkta yerinde dökülür
@@ -4972,15 +4982,17 @@ def mst_deck_plan(bks,pcs,th,curbs=[])
     span_area+=ar
     gap_area+=ar if gap
    end
+   ivs=[[[z0,fl].min,zt]] if fl && !ivs.empty?
    hit=pcs.select{|p|cov2.(p,um,vm)}
-   hit.each{|p|ivs=mst_iv_sub(ivs,p['z0'],p['z1'])}
+   hit.each{|p|ivs=mst_iv_sub(ivs,p['z0'],mst_deck_pc_cut_top(p,vm))}
    op=opens.select{|o|cov2.(o,um,vm)}
    unless op.empty?
     b0=mst_iv_len(ivs);op.each{|o|ivs=mst_iv_sub(ivs,o['zf'],zt)};open_vol+=(b0-mst_iv_len(ivs))*ar;open_area+=ar
    end
+   fill_vol+=ivs.sum{|a,b|[[b,z0].min-a,0.0].max}*ar if fl   # P4: döşeme alt kotunun (BK üstü) altına inen dolgu (dolu ledge, brüt kutu dışında)
    joint=pk && hit.empty? && pk['joints'].any?{|a0,a1|vm>a0 && vm<a1}
    top=!ivs.empty? && (ivs[-1][1]-zt).abs<=MST_DECK_TOL
-   pctop=hit.any?{|p|p['z1']>=zt-0.001}
+   pctop=hit.any?{|p|mst_deck_pc_cut_top(p,vm)>=zt-0.001}
    st=if !op.empty? then 'open' elsif top || pctop || joint then 'surface' else 'hole' end
    st='surface' if st=='hole' && !ivs.empty? && sp.nil?   # BK üstünde alçak kalan döşeme (prekast taşması) — yüzey sayılır
    # DS1.5: tretuvar / baba kaidesi — döşeme üstüne monolitik (en yüksek olan geçerli)
@@ -5022,7 +5034,8 @@ def mst_deck_plan(bks,pcs,th,curbs=[])
  # kalan parçalar prekast / derz harcı / BK ile temas eden (kalıp değil) ve açık (kalıp) olarak ayrılır.
  grout=[]
  nu.times{|i|nv.times{|j|s=state[i][j];next unless s['joint'];grout << [ub[i],ub[i+1],vb[j],vb[j+1],z0,z0+s['pk']['hs']]}}
- solids=pcs.map{|p|[p['u0'],p['u1'],p['v0'],p['v1'],p['z0'],p['z1']]}+grout+bks.map{|b|[b['u0'],b['u1'],b['v0'],b['v1'],-1.0e9,b['ztop']]}
+ # P4: U dışı PK gerçek konturuyla (şerit katı üstü); eski U prekast kutusu (değişmedi)
+ solids=pcs.flat_map{|p|p['strips'] ? p['strips'].map{|s|[p['u0'],p['u1'],s[0],s[1],p['z0'],s[3]]} : [[p['u0'],p['u1'],p['v0'],p['v1'],p['z0'],p['z1']]]}+grout+bks.map{|b|[b['u0'],b['u1'],b['v0'],b['v1'],-1.0e9,b['ztop']]}
  faces=[];fw_out=0.0;fw_in=0.0;fw_bot=0.0
  boxes.each_with_index do |b,bi|
   faces << {'kind'=>'top','u'=>[b[0],b[1]],'v'=>[b[2],b[3]],'z'=>b[5]}
@@ -5085,9 +5098,10 @@ def mst_deck_plan(bks,pcs,th,curbs=[])
  err.uniq!;warn.uniq!
  {'z0'=>z0,'zt'=>zt,'th'=>th,'gross'=>[gu0,gu1,gv0,gv1],'spans'=>spans.map{|s|s.reject{|k,_|k=='mates'}},
   'openings'=>opens,'boxes'=>boxes,'faces'=>faces,'volume'=>vol,'gross_area'=>gross_area,'gross_volume'=>gross_area*th,
-  'opening_volume'=>open_vol,'precast_cut_volume'=>gross_area*th-(vol-add_vol['curb']-add_vol['bollard'])-open_vol,'curb_volume'=>add_vol['curb'],'bollard_volume'=>add_vol['bollard'],'slab_volume'=>vol-add_vol['curb']-add_vol['bollard'],'span_plan_area'=>span_area,'opening_area'=>open_area,
+  'opening_volume'=>open_vol,'precast_cut_volume'=>gross_area*th-(vol-add_vol['curb']-add_vol['bollard']-fill_vol)-open_vol,'ledge_fill_volume'=>fill_vol,'curb_volume'=>add_vol['curb'],'bollard_volume'=>add_vol['bollard'],'slab_volume'=>vol-add_vol['curb']-add_vol['bollard'],'span_plan_area'=>span_area,'opening_area'=>open_area,
   'hole_area'=>hole_area,'topping_area'=>surf,'surface_rects'=>srects,'formwork_outer'=>fw_out,'formwork_inner'=>fw_in,'formwork_bottom'=>fw_bot,'formwork'=>fw_out+fw_in+fw_bot,'gap_pour_area'=>gap_area,
-  'errors'=>err,'warnings'=>warn}
+  'errors'=>err,'warnings'=>warn,
+  'channels'=>pcs.select{|p|p['type']=='channel_precast'}.map{|p|{'id'=>p['id'],'uid'=>p['uid'].to_s}}}   # P4: Model Kontrolü (silinen PK)
 end
 
 # Önizleme metni (oluşturmadan önce gösterilir)
@@ -5099,7 +5113,8 @@ def mst_deck_plan_text(pl,did='D-001')
  pl['spans'].each{|s|l << "  #{s['index']}. #{s['a']} – #{s['b']}: net açıklık #{format('%.2f',s['u1']-s['u0'])} m, #{s['count']} prekast, kesilen katman #{format('%.2f',s['hs'])} m#{s['gaps'].empty? ? '' : ", PD boşluğu #{s['gaps'].length}"}#{s['joints'].empty? ? '' : ", derz #{s['joints'].length}"}"}
  l << "Kanal açıklığı: #{pl['openings'].length} (#{pl['openings'].map{|o|o['id']}.join(', ')})" unless pl['openings'].empty?
  ex=pl['curb_volume'].to_f+pl['bollard_volume'].to_f
- l << "Brüt beton #{format('%.3f',pl['gross_volume'])} m³ − prekast/açıklık kesintisi #{format('%.3f',pl['precast_cut_volume'])} − kanal açıklığı #{format('%.3f',pl['opening_volume'])}#{ex>0 ? " + tretuvar/kaide #{format('%.3f',ex)}" : ''} = NET #{format('%.3f',pl['volume'])} m³"
+ fv=pl['ledge_fill_volume'].to_f   # P4: dolu kanal ledge'i (BK üstü altı)
+ l << "Brüt beton #{format('%.3f',pl['gross_volume'])} m³ − prekast/açıklık kesintisi #{format('%.3f',pl['precast_cut_volume'])} − kanal açıklığı #{format('%.3f',pl['opening_volume'])}#{fv>0 ? " + kanal ledge dolgusu #{format('%.3f',fv)}" : ''}#{ex>0 ? " + tretuvar/kaide #{format('%.3f',ex)}" : ''} = NET #{format('%.3f',pl['volume'])} m³"
  l << "Kalıp #{format('%.2f',pl['formwork'])} m² (dış kenar #{format('%.2f',pl['formwork_outer'])}, iç kenar #{format('%.2f',pl['formwork_inner'])}, alt kalıp #{format('%.2f',pl['formwork_bottom'])})"
  ph=pl['spans'].map{|s|s['ph'].to_f}.max.to_f
  l << "Kesit: prekast #{format('%.2f',ph)} m + prekast üstü plak #{format('%.2f',[pl['th']-ph,0].max)} m = toplam #{format('%.2f',pl['th'])} m (BK üstünden)" if ph>0
@@ -5152,13 +5167,49 @@ def mst_deck_inputs(model,hbs,data)
  all=[];collect_elements(model.entities,all)
  pcs=all.select{|e|e.valid? && %w[flat_precast channel_precast crane_precast].include?(e.get_attribute(DICT,'element_type','').to_s)}.map do |e|
   b=mst_world_box(e);r=mst_deck_uv(b,ux,uy)
-  {'id'=>(e.get_attribute(DICT,'precast_id','').to_s.empty? ? element_visible_id(e).to_s : e.get_attribute(DICT,'precast_id').to_s),
+  p={'id'=>(e.get_attribute(DICT,'precast_id','').to_s.empty? ? element_visible_id(e).to_s : e.get_attribute(DICT,'precast_id').to_s),
    'type'=>e.get_attribute(DICT,'element_type','').to_s,'u0'=>r[0],'u1'=>r[1],'v0'=>r[2],'v1'=>r[3],'z0'=>b['z'][0],'z1'=>b['z'][1],
    'iw'=>e.get_attribute(DICT,'inner_width_m',0).to_f,'base'=>e.get_attribute(DICT,'base_thickness_m',0).to_f}
+  p['uid']=e.get_attribute(DICT,'element_uid','').to_s   # P4: Model Kontrolü (silinen PK) için
+  mst_deck_pk_strips!(p,e,ux,uy) if p['type']=='channel_precast'   # P4: U dışı kesit → kontur şeritleri (eski U'da değişiklik yok)
+  p
  end
  gu0=bks.map{|b|b['u0']}.min;gu1=bks.map{|b|b['u1']}.max;gv0=bks.map{|b|b['v0']}.min;gv1=bks.map{|b|b['v1']}.max
  curbs=mst_deck_curb_rects(data,gu0,gu1,gv0,gv1)+mst_deck_bollard_rects(data,bks,gv0,gv1)
  [ux,uy,bks,pcs,curbs]
+end
+
+# ADR-0515-K2 P4 (K6, kararlar 3, 11): U dışı kesitli PK'nın döşeme kontur şeritleri (u / v çerçevesi, metre) — p'ye
+# 'strips' [[v0, v1, kesim üstü z, katı üstü z, tür]], 'opens' [[v0, v1]], 'zf' (taban üstü z) eklenir.
+# Kesit yönü öğenin dünya dönüşümünden (tek örnekli tanım zinciri × öğe dönüşümü; aynalama / dönüş / ölçek): yerel y = 0 ve
+# y = toplam genişlik noktalarının v izdüşümüne doğrusal eşlenir; merkez / simetri varsayımı yok. Kesit enine eksene paralel değilse
+# şerit yok + uyarı (prekast kutusu kesilir, açıklık oluşmaz — önceki davranış). Eski U / U-eşdeğeri PK'ya dokunulmaz.
+def mst_deck_pk_strips!(p,e,ux,uy)
+ cs=mst_ch_custom_section(e);return p unless cs
+ unless mst_ch_valid(cs).empty?
+  p['sec_warn']="#{p['id']}: kanal kesiti geçersiz; döşeme açıklığı oluşturulmadı, prekast kutusu kesildi.";return p
+ end
+ ds=mst_ch_deck_strips(cs);t=cs['total_width_m'].to_f;hh=ds['height']
+ tr=mst_world_tr(e)*e.transformation;inm=MST_IN_PER_M;vx=-uy;vy=ux
+ w=->(y,z){q=Geom::Point3d.new(0,y*inm,z*inm).transform(tr);[(q.x*ux+q.y*uy)/inm,(q.x*vx+q.y*vy)/inm,q.z/inm]}
+ a=w.(0.0,0.0);b=w.(t,0.0);c=w.(0.0,hh)
+ du=b[0]-a[0];dv=b[1]-a[1];dz=c[2]-a[2]
+ ok=dv.abs>MST_DECK_TOL && du.abs<=0.01*dv.abs && (b[2]-a[2]).abs<=0.01*dv.abs && dz>MST_DECK_TOL && (c[0]-a[0]).abs<=0.01*dz && (c[1]-a[1]).abs<=0.01*dz
+ unless ok
+  p['sec_warn']="#{p['id']}: kanal prekastının kesit yönü döşeme enine eksenine paralel değil (dönük / eğik); döşeme açıklığı oluşturulmadı, prekast kutusu kesildi.";return p
+ end
+ vm=->(y){a[1]+dv*y/t};zm=->(z){a[2]+dz*z/hh}
+ p['strips']=ds['strips'].map{|y0,y1,zc,zs,k|[*[vm.(y0),vm.(y1)].minmax,zm.(zc),zm.(zs),k]}.sort_by(&:first)
+ p['opens']=ds['opens'].map{|y0,y1|[vm.(y0),vm.(y1)].minmax}.sort_by(&:first)
+ p['zf']=zm.(ds['base'])
+ p
+end
+
+# P4: hücre (v) için PK'nın kesim üstü — U dışı kesitte şeritten, eski U'da prekast kutusu üstü (değişmedi)
+def mst_deck_pc_cut_top(p,vm)
+ return p['z1'] unless p['strips']
+ s=p['strips'].find{|a|vm>a[0] && vm<a[1]}
+ s ? s[2] : p['z1']
 end
 
 # Same rectangles as create_deck_curbs (side 1/2 long, 3/4 ends), metres in u/v.
@@ -5390,6 +5441,7 @@ def mst_deck_fill!(parent,model,hbs,data,pl,ins)
   'support_count'=>hbs.length,'cut_count'=>pl['spans'].length,'thickness_m'=>th,'bottom_elevation_m'=>pl['z0'],'top_elevation_m'=>pl['zt'],
   'concrete_class'=>conc,'gross_area_m2'=>pl['gross_area'],'precast_cut_area_m2'=>pl['span_plan_area'],
   'gross_concrete_volume_m3'=>pl['gross_volume'],'precast_cut_volume_m3'=>pl['precast_cut_volume'],'channel_opening_volume_m3'=>pl['opening_volume'],
+  'ledge_fill_volume_m3'=>pl['ledge_fill_volume'].to_f,   # P4 (yeni anahtar, Float; eski döşemede yok = 0): BK üstü altına inen kanal ledge dolgusu, net betona dahil
   'concrete_volume_m3'=>pl['volume'],'channel_opening_count'=>pl['openings'].length,'gross_length_m'=>gross_len,'width_m'=>gross_w,
   'precast_seat_m'=>data['precast_seat_m'].to_f,'formwork_area_m2'=>pl['formwork'],'formwork_long_sides_m2'=>pl['formwork_outer'],
   'formwork_end_faces_m2'=>0.0,'deck_formwork_outer_m2'=>pl['formwork_outer'],'deck_formwork_inner_m2'=>pl['formwork_inner'],'formwork_bottom_m2'=>pl['formwork_bottom'],'deck_gap_pour_area_m2'=>pl['gap_pour_area'],
@@ -5400,7 +5452,8 @@ def mst_deck_fill!(parent,model,hbs,data,pl,ins)
   'deck_warning_count'=>pl['warnings'].length,'deck_warnings'=>pl['warnings'].join("\n"),
   'deck_u_axis'=>JSON.generate([ux,uy]),
   'deck_plan_json'=>JSON.generate({'boxes'=>pl['boxes'].map{|b|b.map{|x|x.round(6)}},'surface_rects'=>pl['surface_rects'].map{|b|b.map{|x|x.round(6)}},
-    'openings'=>pl['openings'],'spans'=>pl['spans'].map{|s|{'index'=>s['index'],'a'=>s['a'],'b'=>s['b'],'u0'=>s['u0'],'u1'=>s['u1'],'hs'=>s['hs'],'gaps'=>s['gaps'],'joints'=>s['joints'].length}}})}.each{|k,val|parent.set_attribute(DICT,k,val)}
+    'openings'=>pl['openings'],'spans'=>pl['spans'].map{|s|{'index'=>s['index'],'a'=>s['a'],'b'=>s['b'],'u0'=>s['u0'],'u1'=>s['u1'],'hs'=>s['hs'],'gaps'=>s['gaps'],'joints'=>s['joints'].length}},
+    'channels'=>pl['channels']||[]})}.each{|k,val|parent.set_attribute(DICT,k,val)}   # P4: 'channels' planda kesilen PK'lar (kimlik + UID); eski döşemede yok
  # DS1.5: tretuvar ve baba kaideleri döşemeyle aynı gövdede (ayrı grup yok); metraj tek beton kalemi
  curbs=curb_rects.select{|c|c['kind']=='curb'}
  parent.set_attribute(DICT,'curb_count',curbs.length)
@@ -5956,6 +6009,21 @@ def mst_deck_after_edit(beams,model=Sketchup.active_model,quiet=false)
   UI.messagebox("Döşeme otomatik güncellemesi:\n"+msg.join("\n")) unless msg.empty?
  end
  res
+end
+
+# ADR-0515-K2 P4 (K6): PK tip / ölçü / kot düzenlemesinden sonra — çağıranın normal işlemi KAPANDIKTAN sonra çağrılır;
+# PK'nın destek BK'larına dayanan döşemeler mst_deck_after_edit ile önceki işleme bağlı (transparent, abort yok, tek Geri Al)
+# yeniden üretilir (deck_revision_no ileri). PK silme için observer yok (karar 7): Model Kontrolü uyarısı + elle güncelleme.
+def mst_pk_deck_after_edit(pks,model=Sketchup.active_model)
+ pids=pks.select{|e|e && e.valid?}.flat_map{|e|%w[support_left_pid support_right_pid].map{|k|e.get_attribute(DICT,k,0).to_i}}.reject(&:zero?).uniq
+ return [] if pids.empty?
+ all=[];collect_elements(model.entities,all)
+ bs=all.select{|b|b.valid? && b.get_attribute(DICT,'element_type','').to_s=='head_beam' && pids.include?(b.persistent_id)}.uniq
+ return [] if bs.empty?
+ mst_deck_after_edit(bs,model,true)
+rescue => e
+ UI.messagebox("Döşeme otomatik güncelleme hatası: #{e.message}")
+ []
 end
 
 # 🔄 Seçili döşemeyi güncelle (elle): PD silindi / taşındı vb. — önizleme + tek Geri Al
@@ -8395,6 +8463,25 @@ def mst_curb_corner_overlap(by)
  [v,pairs]
 end
 # => [[sev,e,check,msg,fix,pids], ...]  Salt okuma.
+# ADR-0515-K2 P4 (karar 7): döşeme planında kesilen kanal prekastı modelde yok (silinmiş) → döşeme betonu / kanal açıklığı / kalıp eski.
+# Kaynak deck_plan_json 'channels' (P4 sonrası: kimlik + UID); eski döşemede 'openings' kimlikleri. UID varsa UID ile, yoksa
+# precast_id / görünür kimlikle eşlenir. Yalnız uyarı; döşeme kendiliğinden değişmez (observer yok).
+def mst_deck_pk_missing_audit(all)
+ out=[]
+ pks=all.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast'}
+ uids=pks.map{|e|e.get_attribute(DICT,'element_uid','').to_s}.reject(&:empty?)
+ ids=pks.flat_map{|e|[e.get_attribute(DICT,'precast_id','').to_s,element_visible_id(e).to_s]}.reject(&:empty?)
+ all.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='deck_slab'}.uniq.each do |d|
+  pj=(JSON.parse(d.get_attribute(DICT,'deck_plan_json','').to_s) rescue nil)
+  next unless pj.is_a?(Hash)
+  refs=pj['channels'].is_a?(Array) ? pj['channels'] : (pj['openings'].is_a?(Array) ? pj['openings'].map{|o|{'id'=>(o['id'] rescue nil)}} : [])
+  miss=refs.select{|r|r.is_a?(Hash)}.reject{|r|u=r['uid'].to_s;u.empty? ? ids.include?(r['id'].to_s) : uids.include?(u)}.map{|r|r['id'].to_s}.uniq
+  next if miss.empty?
+  out << ['WARNING',d,'Döşeme Metrajı',"#{element_visible_id(d)}: döşeme planında kesilen kanal prekastı modelde bulunamadı (#{miss.first(10).join(', ')}; silinmiş olabilir). Döşeme betonu, kanal açıklığı ve kalıbı eski olabilir.",'Döşemeyi seçip "Seçili Döşemeyi Güncelle" ile yenileyin.',[d.persistent_id]]
+ end
+ out
+end
+
 def mst_audit_v0515(elems,all=elems)
  out=[]
  elems.each do |e|
@@ -8471,6 +8558,7 @@ def mst_audit_v0515(elems,all=elems)
   r1=d.get_attribute(DICT,'deck_revision_no',0).to_i;next unless r1>r0.to_i
   out << ['WARNING',t,'Döşeme Metrajı',format('%s kaplaması döşeme RV-%02d için oluşturuldu; döşeme şimdi RV-%02d. Fiziksel kaplama yeniden kurulmaz; geometrisi eski olabilir (metraj döşemenin kaplama alanından).',element_visible_id(d),r0.to_i,r1),'Kaplamayı silip Kaplama Ekle ile yeniden oluşturun.',[t.persistent_id,d.persistent_id]]
  end
+ out.concat(mst_deck_pk_missing_audit(all))   # ADR-0515-K2 P4 karar 7: döşeme planındaki PK modelde yok
  decks.select{|d|d.get_attribute(DICT,'topping_enabled',nil).nil?}.each do |d|
   out << ['WARNING',d,'Döşeme Metrajı',"#{element_visible_id(d)}: kaplama durumu kayıtlı değil (eski döşeme). Keşif kaplamayı bu döşemede 0,10 m ile sayıyor; metraj raporu kaplama satırı göstermiyor.",'Kaplama varsa Kaplama Ekle / Kaplama Eğimi ile kaydedin; yoksa döşemeyi yeniden oluşturun. (Belge: kaplama niyeti)',[d.persistent_id]]
  end

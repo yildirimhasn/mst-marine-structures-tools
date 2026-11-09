@@ -12,6 +12,7 @@ class Host
 end
 a2_const(Host, main, 'MST_AUDIT_ERROR_FLAGS')
 A1.load(Host, main, 'def mst_audit_v0515(', 'def mst_attr_hash(', 'def mst_hb_ents(')
+A1.load_opt(Host, main, 'def mst_deck_pk_missing_audit(')   # ADR-0515-K2 P4: mst_audit_v0515 silinen PK denetimi
 A1.load(Host, bm, 'def mst_hb_zones_list(', 'def mst_hb_culvert_groups(')
 A1.load_opt(Host, bm, 'def mst_hb_zone_segments('); A1.load_opt(Host, bm, 'def mst_hb_bottom_depth(')
 %w[mst_tr_scale_info mst_bk_span_frame_error mst_pv_tooth_seat_warnings].each { |f| A1.load_opt(Host, main, "def #{f}(") }

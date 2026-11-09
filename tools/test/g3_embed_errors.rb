@@ -59,6 +59,7 @@ class Host
 end
 a2_const(Host, main, 'MST_AUDIT_ERROR_FLAGS')
 A1.load(Host, main, 'def mst_audit_v0515(')
+A1.load_opt(Host, main, 'def mst_deck_pk_missing_audit(')   # ADR-0515-K2 P4: mst_audit_v0515 silinen PK denetimi
 %w[mst_tr_scale_info mst_bk_span_frame_error mst_pv_tooth_seat_warnings].each { |f| A1.load_opt(Host, main, "def #{f}(") }
 A1.load_opt(Host, A1.src('mst_rebar_tools.rb'), 'def mst_rt_world_tr(')
 %w[mst_collect_toppings mst_topping_parent_deck].each { |f| A1.load_opt(Host, A1.src('dependency_rebuild.rb'), "def #{f}(") }

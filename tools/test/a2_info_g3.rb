@@ -35,6 +35,7 @@ A1.load_opt(Host, A1.src('mst_rebar_tools.rb'), 'def mst_rt_world_tr(')
 A1.load_opt(Host, bm, 'def mst_vk_support_state(')
 %w[mst_cv_embed_overlap? mst_curb_corner_overlap].each { |f| A1.load_opt(Host, main, "def #{f}(") }   # Parti H H7 / H8 yardımcıları
 A1.load_opt(Host, bm, 'def mst_hb_culvert_groups('); A1.load_opt(Host, main, 'def mst_hb_ents(')
+A1.load_opt(Host, main, 'def mst_deck_pk_missing_audit(')   # ADR-0515-K2 P4: mst_audit_v0515 silinen PK denetimi
 class Host; def pile_bim_qto_item(_p); {}; end; end
 obs('bilgi satırı / G3 işlevleri tanımlı', NEW)
 h = Host.new
