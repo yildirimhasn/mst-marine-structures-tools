@@ -69,3 +69,5 @@ Kullanıcı kararları bu bölümün altına eklenecek.
 15. (09.11.2026, kullanıcı) UU alçak orta çıkıntının üstü döşemede **açık bölgede** (kanal açıklığına dahil).
 16. (09.11.2026, kullanıcı) Sol/Sağ ledge Açık / Dolu seçimi bu pakette arayüze (Kanal Prekastı formu + tip kartı) eklenir.
 17. (09.11.2026, kullanıcı) Yeni PK oluşturulunca döşeme kendiliğinden güncellenmez; **bilinen sınır** (elle "Döşemeyi güncelle"), sürüm notuna yazılır.
+18. (09.11.2026, kullanıcı; rapor 38/39 sonrası) Bu pakette düzeltilir: 38 E1, Ö1, K1, K2, K3, K4, B2 ve 39 önemli 1 (cepsiz BK'da dolu ledge çift sayımı) + küçükler (U dışı "iç 0,00 × 0,00" gösterimi, donatı etiketi "% 120" → kg/m³). E1 mevcut ADR 31 yeniden eşleme desenine iki anahtar ekler (`seat_bk_left_uid`, `seat_bk_right_uid`); yeni kimlik kuralı yok.
+19. (09.11.2026, kullanıcı) Dolu ledge dolgusu döşeme pozunda kalır (net döşeme betonu + oranla döşeme donatısı); dayanak belge yok → sürüm notunda "belge bekliyor".
