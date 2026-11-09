@@ -4620,14 +4620,14 @@ def create_flat_precast(data=nil)
      ers=mst_ch_valid(cs);raise "#{name}: #{ers.join(' ')}" unless ers.empty?
      ow=cs['total_width_m'];oh=mst_ch_height(cs);uid=next_element_uid(model,'PK');g=c.entities.add_group;g.name="#{name} [#{uid}]";uf=g.entities.add_face(mst_ch_profile(cs).map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise "#{name}: kanal kesiti oluşturulamadı." unless uf;uf.reverse! if uf.normal.x<0;uf.pushpull(plen)
      ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;tref=mst_pk_top_ref(tdef,cs);ohr=mst_ch_height(cs,tref);bottomz,topz,ea=pk_z.(name,ow,ohr,z+ref_h);topz=bottomz+oh unless ohr==oh;g.transform!(Geom::Transformation.translation([x0,y,m(bottomz-pk_lz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1',ledge:data['channel_fw_ledge']!='0' && !mst_ch_ledge_off?(tdef['fw_ledge'])};paint_channel_precast_formwork(g,ow,0,0,0,flags,ch_form_mat,nil,cs);vol=mst_ch_area(cs)*lm;fw=mst_ch_formwork(cs,lm,flags);sig=precast_signature('PK',lm,ow,oh,[name,mst_ch_geom_sig(cs)].join(':'))
-     {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>0.0,'inner_depth_m'=>0.0,'base_thickness_m'=>0.0,'wall_thickness_m'=>0.0,'channel_section_json'=>mst_ch_json(cs),'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(ea).merge(tref ? {'channel_top_ref'=>tref} : {}).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
+     {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>0.0,'inner_depth_m'=>0.0,'base_thickness_m'=>0.0,'wall_thickness_m'=>0.0,'channel_section_json'=>mst_ch_json(cs),'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(ea).merge(tref ? {'channel_top_ref'=>tref} : {}).merge(mst_pk_type_link(tdef)).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
      next
     end
     sec=mst_ch_explicit(tdef)   # U-eşdeğeri açık kesit: ölçüler kesitten; yoksa eski tip alanları
     wi,di,tb,tw=sec ? mst_ch_u_dims(sec) : [tdef['inner_width'].to_f,tdef['inner_depth'].to_f,tdef['base'].to_f,tdef['wall'].to_f];raise "#{name}: kanal geometrisi geçersiz." if [wi,di,tb,tw].any?{|v|v<=0};ow=mst_ch_u_outer(wi,tw);oh=mst_ch_u_height(di,tb);uid=next_element_uid(model,'PK');g=c.entities.add_group;g.name="#{name} [#{uid}]";profile=mst_ch_u_profile(wi,di,tb,tw);uf=g.entities.add_face(profile.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise "#{name}: U kesiti oluşturulamadı." unless uf;uf.reverse! if uf.normal.x<0;uf.pushpull(plen)
     # PK üst kotunu yerleşimdeki en yüksek normal/dişli ana kalınlığına hizala.
     ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;bottomz,topz,ea=pk_z.(name,ow,oh,z+ref_h);g.transform!(Geom::Transformation.translation([x0,y,m(bottomz-pk_lz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1'};paint_channel_precast_formwork(g,ow,tw,di,tb,flags,ch_form_mat,nil);area=mst_ch_u_area(wi,di,tb,tw);vol=area*lm;ft=mst_ch_u_fw_terms(lm,wi,di,tb,tw);fw=0.0;fw+=ft[0] if flags[:bottom];fw+=ft[1] if flags[:sides];fw+=ft[2] if flags[:inner];fw+=ft[3] if flags[:ends];sig=precast_signature('PK',lm,ow,oh,[name,wi,di,tb,tw].join(':'))
-    {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(sec ? {'channel_section_json'=>mst_ch_json(sec)} : {}).merge(ea).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
+    {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(sec ? {'channel_section_json'=>mst_ch_json(sec)} : {}).merge(ea).merge(mst_pk_type_link(tdef)).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
    else
     raise "Bilinmeyen prekast sınıfı: #{fam}"
    end
@@ -11114,6 +11114,7 @@ def show_dialog
  @d.add_action_callback('pk_type_catalog'){|_|mst_pk_send_catalog(@d)}   # ADR-0515-K2 P2: salt okuma (mstPkCatalog)
  @d.add_action_callback('pk_pocket_candidates'){|_,j|mst_pk_send_candidates(@d,j)}   # ADR-0515-K2 P2: salt okuma (mstPkCandidates)
  @d.add_action_callback('pk_elevation_preview'){|_,j|mst_pk_send_elevation(@d,j)}   # ADR-0515-K2 P3: salt okuma (mstPkElevation)
+ @d.add_action_callback('pk_type_save'){|_,j|mst_pk_send_type_save(@d,j)}   # ADR-0515-K3 P1: PK Tipi Olarak Kaydet (mstPkTypeSaved)
  @d.add_action_callback('precast_to_group'){|_|mst_precast_convert(false)}
  @d.add_action_callback('precast_purge_defs'){|_|mst_purge_unused_precast_definitions}
  @d.add_action_callback('universal_formwork_face_tool'){|_|activate_universal_formwork_face_tool}
@@ -13128,17 +13129,34 @@ def mst_pk_type_catalog(model=Sketchup.active_model,elems=nil)
   end
   existing=elems.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast'}
   key=->(code,g){[code.to_s.upcase,(mst_ch_geom_key(g['section']) rescue g['section'].inspect)]}   # okunamayan (NaN) değerde JSON üretilemez
-  out=[];seen={}
+  out=[];seen={};by_uid={};use={}
   mst_pk_library_types(model).each do |t|
     g=mst_pk_geom(t,true);code=t['name'].to_s.strip
     cc=t['concrete'].to_s.strip;cc='C30/37' if cc.empty?
-    en=mst_pk_catalog_entry(code,'kütüphane',g,'uid'=>t['uid'],'beton'=>cc)
+    # ADR-0515-K3 P1: kayıt bilgisi (eski kayıtta yoksa varsayılan: title '', pk_rev 0, created_at nil)
+    ttl=t['title'].to_s.strip
+    en=mst_pk_catalog_entry(code,'kütüphane',g,'uid'=>t['uid'],'beton'=>cc,'title'=>ttl,'pk_rev'=>t['pk_rev'].nil? ? 0 : t['pk_rev'].to_i,'created_at'=>t['created_at'],
+                            'kayitsiz'=>false,'etiket'=>ttl.empty? ? code : "#{code} — #{ttl}")
     seen[key.(code,g)]||=en;out << en
+    u=t['uid'].to_s.strip;by_uid[u]||=en unless u.empty?
   end
   existing.each do |e|
     g=mst_pk_geom(e,false);code=mst_precast_type_id(e);k=key.(code,g)
-    if seen[k] then seen[k]['adet_modelde']+=1
-    else seen[k]=mst_pk_catalog_entry(code,'model',g,'beton'=>e.get_attribute(DICT,'concrete_class','C30/37').to_s,'adet_modelde'=>1);out << seen[k]
+    en=by_uid[e.get_attribute(DICT,'precast_type_uid','').to_s.strip] || seen[k]   # K3 P1: kayıt uid'siyle bağlı öğe önce; yoksa ad + kesit (eski)
+    if en then en['adet_modelde']+=1
+    else
+      # K3 P1: kaynak_pid = ilk örneğin persistent_id'si (2b "Tip kütüphanesine ekle" → pk_type_save); kod yok (Kanal Prekastı formu) → "kayıtsız" + ön ayar ve ölçü özeti (KANAL_PREKASTI_<ön ayar> kod sayılmaz)
+      en=seen[k]=mst_pk_catalog_entry(code,'model',g,'beton'=>e.get_attribute(DICT,'concrete_class','C30/37').to_s,'adet_modelde'=>1,'title'=>'','pk_rev'=>0,'created_at'=>nil,
+                                      'kaynak_pid'=>e.persistent_id,'kayitsiz'=>code.empty?,'etiket'=>code.empty? ? "Kayıtsız — #{mst_ch_summary(g['section'],3)}" : code);out << en
+    end
+    # kullanıldığı yapılar (karar 7 / talimat 5): öğelerden hesaplanır, saklanmaz; yapı = structure, yoksa ano
+    ys=e.get_attribute(DICT,'structure','').to_s.strip;ys=e.get_attribute(DICT,'ano','').to_s.strip if ys.empty?
+    h=(use[en.object_id]||={});h[ys]=(h[ys]||0)+1
+  end
+  lab={}
+  out.each do |en|
+    en['kullanim']=(use[en.object_id]||{}).sort_by{|y,_|[y.empty? ? 1 : 0,y]}.map do |y,n|
+      {'yapi'=>y,'yapi_ad'=>y.empty? ? 'Yapı belirtilmemiş' : (lab[y]||=(mst_structure_label(y,nil,model) rescue y)),'adet'=>n}
     end
   end
   out
@@ -13247,6 +13265,164 @@ def mst_pk_send_candidates(dlg,raw)
     {'ok'=>false,'neden'=>"Kanal cebi uyumu okunamadı: #{e.message}",'ciftler'=>[]}
   end
   dlg.execute_script("window.mstPkCandidates && mstPkCandidates(#{JSON.generate(pl)})")
+end
+
+# ---------------------------------------------------------------------------
+# ADR-0515-K3 P1 (docs/duzeltme/41, kullanıcı kararları 1–8): "PK Tipi Olarak Kaydet" — model içi tip kütüphanesi
+# (precast_type_library_json). Yeni kayıt alanları (eski kayıtta yoksa okunurken varsayılan; eski kayıt yeniden yazılmaz, kütüphane
+# yalnız kullanıcı kaydettiğinde yazılır): title (ad), section, geom_sig, concrete, fw_bottom / fw_sides / fw_inner / fw_ends
+# (+ mevcut fw_ledge), seat_left_m, seat_right_m, channel_top_ref (ops.), created_at (ISO 8601), pk_rev (tam sayı, yalnız artar),
+# rev_log [{rev, at, note}]. Birim hacim / kalıp alanı saklanmaz (kesitten hesaplanır). Öğe: precast_type_uid / precast_type_rev.
+# geom_sig yalnız katı geometri + oturma: ön ayar adı (etiket; K ile L aynı geometri), pasif çıkıntı değerleri, döşeme ledge seçimi
+# (deck_ledge_*: döşemenin dolgusu, PK katısı değil) ve channel_top_ref (kot referansı, katı değil) girmez — mst_ch_geom_key ile aynı ayrım.
+# Açık çıkıntılar soldan sağa konum (y0–y1) + yükseklikle yazılır (parça adı değil), ölçüler 4 ondalık metre.
+# ---------------------------------------------------------------------------
+MST_PK_FW_DEFAULT={'bottom'=>false,'sides'=>false,'inner'=>true,'ends'=>false,'ledge'=>true}.freeze   # mst_kn_find_pk_type varsayılanı '00101'
+
+def mst_pk_n4(v);x=v.to_f.round(4);x=0.0 if x.zero?;format('%.4f',x);end
+
+def mst_pk_section_sig(sec)
+  (["W#{mst_pk_n4(sec['total_width_m'])}","B#{mst_pk_n4(sec['base_m'])}"]+mst_ch_active(sec).map{|a|"#{mst_pk_n4(a['y0'])}-#{mst_pk_n4(a['y1'])}:#{mst_pk_n4(a['h'])}"}).join('|')
+end
+
+# Kararlı metin imzası; oturma bilinmiyorsa (eski kayıt) '-'.
+def mst_pk_geom_sig(sec,sl,sr)
+  "pk1|#{mst_pk_section_sig(sec)}|oturma:#{sl.nil? ? '-' : mst_pk_n4(sl)}/#{sr.nil? ? '-' : mst_pk_n4(sr)}"
+end
+
+# Tip kaydının kalıp seçimleri (yoksa varsayılan; fw_ledge eski kural: açıkça kapatan kazanır).
+def mst_pk_fw_of(t)
+  h={};%w[bottom sides inner ends].each{|k|v=t["fw_#{k}"];h[k]=v.nil? ? MST_PK_FW_DEFAULT[k] : mst_ch_bool(v)}
+  h['ledge']=!mst_ch_ledge_off?(t['fw_ledge']);h
+end
+
+# Öğeye yazılacak tip bağı: kayıt uid'si ve pk_rev'i, yalnız kayıtta varsa.
+def mst_pk_type_link(t)
+  h={};return h unless t.is_a?(Hash)
+  u=t['uid'].to_s.strip;h['precast_type_uid']=u unless u.empty?
+  h['precast_type_rev']=t['pk_rev'].to_i unless t['pk_rev'].nil? || t['pk_rev'].to_s.strip.empty?
+  h
+end
+
+# Kayıt ↔ yeni tip geometri eşleşmesi: kesit imzası aynı ve oturma aynı (kayıtta oturma yoksa — eski kayıt — yalnız kesit).
+def mst_pk_rec_same_geom?(t,ssig,sl,sr)
+  return false unless t.is_a?(Hash) && t['family'].to_s=='PK'
+  g=(mst_pk_geom(t,true) rescue nil);return false unless g && g['errors'].empty? && (mst_pk_section_sig(g['section']) rescue nil)==ssig
+  return true if t['seat_left_m'].nil? && t['seat_right_m'].nil?
+  mst_pk_n4(t['seat_left_m'])==mst_pk_n4(sl) && mst_pk_n4(t['seat_right_m'])==mst_pk_n4(sr)
+end
+
+def mst_pk_rec_brief(t);{'uid'=>t['uid'],'kod'=>t['name'].to_s.strip,'ad'=>t['title'].to_s};end
+
+# İstek (sözleşme: kod, ad, section, concrete, fw, seat_left_m, seat_right_m, channel_top_ref, kaynak_pid, karar, kutuphane) → yanıt yükü.
+# Doğrulama işlem açmadan; kayıt normal işlem "MST PK Tipini Kaydet" (başarıda commit, hatada abort — kütüphane değişmez).
+def mst_pk_type_save(rq,model=Sketchup.active_model,elems=nil)
+  cur=model.get_attribute(DICT,'precast_type_library_json','').to_s
+  out=->(h){{'ok'=>true,'neden'=>nil,'kutuphane_json'=>model.get_attribute(DICT,'precast_type_library_json','').to_s}.merge(h)}
+  fail=->(msg){out.('ok'=>false,'neden'=>msg)}
+  rq={} unless rq.is_a?(Hash)
+  given=->(k){v=rq[k];!(v.nil? || (v.is_a?(String) && v.strip.empty?))}
+  # kaynak_pid: modeldeki PK'dan tip (istekte olmayan alanlar öğeden)
+  src=nil
+  if given.('kaynak_pid')
+    src=(model.find_entity_by_persistent_id(rq['kaynak_pid'].to_i) rescue nil)
+    src=nil unless src && src.respond_to?(:get_attribute) && src.valid? && src.get_attribute(DICT,'element_type','').to_s=='channel_precast'
+    return fail.('Kaynak kanal prekastı modelde bulunamadı; tip kaydedilmedi.') unless src
+  end
+  begin
+    kod=mst_code_validate(rq['kod'],MST_NAME_MAX_STRUCTURE,'PK kodu')
+    ad=mst_name_validate(rq['ad'],80,'PK adı')
+  rescue => ex
+    return fail.(ex.message)
+  end
+  return fail.('PK kodu boş olamaz.') if kod.empty?
+  return fail.('PK adı boş olamaz.') if ad.empty?
+  sec=given.('section') ? mst_ch_parse(rq['section']) : (src ? mst_ch_section(src) : nil)
+  return fail.('Kesit verisi okunamadı veya girilmedi.') unless sec
+  ers=mst_ch_valid(sec);return fail.(ers.join(' ')) unless ers.empty?
+  sattr=->(k){src ? src.get_attribute(DICT,k,nil) : nil}
+  seat=lambda do |k|
+    v=given.(k) ? rq[k] : (sattr.(k) || sattr.('seat_each_side_m') || 0.0)
+    mst_ch_num(v)
+  end
+  sl=seat.('seat_left_m');sr=seat.('seat_right_m')
+  return fail.('Oturma genişliği okunamadı veya negatif; sıfır ya da pozitif girin.') if [sl,sr].any?{|v|!v.finite? || v<0}
+  cc=given.('concrete') ? rq['concrete'].to_s.strip : sattr.('concrete_class').to_s.strip;cc='C30/37' if cc.empty?
+  rf=rq['fw'].is_a?(Hash) ? rq['fw'] : {}
+  sflags=nil
+  fw={}
+  MST_PK_FW_DEFAULT.each do |k,dv|
+    fw[k]=if rf.key?(k) then mst_ch_bool(rf[k])
+          elsif src && !sattr.("formwork_#{k}").nil? then mst_ch_bool(sattr.("formwork_#{k}"))
+          elsif src
+            sflags||=(mst_precast_face_flags(src,mst_ch_custom_section(src) ? MST_CH_FW_ROLES_X : MST_CH_FW_ROLES_U)[0] rescue [])
+            i=MST_PK_FW_DEFAULT.keys.index(k);sflags[i].nil? ? dv : sflags[i]
+          else dv
+          end
+  end
+  tref=mst_pk_top_ref({'channel_top_ref'=>(given.('channel_top_ref') ? rq['channel_top_ref'] : sattr.('channel_top_ref'))},sec)
+  # kütüphane: modeldeki okunamıyorsa üzerine yazılmaz; istekteki liste (JS'teki tam liste) esas, yoksa modeldeki
+  mlib=cur.strip.empty? ? [] : (JSON.parse(cur) rescue nil)
+  return fail.('Modeldeki prekast tip kütüphanesi okunamadı; üzerine yazılmadı.') unless mlib.is_a?(Array)
+  lib=rq.key?('kutuphane') && !rq['kutuphane'].nil? ? rq['kutuphane'] : mlib
+  return fail.('Arayüzden gelen tip listesi okunamadı; kayıt yapılmadı.') unless lib.is_a?(Array) && lib.all?{|t|t.is_a?(Hash)}
+  ssig=mst_pk_section_sig(sec);karar=rq['karar'].to_s.strip
+  # kod benzersizliği (create_flat_precast :4579 kütüphane adları büyük / küçük harf duyarsız; :12649 modelde farklı ölçülü aynı ad)
+  same=lib.find{|t|t['name'].to_s.strip.downcase==kod.downcase}
+  if same
+    if mst_pk_rec_same_geom?(same,ssig,sl,sr) && karar!='yeni'
+      return out.('durum'=>karar=='mevcut' ? 'mevcut_secildi' : 'ayni_geometri','mevcut'=>mst_pk_rec_brief(same))
+    end
+    return out.('durum'=>'kod_cakisma','mevcut'=>mst_pk_rec_brief(same),'neden'=>"'#{kod}' kodu kütüphanede başka bir tipte kullanılıyor; farklı geometriler aynı tipte birleştirilmez. Başka bir kod girin.")
+  end
+  unless elems
+    elems=[];collect_elements(model.entities,elems)
+  end
+  clash=elems.find do |e|
+    next false unless e.valid? && MST_PRECAST_TYPES.include?(e.get_attribute(DICT,'element_type','').to_s) && mst_precast_type_id(e).downcase==kod.downcase
+    e.get_attribute(DICT,'element_type','').to_s!='channel_precast' || (mst_pk_section_sig(mst_pk_geom(e,false)['section']) rescue nil)!=ssig
+  end
+  if clash
+    return out.('durum'=>'kod_cakisma','mevcut'=>{'uid'=>nil,'kod'=>mst_precast_type_id(clash),'ad'=>''},'neden'=>"'#{kod}' kodu modelde farklı ölçülü/sınıflı bir prekastta kullanılıyor. Başka bir kod girin.")
+  end
+  hit=lib.find{|t|mst_pk_rec_same_geom?(t,ssig,sl,sr)}
+  if karar=='mevcut'
+    return hit ? out.('durum'=>'mevcut_secildi','mevcut'=>mst_pk_rec_brief(hit)) : fail.('Aynı geometride kayıtlı PK tipi yok; seçilecek mevcut tip bulunamadı.')
+  end
+  return out.('durum'=>'ayni_geometri','mevcut'=>mst_pk_rec_brief(hit)) if hit && karar!='yeni'
+  # kayıt (uid deseni ui.html addPrecastType: 'pt_pk_' + zaman (ms) + '_' + sıra)
+  n=lib.count{|t|t['family'].to_s=='PK'}+1;ms=(Time.now.to_f*1000).to_i
+  n+=1 while lib.any?{|t|t['uid'].to_s=="pt_pk_#{ms}_#{n}"}
+  at=Time.now.strftime('%Y-%m-%dT%H:%M:%S%:z')
+  u=mst_ch_u_equiv?(sec) ? mst_ch_u_dims(sec) : [0.0,0.0,0.0,0.0]   # karar 13: eski alanlar kesitten
+  rec={'uid'=>"pt_pk_#{ms}_#{n}",'family'=>'PK','name'=>kod,'title'=>ad,'section'=>JSON.parse(mst_ch_json(sec)),
+       'inner_width'=>u[0],'inner_depth'=>u[1],'base'=>u[2],'wall'=>u[3],'concrete'=>cc,
+       'fw_bottom'=>fw['bottom'],'fw_sides'=>fw['sides'],'fw_inner'=>fw['inner'],'fw_ends'=>fw['ends'],'fw_ledge'=>fw['ledge'],
+       'seat_left_m'=>sl,'seat_right_m'=>sr,'geom_sig'=>mst_pk_geom_sig(sec,sl,sr),'created_at'=>at,'pk_rev'=>1,'rev_log'=>[{'rev'=>1,'at'=>at,'note'=>'oluşturuldu'}]}
+  rec['channel_top_ref']=tref if tref
+  txt=JSON.generate(lib+[rec])
+  model.start_operation('MST PK Tipini Kaydet',true)
+  begin
+    model.set_attribute(DICT,'precast_type_library_json',txt)
+    model.commit_operation
+  rescue => ex
+    model.abort_operation
+    return fail.("PK tipi kaydedilemedi; işlem geri alındı: #{ex.message}")
+  end
+  out.('durum'=>'kaydedildi','tip'=>rec)
+end
+
+# HtmlDialog callback pk_type_save → window.mstPkTypeSaved(yük); her durumda yanıt verilir.
+def mst_pk_send_type_save(dlg,raw)
+  model=Sketchup.active_model
+  pl=begin
+    rq=(JSON.parse(raw.to_s) rescue nil)
+    rq.is_a?(Hash) ? mst_pk_type_save(rq,model) : {'ok'=>false,'neden'=>'Arayüzden gelen veri okunamadı; kayıt yapılmadı.'}
+  rescue => e
+    {'ok'=>false,'neden'=>"PK tipi kaydedilemedi: #{e.message}"}
+  end
+  pl['kutuphane_json']||=(model.get_attribute(DICT,'precast_type_library_json','').to_s rescue '')
+  dlg.execute_script("window.mstPkTypeSaved && mstPkTypeSaved(#{JSON.generate(mst_pk_json_safe(pl))})")
 end
 
 # ---------------------------------------------------------------------------
@@ -13606,6 +13782,10 @@ def mst_kn_create_pk!(c,model=Sketchup.active_model,ctx=nil)
    'concrete_volume_m3'=>vol,'formwork_area_m2'=>mst_marked_area_m2(d.entities),'support_left_pid'=>c['l'].persistent_id,'support_right_pid'=>c['r'].persistent_id,
    'kn_from_pocket'=>"#{element_visible_id(c['pocket']['bk'])}:#{c['pocket']['side']}"}.merge(cs ? {'channel_section_json'=>mst_ch_json(cs)} : {}).merge(t['top_ref'] ? {'channel_top_ref'=>t['top_ref']} : {}).merge(mst_pk_elev_attrs(c['elev'],c['pocket'],c['pocket_r'])).each{|k,v|inst.set_attribute(DICT,k,v)}   # P3: kot yöntemi / cep bağı (girdi yoksa yazılmaz)
   inst.set_attribute(DICT,'precast_base_type_id',base) if name!=base
+  # ADR-0515-K3 P1: kütüphane tipinden gelen PK'ya kayıt uid'si / pk_rev'i (kayıtta yoksa yazılmaz); tip adı benzersiz (:4579)
+  if t['source']=='kütüphane' && (rec=mst_pk_library_types(model).find{|x|x['name'].to_s.strip==base})
+    mst_pk_type_link(rec).each{|k,v|inst.set_attribute(DICT,k,v)}
+  end
   %w[project ano zone structure].each{|k|v=mate.get_attribute(DICT,k,nil);inst.set_attribute(DICT,k,v) unless v.nil? || v.to_s.empty?}
   finalize_bim_identity(inst,model)
   inst
