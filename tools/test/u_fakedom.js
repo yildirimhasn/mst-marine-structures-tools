@@ -212,6 +212,7 @@ function matchSel(e, groups, scope) { return groups.some((g) => matchParts(e, g,
 class Document extends Element {
   constructor() { super(null, '#document'); this.ownerDocument = this; this.nodeType = 9; this.readyState = 'complete'; this.visibilityState = 'visible'; this._scrolled = []; this.activeElement = null; }
   createElement(t) { return new Element(this, t); }
+  createElementNS(_ns, t) { return new Element(this, t); }   // SVG (Kanal Prekastı kesit önizlemesi; Chromium 64 destekler)
   createTextNode(s) { return new Text(this, String(s)); }
   createDocumentFragment() { const f = new Element(this, '#fragment'); f.nodeType = 11; return f; }
   getElementById(id) { let r = null; walk(this, (e) => { if (!r && e.id === id) r = e; }); return r; }

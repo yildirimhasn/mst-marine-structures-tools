@@ -393,5 +393,12 @@ $model.entities << on_bk; on_bk.parent = $model.entities
 M.sync_precast_to_head_beams
 t('10.6 tek BK üstüne oturan kanal (form, karar 10) kot eşitlemede BK içine indirilmez', [on_bk.get_attribute(D, 'bottom_elevation_m'), $ui_msgs.last.to_s.include?('0 güncellendi')], [3.0, true])
 
+# 11) P1b: form her zaman `section` gönderir → U-eşdeğeri kesitten türetilen iç ölçüler eski kayıtla birebir (0,8 ≠ 0,7999999999999999)
+[[1.2, 0.2], [1.5, 0.25], [0.9, 0.15], [1.1, 0.3]].each do |tot, tw|
+  sec = M.mst_ch_default.merge('total_width_m' => tot, 'left' => M.mst_ch_default['left'].merge('width_m' => tw), 'right' => M.mst_ch_default['right'].merge('width_m' => tw))
+  wi = M.mst_ch_u_dims(sec)[0]
+  t("11 U-eşdeğeri iç genişlik toplam #{tot} − 2 × #{tw} → elle girilen değerle birebir", wi, (tot * 1000 - 2 * tw * 1000).round / 1000.0)
+end
+
 puts "\nKP1: #{$ok} geçti, #{$bad} kaldı"
 exit($bad.zero? ? 0 : 1)

@@ -188,7 +188,8 @@ end
 # U-eşdeğeri kesitin eski ölçüleri [wi, di, tb, tw].
 def mst_ch_u_dims(sec)
  tw=sec['left']['width_m'].to_f
- [sec['total_width_m'].to_f-2*tw,sec['left']['height_m'].to_f,sec['base_m'].to_f,tw]
+ # P1b: toplam − 2 × duvar kayan nokta artığı (0,7999999999999999) eski U kaydı / tanım anahtarıyla ayrışmasın → 1e-9 yuvarlama
+ [(sec['total_width_m'].to_f-2*tw).round(9),sec['left']['height_m'].to_f,sec['base_m'].to_f,tw]
 end
 
 # Dış kontur (y, z; metre), saat yönünün tersi: alt kenar soldan sağa, üst kenar sağdan sola. Eş doğrusal noktalar atılır.

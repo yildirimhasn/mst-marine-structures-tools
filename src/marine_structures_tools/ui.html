@@ -301,6 +301,9 @@ label{font-size:11px;color:#4c687f;font-weight:500}
 .channel-read{margin:8px;width:calc(100% - 16px);padding:8px;border:1px solid #72b4e4;border-radius:5px;background:#e8f4fc;color:#0969aa;font-size:9px;font-weight:700}.channel-selection{margin:0 9px 9px;background:#f3f5f6;border-radius:5px;padding:7px}.channel-selection div{display:flex;justify-content:space-between;padding:4px;font-size:8px}.channel-selection b{color:#183b54}
 .u-preview{height:145px;position:relative;margin:8px;background:#f9fbfc}.u-left,.u-right,.u-bottom{position:absolute;background:#aeb5ba;border:1px solid #4e5960}.u-left{left:27%;top:30px;width:25px;height:82px}.u-right{right:27%;top:30px;width:25px;height:82px}.u-bottom{left:27%;right:27%;top:91px;height:21px}.dim-total{position:absolute;left:34%;top:8px;font-size:8px;font-weight:700}.dim-inner{position:absolute;left:45%;top:41px;font-size:8px}.dim-depth{position:absolute;right:18%;top:61px;font-size:8px}.u-caption{text-align:center;font-size:8px;font-weight:700;margin-bottom:7px}
 .fw-checks{display:grid;gap:6px;padding:0 10px 10px;font-size:8px}.channel-enable{display:block;margin:9px;font-size:8px;font-weight:700}.channel-model{margin:0 9px;width:calc(100% - 18px);padding:9px;border:0;border-radius:5px;background:#237fc2;color:#fff;font-size:9px;font-weight:800}.channel-result{display:flex;justify-content:space-between;margin:9px;padding:7px;background:#eef6fb;border-radius:5px;font-size:8px}.channel-result b{color:#0870bb}.channel-link-status{margin:9px;font-size:7px;color:#678092}
+.channel-card.ch-wide{grid-column:1/-1}.ch-base-row{display:grid;grid-template-columns:1fr 1fr;grid-column-gap:14px}.ch-presets{padding:2px 10px 6px}.ch-presets button{margin:0 5px 5px 0;padding:6px 10px;border:1px solid #9cc3de;border-radius:5px;background:#fff;color:#0b5f98;font-size:8px;font-weight:700;cursor:pointer}.ch-presets button[aria-pressed="true"]{background:#2684ca;border-color:#1f6fa8;color:#fff}.ch-presets button:focus,.ch-part input:focus,.channel-model:focus{outline:2px solid #0b5f98;outline-offset:1px}.ch-preset-note{font-size:8px;color:#355d78;margin:1px 0 0}
+.ch-parts{display:grid;grid-template-columns:repeat(3,1fr);grid-column-gap:7px;padding:0 10px 4px}.ch-part{margin:0;padding:3px 8px 4px;border:1px solid #c7d8e4;border-radius:6px;background:#fbfdfe;min-width:0}.ch-part legend{padding:0 4px;font-size:9px;font-weight:700;color:#0870bb}.ch-part legend label{font-weight:700;cursor:pointer}.ch-part .ch-form{padding:0}.ch-part .ch-form input{width:72px}.ch-part.ch-part-off{background:#f1f3f5}.ch-part.ch-part-off .ch-form{opacity:.45}
+.ch-section-svg{display:block;width:calc(100% - 16px);height:170px;margin:8px;background:#f9fbfc;border:1px solid #e0e9ee;border-radius:4px}.ch-svg-msg{font-size:9px;fill:#a1001c}.ch-svg-dim{font-size:9px;fill:#173650}.ch-section-info{margin:0 9px 7px}.ch-section-info div{display:flex;justify-content:space-between;padding:3px 4px;font-size:8px}.ch-section-info b{color:#0870bb}.ch-section-note{font-size:7px;color:#5d7487;margin:2px 4px 0}.ch-errors{margin:0 9px 8px;padding:6px 8px 6px 22px;border:1px solid #e3a3ad;border-radius:5px;background:#fdf1f3;color:#a1001c;font-size:8px}.ch-errors:empty{display:none}.channel-model:disabled{background:#9fb4c3;cursor:not-allowed}
 
 
 .channel-layout-note{margin:5px 0 7px;padding:7px 9px;background:#eef7fd;border-left:3px solid #1885cf;border-radius:4px;font-size:8px;color:#355d78}.channel-add{border-color:#6eb4e3!important;color:#0870bb!important;background:#eef8ff!important}.channel-width-locked{background:#eef3f6!important;color:#416276!important;font-weight:700}.pd-layout-row select.pd-type{width:100%;height:30px;border:1px solid #c9d8e3;border-radius:5px;background:#fff;padding:4px 7px;color:#173650}
@@ -857,12 +860,39 @@ label{font-size:11px;color:#4c687f;font-weight:500}
 <section class="pd-panel channel-precast-panel channel-pro">
  <div class="channel-tabs"><button type="button" class="ghost">Normal Prekast (PD)</button><button type="button" class="active">Kanal Prekastı</button><button type="button" class="ghost">Vinç Prekastı</button></div>
  <div class="channel-pro-grid">
-  <div class="channel-card"><h3>⌄ Kanal Geometrisi</h3>
+  <div class="channel-card ch-wide"><h3>⌄ Kanal Geometrisi</h3>
+   <div class="ch-form ch-base-row">
+    <label>Toplam genişlik<span><input id="channel_total_width_m" type="number" step="0.01" value="1.20" oninput="updateChannelPrecastUI()"> m</span></label>
+    <label>Taban kalınlığı<span><input id="channel_base_m" type="number" step="0.01" value="0.20" oninput="updateChannelPrecastUI()"> m</span></label>
+   </div>
+   <div class="ch-presets" role="group" aria-label="Kesit ön ayarları">
+    <button type="button" data-ch-preset="U" aria-pressed="true" onclick="chApplyPreset('U')">U kesit</button><button type="button" data-ch-preset="L" aria-pressed="false" onclick="chApplyPreset('L')">L kesit</button><button type="button" data-ch-preset="UU" aria-pressed="false" onclick="chApplyPreset('UU')">Çift gözlü</button><button type="button" data-ch-preset="K" aria-pressed="false" onclick="chApplyPreset('K')">Kademeli plak</button>
+    <p class="ch-preset-note">Ön ayar düğmeleri yalnız Var/Yok seçimini değiştirir; genişlik, yükseklik ve ofset korunur.</p>
+   </div>
+   <div class="ch-parts">
+    <fieldset class="ch-part" id="channel_left_part"><legend>Sol çıkıntı &nbsp;<label><input id="channel_left_on" type="checkbox" checked onchange="chPartToggled()"> Var</label></legend>
+     <div class="ch-form">
+      <label>Genişlik<span><input id="channel_left_width_m" type="number" step="0.01" value="0.20" oninput="updateChannelPrecastUI()"> m</span></label>
+      <label>Yükseklik<span><input id="channel_left_height_m" type="number" step="0.01" value="0.60" oninput="updateChannelPrecastUI()"> m</span></label>
+      <label>Soldan ofset<span><input id="channel_left_offset_m" type="number" step="0.005" value="0" oninput="updateChannelPrecastUI()"> m</span></label>
+     </div>
+    </fieldset>
+    <fieldset class="ch-part ch-part-off" id="channel_mid_part"><legend>Orta çıkıntı &nbsp;<label><input id="channel_mid_on" type="checkbox" onchange="chPartToggled()"> Var</label></legend>
+     <div class="ch-form">
+      <label>Genişlik<span><input id="channel_mid_width_m" type="number" step="0.01" value="0.15" disabled oninput="updateChannelPrecastUI()"> m</span></label>
+      <label>Yükseklik<span><input id="channel_mid_height_m" type="number" step="0.01" value="0.30" disabled oninput="updateChannelPrecastUI()"> m</span></label>
+      <label>Soldan ofset<span><input id="channel_mid_offset_m" type="number" step="0.005" value="0.525" disabled oninput="updateChannelPrecastUI()"> m</span></label>
+     </div>
+    </fieldset>
+    <fieldset class="ch-part" id="channel_right_part"><legend>Sağ çıkıntı &nbsp;<label><input id="channel_right_on" type="checkbox" checked onchange="chPartToggled()"> Var</label></legend>
+     <div class="ch-form">
+      <label>Genişlik<span><input id="channel_right_width_m" type="number" step="0.01" value="0.20" oninput="updateChannelPrecastUI()"> m</span></label>
+      <label>Yükseklik<span><input id="channel_right_height_m" type="number" step="0.01" value="0.60" oninput="updateChannelPrecastUI()"> m</span></label>
+      <label>Sağdan ofset<span><input id="channel_right_offset_m" type="number" step="0.005" value="0" oninput="updateChannelPrecastUI()"> m</span></label>
+     </div>
+    </fieldset>
+   </div>
    <div class="ch-form">
-    <label>Kanal Genişliği (İç)<span><input id="channel_width_m" type="number" step="0.01" value="0.80" oninput="updateChannelPrecastUI()"> m</span></label>
-    <label>Kanal Derinliği (İç)<span><input id="channel_depth_m" type="number" step="0.01" value="0.60" oninput="updateChannelPrecastUI()"> m</span></label>
-    <label>Taban Kalınlığı<span><input id="channel_thickness_m" type="number" step="0.01" value="0.20" oninput="updateChannelPrecastUI()"> m</span></label>
-    <label>Yan Duvar Kalınlığı<span><input id="channel_wall_thickness_m" type="number" step="0.01" value="0.20" oninput="updateChannelPrecastUI()"> m</span></label>
     <label>Eleman Boyu<span><select id="channel_length_mode" onchange="updateChannelPrecastUI()"><option value="AUTO">Otomatik (BK arası)</option><option value="MANUAL">Manuel</option></select></span></label>
     <label>Sol Oturma Payı<span><input id="channel_seat_left_m" type="number" step="0.01" value="0.15" oninput="updateChannelPrecastUI()"> m</span></label>
     <label>Sağ Oturma Payı<span><input id="channel_seat_right_m" type="number" step="0.01" value="0.15" oninput="updateChannelPrecastUI()"> m</span></label>
@@ -887,10 +917,15 @@ label{font-size:11px;color:#4c687f;font-weight:500}
    </div>
   </div>
   <div class="channel-card"><h3>⌄ Önizleme (Kesit)</h3>
-   <div class="u-preview">
-    <div class="u-left"></div><div class="u-right"></div><div class="u-bottom"></div>
-    <span class="dim-total" id="channelOuterWidthDim">1.20 m</span><span class="dim-inner" id="channelInnerWidthDim">0.80 m</span><span class="dim-depth" id="channelDepthDim">0.60 m</span>
-   </div><div class="u-caption">Kanal Prekastı U Kesiti</div>
+   <svg id="channelSectionSvg" class="ch-section-svg" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kanal Prekastı enine kesit önizlemesi"></svg>
+   <div class="u-caption">Kanal Prekastı Kesiti — Ön ayar: <span id="channelPresetLabel">U kesit</span></div>
+   <div class="ch-section-info">
+    <div><span>Kesit alanı (m²)</span><b id="channelSectionArea">—</b></div>
+    <div><span>1 m boy için beton (m³)</span><b id="channelSectionVol1m">—</b></div>
+    <div><span>Toplam yükseklik (taban + en yüksek çıkıntı)</span><b id="channelSectionHeight">—</b></div>
+    <p class="ch-section-note">Değerler formdaki ölçülerden hesaplanır; önizleme modeli değiştirmez.</p>
+   </div>
+   <ul id="channelSectionErrors" class="ch-errors" role="alert" aria-live="polite"></ul>
   </div>
   <div class="channel-card"><h3>⌄ Malzeme ve Kalıp</h3>
    <div class="ch-form"><label>Beton Sınıfı<span><select id="channel_concrete_class"><option selected>C30/37</option><option>C35/45</option><option>C40/50</option><option>C45/55</option></select></span></label></div>
@@ -899,7 +934,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
   </div>
   <div class="channel-card"><h3>⌄ İşlemler</h3>
    <label class="channel-enable"><input id="channel_precast_enabled" type="checkbox" checked onchange="updateChannelPrecastUI()"> Kanal Prekastı Aktif</label>
-   <button class="channel-model" type="button" onclick="createChannelPrecast()">Kanal Prekastını Modelle</button>
+   <button id="channelModelBtn" class="channel-model" type="button" onclick="createChannelPrecast()">Kanal Prekastını Modelle</button>
    <div class="channel-result"><span>Beton Hacmi</span><b id="channelVolumeLive">—</b></div>
    <div id="channelLinkStatus" class="channel-link-status">Önce bir BK seçiniz.</div>
   </div>
@@ -1938,21 +1973,258 @@ document.addEventListener('DOMContentLoaded',()=>setTimeout(updatePrecastSidePan
 function syncChannelRows(){refreshPDSummary();}
 function chNum(id,d){if(d===undefined)d=0;var e=document.getElementById(id),v=parseEngineeringNumber(e?e.value:'');return isFinite(v)?v:d}
 function chText(id,v){var e=document.getElementById(id);if(e)e.textContent=v}
+/* MST_CH_SECTION_BEGIN — Kanal Prekastı kesit hesabı: channel_section.rb (mst_ch_parse / preset / valid / active / profile /
+   area / height / u_equiv? / u_dims) ile aynı kurallar ve aynı Türkçe metinler. Saf işlevler: DOM ve sketchup çağrısı yok
+   (Node ile Ruby sonucuyla karşılaştırma testi için bu blok ayrıca çalıştırılabilir). ES5. */
+(function(root){
+ var PARTS=['left','mid','right'];
+ var LABELS={left:'Sol',mid:'Orta',right:'Sağ'};
+ var PRESETS={U:['left','right'],L:['right'],UU:['left','mid','right'],K:['right']};
+ var EPS=1e-9;
+ function has(o,k){return Object.prototype.hasOwnProperty.call(o,k)}
+ function isObj(o){return o!==null&&typeof o==='object'&&!(o instanceof Array)}
+ function truthy(v){return v!==null&&v!==undefined&&v!==false}   // Ruby doğruluk değeri (yalnız nil / false yanlış)
+ function str(v){return v===null||v===undefined?'':String(v)}
+ function toF(v){if(typeof v==='number')return v;var x=parseFloat(str(v));return isFinite(x)?x:0}   // Ruby to_f
+ function toI(v){if(typeof v==='number')return isFinite(v)?(v<0?Math.ceil(v):Math.floor(v)):0;var m=/^\s*[+-]?\d+/.exec(str(v));return m?parseInt(m[0],10):0}
+ function bad(v){return typeof v!=='number'||!isFinite(v)}   // mst_ch_bad_num?
+ // mst_ch_num: sayı olduğu gibi; metin virgül → nokta, boş → 0, okunamaz → NaN
+ function num(v){
+  if(typeof v==='number')return v;
+  var s=str(v).trim().replace(/,/g,'.');
+  if(s==='')return 0;
+  if(!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(s))return NaN;
+  var x=Number(s);return isFinite(x)?x:NaN;
+ }
+ function bool(v){return v===true||['1','true','on','yes','evet','var'].indexOf(str(v).trim().toLowerCase())>=0}
+ function defaults(){
+  return {v:1,preset:'U',total_width_m:1.20,base_m:0.20,
+   left:{on:true,width_m:0.20,height_m:0.60,offset_m:0.0},
+   mid:{on:false,width_m:0.15,height_m:0.30,offset_m:0.525},
+   right:{on:true,width_m:0.20,height_m:0.60,offset_m:0.0}};
+ }
+ function parse(raw){
+  var h=raw;
+  if(typeof raw==='string'){try{h=JSON.parse(raw)}catch(e){h=null}}
+  if(!isObj(h))return null;
+  if(!has(h,'total_width_m')&&!has(h,'base_m'))return null;
+  if(has(h,'v')&&toI(h.v)>1)return null;   // bilinmeyen (yeni) biçim: tahmin edilmez
+  var pr=str(h.preset).trim().toUpperCase();if(!has(PRESETS,pr)&&pr!=='OZEL')pr='OZEL';
+  var out={v:1,preset:pr,total_width_m:num(h.total_width_m),base_m:num(h.base_m)};
+  for(var i=0;i<PARTS.length;i++){
+   var k=PARTS[i],p=isObj(h[k])?h[k]:{};
+   out[k]={on:bool(p.on),width_m:num(p.width_m),height_m:num(p.height_m),offset_m:num(p.offset_m)};
+  }
+  return out;
+ }
+ // Ön ayar yalnız açık / kapalı bayraklarını değiştirir; ölçüler korunur.
+ function preset(sec,name){
+  var n=str(name).trim().toUpperCase();
+  if(!has(PRESETS,n)&&n!=='OZEL')throw new Error('Bilinmeyen kesit ön ayarı: '+str(name));
+  var s=parse(sec)||defaults();
+  s.preset=n;
+  if(n!=='OZEL')for(var i=0;i<PARTS.length;i++)s[PARTS[i]].on=PRESETS[n].indexOf(PARTS[i])>=0;
+  return s;
+ }
+ // Açık çıkıntılar soldan sağa: [{part, y0, y1, h}]
+ function active(sec){
+  var t=toF(sec.total_width_m),a=[];
+  for(var i=0;i<PARTS.length;i++){
+   var k=PARTS[i],p=sec[k];
+   if(!(p&&truthy(p.on)))continue;
+   var w=toF(p.width_m),o=toF(p.offset_m);
+   a.push({part:k,y0:k==='right'?t-o-w:o,y1:k==='right'?t-o:o+w,h:toF(p.height_m)});
+  }
+  a.sort(function(x,y){return x.y0<y.y0?-1:(x.y0>y.y0?1:0)});
+  return a;
+ }
+ // Ruby format('%.3f') + ondalık virgül (tam yarımda çifte yuvarlama, -0 işareti)
+ function f3(v){
+  var x=toF(v);if(!isFinite(x))return String(x);
+  var s,y=x*2000;
+  if(Math.floor(y)===y&&Math.abs(y%2)===1){var q=(y-1)/2,n=(q%2===0)?q:q+1;s=Math.abs(n/1000).toFixed(3)}
+  else s=Math.abs(x).toFixed(3);
+  if(x<0||(x===0&&1/x<0))s='-'+s;
+  return s.replace('.',',');
+ }
+ // Ruby Array#sum (Kahan-Babuska) ile aynı toplama
+ function kbSum(xs){
+  if(!xs.length)return 0;
+  var f=0,c=0;
+  for(var i=0;i<xs.length;i++){
+   var x=xs[i],t;
+   if(f!==f)continue;
+   if(x!==x){f=x;continue}
+   if(!isFinite(x)){if(!isFinite(f)&&(x<0)!==(f<0))f=NaN;else f=x;continue}
+   if(!isFinite(f))continue;
+   t=f+x;
+   if(Math.abs(f)>=Math.abs(x))c+=((f-t)+x);else c+=((x-t)+f);
+   f=t;
+  }
+  return f+c;
+ }
+ // Geometrik geçerlilik (tasarım tahkiki değildir) → Türkçe hata listesi (boş = geçerli). Metinler mst_ch_valid ile birebir.
+ function valid(sec){
+  if(!isObj(sec))return ['Kesit verisi okunamadı.'];
+  var err=[],t=sec.total_width_m,b=sec.base_m;
+  if(bad(t)||t<=0)err.push('Toplam genişlik sıfırdan büyük olmalıdır.');
+  if(bad(b)||b<=0)err.push('Taban kalınlığı sıfırdan büyük olmalıdır.');
+  var on=[];
+  for(var i=0;i<PARTS.length;i++)if(sec[PARTS[i]]&&truthy(sec[PARTS[i]].on))on.push(PARTS[i]);
+  if(!on.length)err.push('En az bir çıkıntı açık olmalıdır (çıkıntısız düz plak kanal prekastı olarak oluşturulmaz).');
+  for(var j=0;j<on.length;j++){
+   var p=sec[on[j]],lab=LABELS[on[j]];
+   if(bad(p.width_m)||p.width_m<=0||bad(p.height_m)||p.height_m<=0)err.push(lab+' çıkıntı: genişlik ve yükseklik sıfırdan büyük olmalıdır.');
+   if(bad(p.offset_m)||p.offset_m<0)err.push(lab+' çıkıntı: ofset negatif olamaz.');
+   else if(!bad(t)&&!bad(p.width_m)&&p.offset_m+p.width_m>t+EPS)err.push(lab+' çıkıntı: ofset + genişlik ('+f3(p.offset_m+p.width_m)+' m) toplam genişliği ('+f3(t)+' m) aşıyor.');
+  }
+  if(!err.length){
+   var a=active(sec);
+   for(var m=0;m+1<a.length;m++)if(a[m+1].y0<=a[m].y1+EPS)err.push(LABELS[a[m].part]+' ve '+LABELS[a[m+1].part]+' çıkıntılar çakışıyor veya bitişik; aralarında boşluk olmalıdır.');
+  }
+  return err;
+ }
+ // U-eşdeğeri: sol + sağ açık, orta kapalı, iki ofset 0, eşit genişlik ve yükseklik, iç genişlik > 0, taban > 0.
+ function uEquiv(sec){
+  if(!isObj(sec)||!sec.left||!sec.right||!sec.mid)return false;
+  var l=sec.left,r=sec.right,t=sec.total_width_m,b=sec.base_m;
+  if(!(truthy(l.on)&&truthy(r.on)&&!truthy(sec.mid.on)))return false;
+  var vs=[t,b,l.width_m,l.height_m,r.width_m,r.height_m,l.offset_m,r.offset_m];
+  for(var i=0;i<vs.length;i++)if(bad(vs[i]))return false;
+  return Math.abs(l.offset_m)<=EPS&&Math.abs(r.offset_m)<=EPS&&Math.abs(l.width_m-r.width_m)<=EPS&&
+   Math.abs(l.height_m-r.height_m)<=EPS&&l.width_m>0&&l.height_m>0&&b>0&&t-2*l.width_m>EPS;
+ }
+ // U-eşdeğeri kesitin eski ölçüleri [wi, di, tb, tw] (mst_ch_u_dims)
+ function uDims(sec){var tw=toF(sec.left.width_m);return [Math.round((toF(sec.total_width_m)-2*tw)*1e9)/1e9,toF(sec.left.height_m),toF(sec.base_m),tw]}
+ // Dış kontur [[y, z]] (metre), mst_ch_profile ile aynı nokta sırası
+ function profile(sec){
+  var t=toF(sec.total_width_m),b=toF(sec.base_m),raw=[[0,0],[t,0],[t,b]],a=active(sec),i,k;
+  for(i=a.length-1;i>=0;i--){var top=b+a[i].h;raw.push([a[i].y1,b],[a[i].y1,top],[a[i].y0,top],[a[i].y0,b])}
+  raw.push([0,b]);
+  var pts=[];
+  for(i=0;i<raw.length;i++){var l=pts[pts.length-1],q=raw[i];if(!(l&&Math.abs(l[0]-q[0])<=EPS&&Math.abs(l[1]-q[1])<=EPS))pts.push(q)}
+  if(pts.length>1){var f=pts[0],z=pts[pts.length-1];if(Math.abs(f[0]-z[0])<=EPS&&Math.abs(f[1]-z[1])<=EPS)pts.pop()}
+  for(;;){
+   var n=pts.length,idx=-1;
+   for(k=0;k<n;k++){
+    var p=pts[(k-1+n)%n],c=pts[k],d=pts[(k+1)%n];
+    if((Math.abs(p[0]-c[0])<=EPS&&Math.abs(c[0]-d[0])<=EPS)||(Math.abs(p[1]-c[1])<=EPS&&Math.abs(c[1]-d[1])<=EPS)){idx=k;break}
+   }
+   if(idx<0)break;
+   pts.splice(idx,1);
+  }
+  return pts;
+ }
+ // Kesit alanı (m²) = toplam × taban + Σ açık çıkıntı genişlik × yükseklik
+ function area(sec){var a=active(sec),xs=[];for(var i=0;i<a.length;i++)xs.push((a[i].y1-a[i].y0)*a[i].h);return toF(sec.total_width_m)*toF(sec.base_m)+kbSum(xs)}
+ // Toplam yükseklik: taban + en yüksek açık çıkıntı; ref = seçilen çıkıntı (left / mid / right)
+ function height(sec,ref){
+  var a=active(sec),r=str(ref).trim().toLowerCase(),sel=null,mx=null,i;
+  for(i=0;i<a.length;i++)if(a[i].part===r){sel=a[i];break}
+  for(i=0;i<a.length;i++)if(mx===null||a[i].h>mx)mx=a[i].h;
+  return toF(sec.base_m)+(sel?sel.h:(mx===null?0:mx));
+ }
+ var api={PARTS:PARTS,LABELS:LABELS,PRESETS:PRESETS,EPS:EPS,num:num,bool:bool,f3:f3,kbSum:kbSum,defaults:defaults,parse:parse,
+  preset:preset,active:active,valid:valid,uEquiv:uEquiv,uDims:uDims,profile:profile,area:area,height:height};
+ root.mstChSection=api;
+ if(typeof module!=='undefined'&&module.exports)module.exports=api;
+})(typeof window!=='undefined'?window:this);
+/* MST_CH_SECTION_END */
+
+var chSectionPreset='U';
+var CH_PRESET_LABELS={U:'U kesit',L:'L kesit',UU:'Çift gözlü',K:'Kademeli plak',OZEL:'Özel'};
+function chFmt(x,d){return (typeof x==='number'&&isFinite(x))?x.toFixed(d).replace('.',','):'—'}
+// Formdaki kesit (channel_section.rb biçimi); pasif çıkıntının değerleri de okunur ve gönderilir.
+function chReadSection(){
+ var S=window.mstChSection,g=function(id){var e=document.getElementById(id);return S.num(e?e.value:'')};
+ var s={v:1,preset:chSectionPreset,total_width_m:g('channel_total_width_m'),base_m:g('channel_base_m')};
+ for(var i=0;i<S.PARTS.length;i++){
+  var k=S.PARTS[i],cb=document.getElementById('channel_'+k+'_on');
+  s[k]={on:!!(cb&&cb.checked),width_m:g('channel_'+k+'_width_m'),height_m:g('channel_'+k+'_height_m'),offset_m:g('channel_'+k+'_offset_m')};
+ }
+ return s;
+}
+// Pasif çıkıntı: alanlar soluk ve devre dışı, değer silinmez.
+function chSyncPartState(){
+ var P=window.mstChSection.PARTS;
+ for(var i=0;i<P.length;i++){
+  var k=P[i],cb=document.getElementById('channel_'+k+'_on'),fs=document.getElementById('channel_'+k+'_part'),on=!!(cb&&cb.checked);
+  if(fs){fs.className=on?'ch-part':'ch-part ch-part-off';var ins=fs.querySelectorAll('.ch-form input');for(var j=0;j<ins.length;j++)ins[j].disabled=!on}
+ }
+}
+function chApplyPreset(name){
+ var s=window.mstChSection.preset(chReadSection(),name),P=window.mstChSection.PARTS;
+ chSectionPreset=s.preset;
+ for(var i=0;i<P.length;i++){var cb=document.getElementById('channel_'+P[i]+'_on');if(cb)cb.checked=!!s[P[i]].on}
+ updateChannelPrecastUI();
+}
+function chPartToggled(){chSectionPreset='OZEL';updateChannelPrecastUI()}
+function chSvgEl(svg,tag,attrs,text){
+ var e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+ for(var k in attrs)if(attrs.hasOwnProperty(k))e.setAttribute(k,attrs[k]);
+ if(text!==undefined&&text!==null)e.textContent=text;
+ svg.appendChild(e);return e;
+}
+// Enine kesit önizlemesi (yalnız çizim; model değişmez)
+function chDrawSection(sec,ok){
+ var svg=document.getElementById('channelSectionSvg');if(!svg)return;
+ while(svg.firstChild)svg.removeChild(svg.firstChild);
+ var W=320,H=170;
+ if(!ok){chSvgEl(svg,'text',{x:W/2,y:H/2,'text-anchor':'middle','class':'ch-svg-msg'},'Kesit geçersiz: aşağıdaki hataları düzeltin.');return}
+ var S=window.mstChSection,pts=S.profile(sec),t=sec.total_width_m,b=sec.base_m,hTot=S.height(sec),a=S.active(sec),top=null,i;
+ for(i=0;i<a.length;i++)if(!top||a[i].h>top.h)top=a[i];
+ var padL=16,padR=70,padT=12,padB=34,sc=Math.min((W-padL-padR)/t,(H-padT-padB)/hTot);
+ var ox=padL+((W-padL-padR)-t*sc)/2,oy=H-padB;
+ var X=function(y){return (ox+y*sc).toFixed(1)},Y=function(z){return (oy-z*sc).toFixed(1)};
+ var ps=[];for(i=0;i<pts.length;i++)ps.push(X(pts[i][0])+','+Y(pts[i][1]));
+ chSvgEl(svg,'polygon',{points:ps.join(' '),fill:'#aeb5ba',stroke:'#4e5960','stroke-width':'1'});
+ // toplam genişlik ölçüsü
+ var yd=oy+13,st={stroke:'#173650','stroke-width':'0.8'};
+ chSvgEl(svg,'line',{x1:X(0),y1:yd,x2:X(t),y2:yd,stroke:st.stroke,'stroke-width':st['stroke-width']});
+ chSvgEl(svg,'line',{x1:X(0),y1:yd-4,x2:X(0),y2:yd+4,stroke:st.stroke,'stroke-width':st['stroke-width']});
+ chSvgEl(svg,'line',{x1:X(t),y1:yd-4,x2:X(t),y2:yd+4,stroke:st.stroke,'stroke-width':st['stroke-width']});
+ chSvgEl(svg,'text',{x:X(t/2),y:yd+13,'text-anchor':'middle','class':'ch-svg-dim'},'Toplam genişlik '+chFmt(t,3)+' m');
+ // en yüksek çıkıntı yüksekliği (taban üstünden)
+ if(top){
+  var xd=(ox+t*sc+12).toFixed(1);
+  chSvgEl(svg,'line',{x1:X(top.y1),y1:Y(b+top.h),x2:xd,y2:Y(b+top.h),stroke:'#7d8f9c','stroke-width':'0.6','stroke-dasharray':'3,2'});
+  chSvgEl(svg,'line',{x1:xd,y1:Y(b),x2:xd,y2:Y(b+top.h),stroke:st.stroke,'stroke-width':st['stroke-width']});
+  chSvgEl(svg,'line',{x1:xd-4,y1:Y(b),x2:+xd+4,y2:Y(b),stroke:st.stroke,'stroke-width':st['stroke-width']});
+  chSvgEl(svg,'line',{x1:xd-4,y1:Y(b+top.h),x2:+xd+4,y2:Y(b+top.h),stroke:st.stroke,'stroke-width':st['stroke-width']});
+  chSvgEl(svg,'text',{x:+xd+5,y:((oy-(b+top.h/2)*sc)+3).toFixed(1),'class':'ch-svg-dim'},chFmt(top.h,3)+' m');
+ }
+}
 function updateChannelPrecastUI(){
- var wi=chNum('channel_width_m',.8),dep=chNum('channel_depth_m',.6),tb=chNum('channel_thickness_m',.2),tw=chNum('channel_wall_thickness_m',.2);
+ var S=window.mstChSection;chSyncPartState();
+ var sec=chReadSection(),errs=S.valid(sec),ok=!errs.length,i;
  var sl=chNum('channel_seat_left_m',.15),sr=chNum('channel_seat_right_m',.15),ml=chNum('channel_manual_length_m',3.3);
  var mode=document.getElementById('channel_length_mode').value,L=ml;
  var bl=document.getElementById('channelBKLength'),n=bl?(bl.textContent||'').match(/-?\d+(?:[.,]\d+)?/):null;
  if(mode==='AUTO'&&n)L=(parseEngineeringNumber(n[0].replace(',','.'))||0)+sl+sr;
- var outer=wi+2*tw, area=outer*(dep+tb)-wi*dep,vol=area*L;
+ var area=ok?S.area(sec):NaN,vol=area*L;
  chText('channelSeatL',sl.toFixed(2)+' m');chText('channelSeatR',sr.toFixed(2)+' m');chText('channelLengthLive',L.toFixed(2)+' m');
- chText('channelOuterWidthDim',outer.toFixed(2)+' m');syncChannelRows();chText('channelInnerWidthDim',wi.toFixed(2)+' m');chText('channelDepthDim',dep.toFixed(2)+' m');chText('channelVolumeLive',vol.toFixed(3)+' m³');
+ syncChannelRows();
+ chText('channelVolumeLive',ok?chFmt(vol,3)+' m³':'—');
+ chText('channelSectionArea',ok?chFmt(area,3)+' m²':'—');
+ chText('channelSectionVol1m',ok?chFmt(area*1,3)+' m³':'—');
+ chText('channelSectionHeight',ok?chFmt(S.height(sec),3)+' m':'—');
+ chText('channelPresetLabel',CH_PRESET_LABELS[chSectionPreset]||chSectionPreset);
+ var bs=document.querySelectorAll('[data-ch-preset]');for(i=0;i<bs.length;i++)bs[i].setAttribute('aria-pressed',bs[i].getAttribute('data-ch-preset')===chSectionPreset?'true':'false');
+ chDrawSection(sec,ok);
+ var ul=document.getElementById('channelSectionErrors');
+ if(ul){ul.innerHTML='';for(i=0;i<errs.length;i++){var li=document.createElement('li');li.textContent=errs[i];ul.appendChild(li)}}
+ var btn=document.getElementById('channelModelBtn');
+ if(btn){btn.disabled=!ok;btn.title=ok?'':'Kesit geçersiz: önizleme altındaki hataları düzeltin.'}
  var mr=document.getElementById('channelManualRow');if(mr)mr.style.opacity=mode==='AUTO'?'.45':'1';
 }
 function readChannelFromBK(){if(window.sketchup&&sketchup.read_channel_bk)sketchup.read_channel_bk()}
 function createChannelPrecast(){
  if(!document.getElementById('channel_precast_enabled').checked){alert('Kanal Prekastı aktif değil.');return}
- var d={inner_width_m:chNum('channel_width_m',.8),inner_depth_m:chNum('channel_depth_m',.6),base_thickness_m:chNum('channel_thickness_m',.2),wall_thickness_m:chNum('channel_wall_thickness_m',.2),seat_left_m:chNum('channel_seat_left_m',.15),seat_right_m:chNum('channel_seat_right_m',.15),length_mode:document.getElementById('channel_length_mode').value,manual_length_m:chNum('channel_manual_length_m',3.3),concrete_class:document.getElementById('channel_concrete_class').value,fw_bottom:document.getElementById('channel_fw_bottom').checked,fw_sides:document.getElementById('channel_fw_sides').checked,fw_inner:document.getElementById('channel_fw_inner').checked,fw_ends:document.getElementById('channel_fw_ends').checked,fw_top:document.getElementById('channel_fw_top').checked};
+ var S=window.mstChSection,sec=chReadSection(),errs=S.valid(sec);
+ if(errs.length){alert('Kanal Prekastı kesiti geçersiz:\n'+errs.join('\n'));updateChannelPrecastUI();return}
+ // Eski U alanları (geri uyum): U-eşdeğeri kesitte mst_ch_u_dims ile aynı değer, U dışında 0 (ADR karar 1). Ruby section'ı önceler.
+ var u=S.uEquiv(sec)?S.uDims(sec):[0,0,0,0];
+ var d={section:sec,inner_width_m:u[0],inner_depth_m:u[1],base_thickness_m:u[2],wall_thickness_m:u[3],seat_left_m:chNum('channel_seat_left_m',.15),seat_right_m:chNum('channel_seat_right_m',.15),length_mode:document.getElementById('channel_length_mode').value,manual_length_m:chNum('channel_manual_length_m',3.3),concrete_class:document.getElementById('channel_concrete_class').value,fw_bottom:document.getElementById('channel_fw_bottom').checked,fw_sides:document.getElementById('channel_fw_sides').checked,fw_inner:document.getElementById('channel_fw_inner').checked,fw_ends:document.getElementById('channel_fw_ends').checked,fw_top:document.getElementById('channel_fw_top').checked};
  if(window.sketchup&&sketchup.create_channel_precast)sketchup.create_channel_precast(JSON.stringify(d));
 }
 document.addEventListener('DOMContentLoaded',function(){setTimeout(updateChannelPrecastUI,120);});
