@@ -163,6 +163,68 @@ SketchUp içinde denenmedi. Kanıt (sahte nesne, 09.11.2026 ana oturum komut ç�
 **Bilinen sınırlar:** (1) Hakediş geçmişi olan modelde kopya yapıların satırları "Planlandı" ile başlar; satır toplamı artar. (2) Jet grout satırında elle ilerleme varken kopya yapılamaz. (3) SketchUp'ın Group kopyası / make_unique iç öğe sırası doğrulanmadı; sıra bozulursa işlem durur ve geri alınır (32/2). (4) Performans yalnız sahte modelde ölçüldü (50 kopya × 391 öğe ≈ 6 s; gerçek SketchUp süresi ölçülmedi). (5) Kopyalar kaydedilmiş model 0.51.5 öncesi sürümde açılırsa `copy_origin` okunmaz (etkisi yok, çıkarım). (6) Paylaşılan tanımlı Component'in (prekast, kazık gövdesi) tanımı içine konmuş aksesuar kopyayla birlikte gelir ve aksesuar sayısına girmez (kod inceleme 34/2; böyle bir model bilinmiyor). (7) Kapsam dışı, önceden de vardı (34/4): kopyadan sonra Ctrl+Z yapılırsa yenilenmiş Aks Yöneticisi artık modelde olmayan kopya kodlarını kaydedebilir — Geri Al'dan sonra pencereyi kapatıp açın; Yapıyı Taşı yolunda kronman aks uçları ötelenmez (32/3 ek önerisi, ayrı iş).
 Kod inceleme 34 (09.11.2026, `96c194d`): engelleyici bulgu yok; 34/1 kabul listesinde (N-47), 34/3 geçersiz (BK kalıbı yalnız BK'nın kendi yüzlerinden, `main.rb:2260`; beton öznitelikten).
 
+### 2.11 Kanal prekastı (PK) — tek parametrik kesit, Prekast Yerleşimi seçimi, kot yöntemi, döşeme boşluğu (09.11.2026; ADR-0515-K2; kaynak `90eb4ce..157bb45`)
+Kaynaklar: `35` kaynak analizi, `36` referans notu, `37` ADR + kullanıcı kararları 0–19, `38` kod incelemesi, `39` metraj kontrolü; commit'ler P1a `1b20447`, P1b `d745cb5`, P2 `d7433d5` + `30e0db3`, P3 `94adf92` + `8ef5581` + `dc61429`, P4 `d1a08b9`, karar 16 `3af76ef`, 38/K3 `b981b7f`, 38/39 düzeltmeleri `25fbf49`, 38/Ö1 Z `157bb45` (son kaynak). Bu bölüm yazılırken mst-dokumantasyon komut çalıştırmadı; commit konu satırları `.git/logs/HEAD`'den okundu, commit gövdeleri (test sayıları) okunamadı.
+**TESLIM_10 paket kaydı:** `dist\MST_v0.51.5_TB1_FIX1_TEST.rbz` SHA-256 `03c14fb199f122544ae650e315b085b053aa33732d8e359c23911ac4a258ae42` (203 dosya, src `157bb45`; paket ↔ src 203/203; yeni dosya `channel_section.rb`; iki üretimde aynı SHA) + runner 1.2.9 `MST_TB1_Integration_TestRunner_v1.2.9_for_0.51.5.rbz` SHA-256 `4fd201435550d512a2858738cab43481035ef82e3499e5386fc0f34bfabf91e3` (expected_sources 203). Teslim: `OneDrive\Masaüstü\CLAUDE\MST_v0.51.5_TESLIM_10`. Eski TESLIM_9 (947361e4 + runner 1.2.8) → `dist\gecersiz_947361e4`.
+
+**Kanıt durumu (düzeyler ayrı):**
+| Düzey | Durum |
+|---|---|
+| Statik | Paket öncesi tam regresyon (mst-test-paketleme, `157bb45`): `ruby -c` 68 src .rb 0 hata; `node --check` 13 .js 0 hata; `check_inline_js` 20/20; `check_chromium64` hits=0 |
+| Sahte nesne (SketchUp dışı) | Test dosyaları: `kp1_channel_section.rb`, `kp1b_section_js.rb`, `kp2_pk_catalog.rb`, `kp2b_pk_list.js`, `kp3_pk_elevation.rb`, `kp3b_pk_elev_ui.js`, `kp4_pk_deck.rb`, `kp4b_ledge_ui.js`, `kp5_inceleme_38_39.rb`, `kp5b_fw_ledge_ui.js`. Son sayılar (`157bb45`): kp1 90/0, kp1b 65/0, kp2 44/0, kp2b 23/0, kp3 50/0, kp3b 37/0, kp4 47/0, kp4b 27/0, kp5 25/0, kp5b 24/0, k1 161/0, k1_axis_dirty 9/0; tam Ruby takımı 63 dosya 1960 geçti / 0 kaldı (mst-test-paketleme). Yalnız mantığı sınar |
+| Golden-master (sahte fikstür) | Fikstür PK ve döşeme değerlerini sabit öznitelik olarak yazar; PK hacim / kalıp formülünü, döşeme planını ve yeni anahtarları **sınamaz** (39/3). Sonuç: `run_golden.rb 3137ff4 --etiket teslim10` (TESLIM_9 kaynağı ↔ `157bb45`) eski=437 yeni=437 aynı=437 farklı=0 beklenmeyen=0 — PK metraj değişiklikleri bu yüzden burada görünmez; ara adımlar (kp3b, kp3c, kp4, kp5b, kp5z2) hep 0 fark |
+| SketchUp 2020 kabulü (kullanıcı) | **Yapılmadı.** Liste: 08 §13 (N-48 … N-69) |
+| Görsel | Yok |
+| Ajan incelemesi | 38 (1 engelleyici, 1 önemli, 4 küçük, 3 bilgi), 39 (engelleyici yok, 3 önemli); kullanıcı kararı 18 ile 38 E1, Ö1, K1–K4, B2 ve 39 önemli 1 + küçükler bu pakette düzeltildi (`25fbf49`, `b981b7f`, `157bb45`). Onay sayılmaz |
+
+**Özellikler:**
+- **Tek parametrik kesit** (karar 0): dört şekil ayrı tip değil; taban (toplam genişlik, taban kalınlığı) + Sol / Orta / Sağ çıkıntı (Var, genişlik, yükseklik, ofset — sol soldan, orta soldan, sağ sağdan). Ön ayarlar: U kesit, L kesit, Çift gözlü (UU), Kademeli plak (K), Özel; ön ayar yalnız Var/Yok'u değiştirir, pasif çıkıntının ölçüleri saklanır. Kesit alanı = taban × toplam genişlik + Σ açık çıkıntı genişlik × yükseklik (`channel_section.rb`). Geçersiz kesit reddedilir (açık çıkıntıda ölçü ≤ 0, ofset + genişlik > toplam, açık çıkıntılar çakışır / bitişir, çıkıntısız düz plak — karar 5).
+- **Canlı önizleme**: Kanal Prekastı formunda SVG kesit önizlemesi, kesit alanı; modeli değiştirmez (JS formülü Ruby'deki ile aynı kural; karşılaştırma testi `kp1b`).
+- **Üç oluşturma yolu tek kesit kaynağından**: Kanal Prekastı formu, Prekast Yerleşimi (PD Yerleşimini Oluştur), Ceplere Kanal Prekastı Yerleştir. Tek kanal formu artık Component + destek PID ile oluşturur (karar 10; bağımlılık ağına girer).
+- **Prekast Yerleşimi — PK seçim listesi ve cep uyumu** (P2): liste tip kütüphanesinden (`precast_type_library_json`) ve modeldeki PK'lardan; "Cep Uyumunu Denetle" iki BK seçimiyle, uyumsuzlukta ölçü + beklenen + mevcut metni. Salt okuma.
+- **Kot yöntemi** (P3): "Üst kot (varsayılan)" (önceki davranış), "BK kanal cebine oturt", "Manuel kot" (referans kotu + Üst / Alt yüzey); "Kotu Önizle" salt okuma. BK cebi değişince "BK kanal cebine oturt" ile yerleştirilmiş PK yeniden oturur (karar 6).
+- **Tipte üst yüzey** (karar 2): varsayılan en yüksek açık çıkıntının üstü; tipte isteğe bağlı çıkıntı seçimi (`channel_top_ref`).
+- **Döşeme boşluğu kesitten** (P4): PK başına çok aralık (çıkıntılar arası gözler), kutu yerine kontur boşaltılır; Çift gözlüde alçak orta çıkıntının üstü açık bölgede (karar 15); aynalı PK desteklenir; dönük PK döşemede reddedilir + uyarı.
+- **Ledge Açık / Dolu** (karar 3, 11, 14, 16): Kanal Prekastı formu ve kesitli PK tip kartında "Döşemede sol / sağ taban üstü (ledge)": Varsayılan / Açık kalır / Döşeme doldurur. Varsayılan U, L, Çift gözlü açık; Kademeli plak ve Özel dolu.
+- **Ledge kalıbı seçimi** (karar 4, 38/K3): taban üstü (ledge) kalıbı ayrı rol, varsayılan kalıplı; formda ve tip kartında onay kutusuyla kapatılabilir (kapatılınca tip kaydında `fw_ledge=false`).
+- **Kontrollü Düzenleme** U dışı PK'yı desteklemez; Kanal Prekastı formuna yönlendirir (karar 8). U dışı PK raporlarda "iç 0,00 × 0,00" yerine kesit özetiyle gösterilir (38/K1, karar 18).
+- **Yapıyı Kopyala** (38/E1, K4 düzeltmesi `25fbf49`): kopya PK'nın `seat_bk_left_uid` / `seat_bk_right_uid` bağı kopya BK'ya, kopya döşemenin kanal kaydı (`deck_plan_json.channels`) kopya PK'lara yeniden eşlenir (ADR 31 deseni; yeni kimlik kuralı yok).
+
+**Yeni kayıtlı anahtarlar ve uyumluluk** (ayrıntı §3 tablosu):
+- PK öğesinde `channel_section_json` (37 K1): **U-eşdeğeri girdide yazılmaz** (yalnız açık `section` verisi varsa; karar 12) → eski U PK'nın tanım anahtarı, tip imzası ve yazılan anahtarları birebir aynı. Yoksa eski U eşlemesi (toplam = iç genişlik + 2 × duvar, taban = taban kalınlığı, sol / sağ açık duvar × derinlik, orta kapalı).
+- U dışı kesitte eski anahtarlar (`inner_width_m`, `inner_depth_m`, `base_thickness_m`, `wall_thickness_m`) **0**, `outer_width_m` / `width_m` = toplam genişlik (karar 1, 12). Eski anahtarlar silinmez, adı / tipi / U'daki anlamı değişmez.
+- Kot: `elevation_mode` (TOP | POCKET | MANUAL; yoksa TOP), `elevation_ref_face`, `elevation_ref_m` (yalnız MANUAL), cep bağı `seat_bk_left_uid` / `seat_bk_right_uid` + `seat_bk_left_side` / `seat_bk_right_side` (PID ikinci yol; `kn_from_pocket` yazılmaya devam eder); `channel_top_ref`. TOP kipinde (girdi yoksa) hiçbiri yazılmaz.
+- Döşemede `ledge_fill_volume_m3` (yeni; eski döşemede yok = 0); `channel_opening_volume_m3` (mevcut anahtar, U dışı PK'lı döşemede değeri değişir).
+- **Eski sürümde açma** (37 K1; denenmedi): yeni anahtarlar okunmaz. Eski sürümde U dışı PK'nın eski anahtarları 0 olduğundan PK yeniden kurulamaz (eski sürüm reddeder) ve döşeme açıklığı çıkmaz (iç genişlik 0). U PK'lı modelde etki beklenmez.
+
+**Geri Al:**
+- Kanal Prekastı formu, Prekast Yerleşimi ve Ceplere Kanal Prekastı Yerleştir: tek işlem, tek Geri Al.
+- BK düzenlemesi + POCKET PK'nın yeniden oturtulması: **tek Geri Al** (yeniden oturtma transparent, abort yok; karar 6). BK düzenlemesinden sonra cebe yerleştirme onayı (KN) verilirse **2** Geri Al adımı (ikincisi ayrı normal işlem; 38).
+- Döşeme güncellemesi transparent (önceki işleme birleşir).
+- "Kotu Önizle" ve "Cep Uyumunu Denetle" salt okuma; Geri Al adımı oluşturmaz.
+
+**Bilinen sınırlar:**
+1. Tek BK'lı form PK'sı BK boyu değişince yeniden boyutlanmaz (karar 12).
+2. Yeni PK oluşturulunca döşeme kendiliğinden güncellenmez; "Döşemeyi Güncelle" elle (karar 17). PK silinince Model Kontrolü uyarısı + elle güncelleme (karar 7; observer yok).
+3. Dolu ledge dolgusu döşeme pozunda kalır (net döşeme betonu + oranla döşeme donatısı); **dayanak belge bekliyor** (karar 19, 39/2).
+4. U dışı PK donatısı hacim × 120 kg/m³ tahmini (`rebar_rate('channel_precast')`; parametrik donatı planı U dışında reddedilir); **belge gerekli** (karar 9, 39 açık sorular).
+5. Golden-master PK / döşeme formülünü sınamaz (39/3); eski U aynılığı yalnız sahte nesne testlerine (kp1, kp4 2.x) dayanır.
+6. "Üst kot" ve "Manuel kot" kotları iç içe (ötelenmiş) grupta yerel uzayda kalır; `157bb45` yalnız "BK kanal cebine oturt" için Z ötelemesini düzeltir — ayrı öneri.
+7. Dönük PK döşemede reddedilir + uyarı (döşeme açıklığı üretilmez).
+8. Kazık / kaplama raporlarındaki "% oran" donatı etiketi (değer kg/m³) — ayrı öneri; PK etiketi düzeltildi.
+9. Eski sürümde U dışı PK yeniden kurulamaz, döşeme açıklığı çıkmaz (yukarıda).
+10. Doğrulanamayan (37, 39): aynalı / dönük PK'da kesit yönü SketchUp'ta; U iken donatılı PK U dışına çevrilince eski `rebar_mode`'un taşınması; eski döşeme yolu `create_deck_slab_legacy_v034`'ün çağrılıp çağrılmadığı; BK cep hacminin BK betonundan düşülmesi.
+
+**Metraj sonucunu değiştirenler:**
+| Kalem | Değişiklik | Örnek / kanıt |
+|---|---|---|
+| PK betonu ve kalıbı (U dışı kesitler) | Yeni kesitler: hacim = kesit alanı × boy; kalıp rolleri kesitten (alt, dış yan, taban üstü ledge ayrı rol, alınlar; çıkıntı üstü kalıp yok, eski U ile tutarlı) | 39 elle hesap: kesit alanı U 0,48 m² (değişmez), L / K 0,36, Çift gözlü 0,525, ofsetli Özel 0,42; L kalıbı alt 1,2·l + dış yan 1,6·l + ledge 1,0·l + alınlar 2 × 0,36 m². Eski sürümde U dışı kesit yoktu |
+| Döşeme net betonu, `channel_opening_volume_m3`, yeni `ledge_fill_volume_m3` (U dışı PK'lı döşemeler) | Açıklık kutu yerine kesit konturundan, çok aralık; dolu ledge döşeme betonuna eklenir | 39 örneği (BK 0–1 / 4–5, PK 1–4, döşeme 0,40 m): L net: eski hesap yolu 1,32 → yeni 1,02 m³ (fark = açıklık 0,30); K net 3,12 m³, dolgu 0,90 m³. BOQ yalnız net `concrete_volume_m3` / `formwork_area_m2` okur; `ledge_fill_volume_m3`, `channel_opening_volume_m3` kayıt amaçlı |
+| Döşeme betonu — cepsiz BK'ya taşan dolu ledge (`25fbf49`, 39/1) | BK üstü altına inen dolu ledge betonu, PK'nın taştığı BK'da cep yoksa artık eklenmez (BK betonuyla çift sayım giderildi) | Sayısal örnek bu belgede yok (test `kp5_inceleme_38_39.rb`; sayılar commit mesajında) |
+| PK donatısı (U dışı) | Hacim × 120 kg/m³ tahmini (yeni kesit hacmiyle) | Belge gerekli (bilinen sınır 4) |
+| Donatı etiketi (PK) | "% 120" → kg/m³ gösterimi; **değer değişmez** (metin) | 39 küçük, karar 18 |
+| Eski U PK'lı model | **Değişiklik beklenmez** (tanım anahtarı, imza, hacim, kalıp, döşeme) | Sahte nesne: kp1 (eski U alan / hacim / imza), kp4 2.x (eski U döşemesi). Golden bunu sınamaz (39/3). SketchUp karşılaştırması: 08 N-48 (bekliyor) |
+
 ## 3. Yeni attribute anahtarları ve eski modellerle uyumluluk
 Hepsi yalnız eklenir; mevcut anahtar adı/tipi değişmez (G4). Eski modelde anahtar yoksa eski davranış veya "uyarı yok" geçerlidir.
 
@@ -183,6 +245,12 @@ Hepsi yalnız eklenir; mevcut anahtar adı/tipi değişmez (G4). Eski modelde an
 | `progress_inherited_history_json` | String (JSON dizisi) | öğe (kopya) | Yok = boş geçmiş. Yalnız BIM Kimlik Onarımı'nda, önceki devralma kaydı (`progress_inherited_json` / `progress_inherited_status`) dolu kopyaya yazılır; kayıt: `v, at, source, from_uid, new_uid, items_json, status, prev_copied_from_uid, prev_uid_owner_pid`. Bozuksa onarım yapılmaz (G1) |
 | `structure_display_names_json` | String (JSON `{kod: ad}`) | model | Yok veya bozuk → görünen ad yok, kod gösterilir; okumada yazım yok. Boş ya da koda eşit ad kaydedilmez; bozuksa üzerine yazılmaz (`c1e3a59`/`b99ced8`, 23) |
 | `axis_display_names_json` | String (JSON `{"<ano>::<zone>": {"x":{kod:ad},"y":{kod:ad}}}`) | model | Aynı kural (23) |
+| `channel_section_json` (09.11.2026, §2.11) | String (JSON `{"v":1,"preset",…,left / mid / right çıkıntı nesneleri}`; içinde isteğe bağlı `deck_ledge_left` / `deck_ledge_right`) | PK öğesi (tip kaydında aynı nesne `section`) | Yok = eski U eşlemesi (eski U anahtarlarından). U-eşdeğeri girdide yazılmaz (karar 12). U dışı PK'da eski U anahtarları 0, `outer_width_m` / `width_m` = toplam genişlik; eski sürüm U dışı PK'yı yeniden kuramaz, döşeme açıklığı çıkmaz |
+| `elevation_mode`, `elevation_ref_face`, `elevation_ref_m` (09.11.2026) | String / String / Float | PK öğesi | Yok = TOP (önceki kot kuralı). TOP kipinde yazılmaz; `elevation_ref_m` yalnız MANUAL. (Aynı adlı `elevation_mode` kazıkta ayrı anlamla kullanılır; PK anahtarı yalnız PK'da okunur) |
+| `seat_bk_left_uid`, `seat_bk_right_uid`, `seat_bk_left_side`, `seat_bk_right_side` (09.11.2026) | String | PK öğesi (POCKET) | Yok = cep bağı yok, BK düzenlemesinde yeniden oturtma yapılmaz; PID (`support_left/right_pid`) ikinci yol. Yapıyı Kopyala kopyada kopya BK'ya yeniden eşler (`25fbf49`) |
+| `channel_top_ref` (09.11.2026) | String | PK öğesi / tip kaydı | Yok = en yüksek açık çıkıntının üstü (karar 2) |
+| `ledge_fill_volume_m3` (09.11.2026) | Float | döşeme | Yok = 0. Kayıt amaçlı; BOQ'ya girmez (net `concrete_volume_m3` içinde) |
+| `fw_ledge` (tip kaydı içinde, `precast_type_library_json`; 09.11.2026) | Boolean | tip kaydı | Yok = ledge kalıplı; yalnız kapatılınca `false` yazılır |
 
 Kaplama bağımlılık ağı (G8, kod inceleme #4): 0.51.5'te kaplama grupları (deck_topping) bağımlılık ağına girer. Kaplaması olan eski modelde, ilk MST işleminden veya modeldeki ilk değişiklikten sonra kaplama gruplarına dependency_parent_uids/ids ve dependency_schema='2.2', döşemelere dependency_child_uids/ids yazılır. Geometri ve metraj değişmez. Yazım o MST işleminin içinde ya da kullanıcının işlemine birleşen otomatik yenilemede (dependency_rebuild.rb:217-226) yapılır; Ctrl+Z ile o işlemle birlikte geri alınır. Model değişmiş görünür. Bu anahtarlar türetilmiş veridir; kimlik veya metraj kaynağı değildir. 0.51.4 ile açılınca davranış doğrulanmadı.
 Ayrıca donatılı prekast tanım anahtarına `rebar` parametresi (`pc-v1:` + `pc_rebar_json`) eklenir; donatısız parçaların anahtarı değişmez. Konumlu kalıp yüz anahtarı (`eski@i/n`) eski anahtarın yanında kullanılır.
@@ -294,3 +362,4 @@ Aksesuar iç bağlantısı (Q1) ve Revizyonlar düğmeyle hesaplama (Q2) sonras�
 - **GÜNCEL PAKET (TESLIM_9, 09.11.2026; METRAJ DEĞİŞİR, §2.10 Yapıyı Kopyala)**: dist\MST_v0.51.5_TB1_FIX1_TEST.rbz SHA-256 947361e4ae4c740c12ad3e00c7a63a013a48e58da219293282e3e2292268a53f (202 dosya, kaynak `3137ff4`; paket ↔ src 202/202 aynı) + runner 1.2.8 dist\MST_TB1_Integration_TestRunner_v1.2.8_for_0.51.5.rbz SHA-256 523d85d1de3126907f40d52cff09d61431c1595566080c746efb06f0ec5dad76 (expected_sources 202/202); teslim OneDrive\Masaüstü\CLAUDE\MST_v0.51.5_TESLIM_9; TESLIM_8 → dist\gecersiz_a38593d1. SketchUp içinde denenmedi; kabul 08 §12 N-34…N-47 kullanıcıda.
 - **SketchUp sonucu TESLIM_9 (09.11.2026, kullanıcı dosyaları TESLIM_9 klasöründe)**: runner 1.2.8 6 çalıştırmada 32 pass / 0 fail / 0 warn, kurulu 202/202. İlk denemede yapılar SketchUp kopyasıyla çoğaltıldı (Aks Yöneticisi değil; kullanıcı bildirdi) → mükerrer UID/ID (Model Kontrolü 150 hata), Yapıyı Kopyala sınaması sayılmaz. Aks Yöneticisi → Yapıyı Kopyala ile (LİKİT ÇALIŞMA-4 kopyası): YD-02 → YD-02copy, BD-03 → BD-03 copy; Detaylı Metraj kopya ara toplamları kaynakla birebir, proje toplamı ×2; kazık P-027…P-052, BK-001…005 kendi kazıklarına bağlı; Model Kontrolü metninde HATA yok. 08: N-34 karşılandı, N-35 / N-38 kısmen; Undo, bağımsızlık, kaydet-aç ve diğer satırlar bildirilmedi.
 - **SketchUp sonucu TESLIM_9 ek (09.11.2026, kullanıcı beyanı)**: tek Ctrl+Z ile kopyanın tamamı kalkar (N-36), kopya BK değişikliği kaynağı etkilemez (N-37), kaydet-yeniden aç sonrası kopyalar duruyor (N-39) — "üçü de oldu". Açık: N-35 Keşif Excel, N-38 Model Kontrolü özet / Kimlik Onarımı, N-40…N-47.
+- **TESLIM_10 paket kaydı** (kaynak `157bb45`, §2.11 Kanal prekastı; METRAJ DEĞİŞİR): MST `03c14fb1…ae42` (203 dosya) + runner 1.2.9 `4fd20143…91e3`; `OneDrive\Masaüstü\CLAUDE\MST_v0.51.5_TESLIM_10`; eski → `dist\gecersiz_947361e4`. Perf (sahte nesne, `run_perf.rb all 3137ff4 157bb45`): oran 0,74–1,11, eğilim yok. SketchUp içinde denenmedi; kabul 08 §13 N-48…N-69 kullanıcıda.
