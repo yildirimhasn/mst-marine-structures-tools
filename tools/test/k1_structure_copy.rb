@@ -647,6 +647,42 @@ M.mst_structure_copy_apply!(plan_of, $model)
 hb = $model.entities.select { |e| a(e, 'copy_origin') == 'structure_copy' && a(e, 'element_type') == 'head_beam' }.map { |e| a(e, 'head_beam_id') }.sort
 t('7 (32/6) yeni BK ID\'leri: ilk boş numaralar sırayla (BK-001/002/009/101 dolu)', hb, %w[BK-003 BK-004 BK-005 BK-006])
 
+# ================================================================ 9) 38 E1 + K4 (kullanıcı kararı 18): POCKET PK cep bağı ve döşeme planı kanal kimlikleri
+# PK (Group) POCKET: seat_bk_left_uid / seat_bk_right_uid kaynak BK'ları gösterir; döşeme deck_plan_json.channels / openings bu PK'yı gösterir.
+pk_pocket = lambda do |roots, left_uid = 'MST-1201-1'|
+  roots << g(1306, own('ANO-01').merge('element_type' => 'channel_precast', 'precast_id' => 'PK-001', 'element_uid' => 'MST-1306-1', 'support_left_pid' => 1201,
+                                       'support_right_pid' => 1202, 'elevation_mode' => 'POCKET', 'seat_bk_left_uid' => left_uid, 'seat_bk_left_side' => 'start',
+                                       'seat_bk_right_uid' => 'MST-1202-1', 'seat_bk_right_side' => 'start', 'concrete_volume_m3' => 2.0, 'concrete_class' => 'C35/45'))
+  d = roots.find { |e| e.get_attribute(D, 'element_uid') == 'MST-1401-1' }
+  d.set_attribute(D, 'deck_plan_json', JSON.generate('boxes' => [], 'openings' => [{ 'id' => 'PK-001', 'u0' => 1.0 }], 'spans' => [], 'channels' => [{ 'id' => 'PK-001', 'uid' => 'MST-1306-1' }]))
+end
+k1_build(extra: pk_pocket)
+p9 = plan_of('count' => '1')
+t('9 (E1) POCKET PK\'lı yapı: ön kontrol hatasız', p9['errors'], [])
+r9 = M.mst_structure_copy_apply!(p9, $model)
+t('9 (E1) kopya başarılı, tek işlem', [r9['ok'], k1_ops], [true, %i[start commit]])
+cp = $model.entities.find { |e| a(e, 'copied_from_uid') == 'MST-1306-1' }
+cb = ->(u) { $model.entities.find { |e| a(e, 'copied_from_uid') == u } }
+t('9 (E1) kopya PK seat_bk_left_uid / seat_bk_right_uid kopya BK UID\'lerini gösterir; taraf aynı',
+  [cp && a(cp, 'seat_bk_left_uid'), cp && a(cp, 'seat_bk_right_uid'), cp && a(cp, 'seat_bk_left_side')], [cb.('MST-1201-1') && a(cb.('MST-1201-1'), 'element_uid'), cb.('MST-1202-1') && a(cb.('MST-1202-1'), 'element_uid'), 'start'])
+srcpk = $model.entities.find { |e| a(e, 'element_uid') == 'MST-1306-1' }
+t('9 (E1) kaynak PK cep bağı değişmedi', [a(srcpk, 'seat_bk_left_uid'), a(srcpk, 'seat_bk_right_uid')], %w[MST-1201-1 MST-1202-1])
+cd = cb.('MST-1401-1')
+pj = cd && JSON.parse(a(cd, 'deck_plan_json'))
+t('9 (K4) kopya döşeme deck_plan_json.channels kopya PK UID + kimliği; openings kimliği kopya PK',
+  [pj && pj['channels'], pj && pj['openings'].map { |o| o['id'] }], [[{ 'id' => cp && a(cp, 'precast_id'), 'uid' => cp && a(cp, 'element_uid') }], [cp && a(cp, 'precast_id')]])
+t('9 (K4) kaynak döşeme planı değişmedi', JSON.parse(a(f_src_deck = $model.entities.find { |e| a(e, 'element_uid') == 'MST-1401-1' }, 'deck_plan_json'))['channels'], [{ 'id' => 'PK-001', 'uid' => 'MST-1306-1' }])
+all9 = []; M.collect_elements($model.entities, all9)
+t('9 (K4) Model Kontrolü silinen PK uyarısı yok (kaynak ve kopya döşeme)', M.mst_deck_pk_missing_audit(all9).length, 0)
+# kopya PK silinince kopya döşeme uyarır, kaynak döşeme uyarmaz
+cp.erase!; $model.entities.delete(cp)
+all9 = []; M.collect_elements($model.entities, all9)
+t('9 (K4) kopya PK silinince yalnız kopya döşeme uyarır', M.mst_deck_pk_missing_audit(all9).map { |x| a(x[1], 'element_uid') }, [a(cd, 'element_uid')])
+# cep bağı yapı dışındaki BK'yı gösterirse ön kontrol reddeder (diğer UID bağları gibi)
+k1_build(extra: ->(roots) { pk_pocket.(roots, 'MST-1901-1') })
+p9b = plan_of('count' => '1')
+t('9 (E1) seat_bk_left_uid başka yapıdaki BK → ön kontrol reddi', p9b['errors'].any? { |e| e.to_s.include?('seat_bk_left_uid') }, true)
+
 # ================================================================ 8) performans: 50 kopya × ≈200 eleman (sahte model; ölçüm, eşik yok)
 k1_build(extra: lambda { |roots|
   piles = (1..150).map do |i|

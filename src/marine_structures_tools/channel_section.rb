@@ -147,7 +147,16 @@ def mst_ch_active(sec)
   p=sec[k];w=p['width_m'].to_f;o=p['offset_m'].to_f
   y0,y1=k=='right' ? [t-o-w,t-o] : [o,o+w]
   {'part'=>k,'y0'=>y0,'y1'=>y1,'h'=>p['height_m'].to_f}
- end.sort_by{|a|a['y0']}
+ end.sort_by{|a|a['y0'].finite? ? a['y0'] : Float::INFINITY}   # 38 K2: NaN ofset / genişlik sıralamayı çökertmez; mst_ch_valid geçersiz kesit der
+end
+
+# 38 K3: tip kaydında ledge kalıbını açıkça kapatan değer (false / '0' / 'false'); yok / true → kalıplı
+def mst_ch_ledge_off?(v);v==false || %w[0 false].include?(v.to_s.strip.downcase);end
+
+# 38 K1: U dışı kesit özeti (ön ayar + toplam genişlik × toplam yükseklik), rapor / önizleme metni
+def mst_ch_summary(sec,dig=2)
+ pr=sec['preset'].to_s;pr='Özel' if pr=='OZEL'
+ "#{pr} #{format("%.#{dig}f",sec['total_width_m'].to_f)} × #{format("%.#{dig}f",mst_ch_height(sec))} m"
 end
 
 def mst_ch_bad_num?(v);!v.is_a?(Numeric) || !v.to_f.finite?;end

@@ -18,7 +18,7 @@ MST_SC_MAX=50
 MST_SC_EXTRA_TYPES=%w[jet_grout].freeze   # collect_elements dışında kalan, yapıya ait kopyalanan kök öğe
 MST_SC_SKIP_TYPES=%w[accessory axis_grid_visual structure_label model_scaled_text axis_emphasis system_axis_emphasis infinite_axis_reference axis_intersection mst_pile_template].freeze
 MST_SC_PID_KEYS=%w[support_left_pid support_right_pid support_pids connected_pile_persistent_ids reference_pid].freeze
-MST_SC_UID_KEYS=%w[support_left_uid support_right_uid support_uids parent_uid parent_deck_uid root_uid fill_uid].freeze
+MST_SC_UID_KEYS=%w[support_left_uid support_right_uid support_uids parent_uid parent_deck_uid root_uid fill_uid seat_bk_left_uid seat_bk_right_uid].freeze   # 38 E1: POCKET PK cep bağı (ADR-0515-K2)
 # fiziksel / görünen ID bağları → hedef türler (nil: herhangi bir tür). linked_element_id ADR listesinde yok; kazık "özel kot" bağı (main.rb:1305).
 MST_SC_ID_KEYS={'connected_pile_ids'=>%w[steel_pipe_pile bored_pile],'pile_ids'=>%w[steel_pipe_pile bored_pile],'parent_deck_id'=>%w[deck_slab],
                 'parent_crown_id'=>%w[crown_wall],'support_hb_ids'=>%w[head_beam],'linked_element_id'=>nil}.freeze
@@ -424,6 +424,20 @@ def mst_sc_rewrite_links!(s,d,mp)
   t=mst_sc_type(s)
   if t=='steel_pipe_pile' && !s.get_attribute(DICT,'global_pile_id',nil).nil? && s.get_attribute(DICT,'global_pile_id','').to_s==s.get_attribute(DICT,'pile_id','').to_s
     d.set_attribute(DICT,'global_pile_id',d.get_attribute(DICT,'pile_id','').to_s)
+  end
+  # 38 K4: döşeme planında kesilen kanal prekastları (deck_plan_json channels / openings) kopya PK kimliğine; eşlemde yoksa olduğu gibi
+  if t=='deck_slab' && (pj=(JSON.parse(s.get_attribute(DICT,'deck_plan_json','').to_s) rescue nil)).is_a?(Hash)
+    ch=false
+    (pj['channels'].is_a?(Array) ? pj['channels'] : []).each do |r|
+      next unless r.is_a?(Hash)
+      if (nu=mp[:uid][r['uid'].to_s]) then r['uid']=nu;ch=true end
+      if (ni=mst_sc_vid_map(mp,['channel_precast'],r['id'].to_s)) then r['id']=ni;ch=true end
+    end
+    (pj['openings'].is_a?(Array) ? pj['openings'] : []).each do |o|
+      next unless o.is_a?(Hash)
+      if (ni=mst_sc_vid_map(mp,['channel_precast'],o['id'].to_s)) then o['id']=ni;ch=true end
+    end
+    d.set_attribute(DICT,'deck_plan_json',JSON.generate(pj)) if ch
   end
   od=s.get_attribute(DICT,'parent_deck_id','').to_s
   if t=='deck_topping' && !od.empty? && s.get_attribute(DICT,'topping_id','').to_s=="TOP-#{od}"

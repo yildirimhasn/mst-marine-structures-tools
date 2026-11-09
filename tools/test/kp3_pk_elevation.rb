@@ -257,6 +257,9 @@ src = File.binread(File.join(DIR, 'main.rb')).force_encoding('UTF-8')
 t('5.9 show_dialog callback kaydı (pk_elevation_preview)', src.include?("add_action_callback('pk_elevation_preview')"), true)
 
 # ---------------------------------------------------------------- 6. BK cebi değişince yeniden oturtma (karar 6)
+# 38 B2 (karar 18): sessiz kipte uyarı kutusu yerine durum satırı — 6.6 / 6.7 uyarıyı ikisinden birinde arar
+$kp3_status = []
+Sketchup.define_singleton_method(:status_text=) { |v| $kp3_status << v.to_s }
 def pk_seat(pid, mode, z0, y0 = 2.02, y1 = 3.22, extra = {})
   a = { 'element_type' => 'channel_precast', 'precast_family' => 'PK', 'precast_id' => "PK#{pid}", 'support_left_pid' => 9401, 'support_right_pid' => 9402,
         'bottom_elevation_m' => z0, 'top_elevation_m' => z0 + 0.8 }
@@ -296,13 +299,13 @@ if HAVE
   l, r = reseat_setup(0.9, 2.5)
   pp = pk_seat(9431, 'POCKET', 2.2); $ui_msgs = []
   res = M.mst_pk_reseat_after_edit([l], $model, true)
-  t('6.6 yatay kayma: taşınmaz, işlem açılmaz, uyarı', [res['moved'], $model.ops, $ui_msgs.join.include?('yatayda kaydı')], [[], [], true])
+  t('6.6 yatay kayma: taşınmaz, işlem açılmaz, uyarı', [res['moved'], $model.ops, ($ui_msgs + $kp3_status).join.include?('yatayda kaydı')], [[], [], true])
   # cep artık yok
   fresh_model
   l = bk_y(9401, 0.0, 1.0, 3.0, 0.8, 2.0, false); r = bk_y(9402, 4.0, 5.0, 3.0, 0.8, 2.0, false)
   pp = pk_seat(9441, 'POCKET', 2.2); $ui_msgs = []
   res = M.mst_pk_reseat_after_edit([l], $model, true)
-  t('6.7 cep kaldırıldı: taşınmaz, işlem açılmaz, uyarı', [res['moved'], $model.ops, $ui_msgs.join.include?('cebi artık yok')], [[], [], true])
+  t('6.7 cep kaldırıldı: taşınmaz, işlem açılmaz, uyarı', [res['moved'], $model.ops, ($ui_msgs + $kp3_status).join.include?('cebi artık yok')], [[], [], true])
   # UID yoksa destek PID ile (ikinci yol); düzenlenmeyen BK'ya bağlı PK'ya dokunulmaz
   l, r = reseat_setup
   pq = pk_seat(9451, nil, 2.2, 2.02, 3.22, 'elevation_mode' => 'POCKET')
