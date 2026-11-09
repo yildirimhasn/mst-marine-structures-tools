@@ -62,3 +62,5 @@ Kullanıcı kararları bu bölümün altına eklenecek.
 8. U dışı PK Kontrollü Düzenlemede desteklenmez; Kanal Prekastı formuna yönlendirilir.
 9. U dışı kesit donatısı hacim × kg/m³ (ayrıntılı plan için belge gerekli).
 10. Tek kanal formu yeni kesitle Component + destek PID (bağımlılık ve metraj etkisi kabul).
+11. (09.11.2026, P1a sonrası) Sol / sağ taban üstü (yan çıkıntının dış tarafı) döşemede "açık kalır / döşeme doldurur" tipte seçilir; varsayılan L ve U açık, K dolu (karar 3 bu seçimle uygulanır).
+12. (ana oturum, teknik) U-eşdeğeri girdide channel_section_json yalnız açık `section` verisi varsa yazılır (eski girdide yazılan anahtarlar birebir aynı); U dışında outer_width_m / width_m = toplam genişlik, iç ölçü anahtarları 0. Tek BK'lı form PK BK boyu değişince yeniden boyutlanmaz (bilinen sınır, P5 notu). channel_top_ref üretime P3 içinde bağlanır.

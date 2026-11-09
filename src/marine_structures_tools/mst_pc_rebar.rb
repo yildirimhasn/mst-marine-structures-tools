@@ -51,6 +51,8 @@ end
 def mst_pc_dims(e)
  h=Hash.new{|_,k|e.get_attribute(DICT,k,nil)};t=h['element_type'].to_s
  if t=='channel_precast'
+  # karar 9 (37, ADR-0515-K2): U dışı kesitte parametrik plan yok — donatı metrajı hacim × kg/m³ (pursantaj) kalır
+  raise 'U kesit olmayan kanal prekastında parametrik donatı planı yok; donatı metrajı hacim × kg/m³ (pursantaj) ile hesaplanır. Ayrıntılı donatı için donatı planı belgesi gerekli.' if mst_ch_custom_section(e)
   wi=h['inner_width_m'].to_f;di=h['inner_depth_m'].to_f;tb=h['base_thickness_m'].to_f;tw=h['wall_thickness_m'].to_f
   {'L'=>h['length_m'].to_f,'W'=>wi+2*tw,'H'=>tb+di,'wi'=>wi,'di'=>di,'tb'=>tb,'tw'=>tw}
  else
@@ -272,6 +274,7 @@ def mst_pc_ui
  fams=es.map{|x|mst_pc_family(x)}.uniq
  raise 'Bir seferde tek tür seçin (PD ya da PK).' unless fams.length==1
  fam=fams[0];e0=es[0]
+ es.each{|x|mst_pc_dims(x)} if fam=='PK'   # karar 9: U dışı kanal prekastı girdi sorulmadan reddedilir
  act=UI.inputbox(['İşlem'],['ÇİZ'],['ÇİZ|SİL'],"Prekast Donatısı — #{es.length} parça (#{fam})")
  return 0 unless act
  if act[0]=='SİL'

@@ -288,7 +288,18 @@ def paint_crane_precast_formwork(group, form_mat=nil)
  end
 end
 
-def paint_channel_precast_formwork(group, outer_width_m, wall_t_m, inner_depth_m, base_thickness_m, flags, form_mat, concrete_mat)
+def paint_channel_precast_formwork(group, outer_width_m, wall_t_m, inner_depth_m, base_thickness_m, flags, form_mat, concrete_mat, sec=nil)
+ # ADR-0515-K2: U dışı kesit (sec) rolleri kesitten (mst_ch_face_kind; taban üst ledge'i ayrı rol BASE_LEDGE). U'da aşağıdaki eski kural.
+ if sec
+  fl=mst_ch_flags(flags)
+  group.entities.grep(Sketchup::Face).each do |face|
+   c=face.bounds.center
+   kind=mst_ch_face_kind(sec,face.normal.to_a,c.y.to_f/39.37007874015748,c.z.to_f/39.37007874015748)
+   key=MST_CH_KIND_FLAG[kind]
+   mark_formwork_face(face,key ? fl[key] : false,form_mat,concrete_mat,kind)
+  end
+  return
+ end
  # Kanal Prekastı kalıp kuralı:
  # - dış taban + dış yanlar: opsiyonel kalıp
  # - U kanalın İÇ TABANI + iki İÇ DÜŞEY YÜZEYİ: ayrı "inner" kalıp grubu
@@ -4586,10 +4597,19 @@ def create_flat_precast(data=nil)
     prefix=fam=='PV' ? 'PV':'PDO';uid=next_element_uid(model,prefix);g=c.entities.add_group;g.name="#{name} [#{uid}]";build_crane_precast_solid(g.entities,plen,wm,h,ed,lt,rt);g.transform!(Geom::Transformation.translation([x0,y,m(z)]));paint_crane_precast_formwork(g,tooth_form_mat);central=[lm-lt-rt,0].max;vol=wm*(h*lm+ed*central);fw=head_beam_formwork_area(g);sig=precast_signature(fam,lm,wm,h,[name,ed,lt,rt].join(':'))
     {'element_type'=>'crane_precast','precast_family'=>fam,'precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>wm,'layout_width_m'=>wm,'height_m'=>h,'thickness_m'=>h,'extra_depth_m'=>ed,'left_tooth_m'=>lt,'right_tooth_m'=>rt,'bottom_elevation_m'=>z-ed,'main_bottom_elevation_m'=>z,'top_elevation_m'=>z+h,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'rebar_rate_kg_m3'=>120.0,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'formwork_rule'=>'ALL_EXPOSED_EXCEPT_TOP','support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(wm)+m(joint)
    when 'PK'
-    wi=tdef['inner_width'].to_f;di=tdef['inner_depth'].to_f;tb=tdef['base'].to_f;tw=tdef['wall'].to_f;raise "#{name}: kanal geometrisi geçersiz." if [wi,di,tb,tw].any?{|v|v<=0};ow=wi+2*tw;oh=tb+di;uid=next_element_uid(model,'PK');g=c.entities.add_group;g.name="#{name} [#{uid}]";profile=[[0,0],[ow,0],[ow,oh],[ow-tw,oh],[ow-tw,tb],[tw,tb],[tw,oh],[0,oh]];uf=g.entities.add_face(profile.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise "#{name}: U kesiti oluşturulamadı." unless uf;uf.reverse! if uf.normal.x<0;uf.pushpull(plen)
+    # ADR-0515-K2: U dışı kesit (tip kaydı 'section') tek yüz itmeyle; eski kayıt ve U-eşdeğeri kesit eski U yolunda (değerler aynı).
+    if (cs=mst_ch_custom_section(tdef))
+     ers=mst_ch_valid(cs);raise "#{name}: #{ers.join(' ')}" unless ers.empty?
+     ow=cs['total_width_m'];oh=mst_ch_height(cs);uid=next_element_uid(model,'PK');g=c.entities.add_group;g.name="#{name} [#{uid}]";uf=g.entities.add_face(mst_ch_profile(cs).map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise "#{name}: kanal kesiti oluşturulamadı." unless uf;uf.reverse! if uf.normal.x<0;uf.pushpull(plen)
+     ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;topz=z+ref_h;bottomz=topz-oh;g.transform!(Geom::Transformation.translation([x0,y,m(bottomz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1',ledge:data['channel_fw_ledge']!='0'};paint_channel_precast_formwork(g,ow,0,0,0,flags,ch_form_mat,nil,cs);vol=mst_ch_area(cs)*lm;fw=mst_ch_formwork(cs,lm,flags);sig=precast_signature('PK',lm,ow,oh,[name,mst_ch_geom_sig(cs)].join(':'))
+     {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>0.0,'inner_depth_m'=>0.0,'base_thickness_m'=>0.0,'wall_thickness_m'=>0.0,'channel_section_json'=>mst_ch_json(cs),'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
+     next
+    end
+    sec=mst_ch_explicit(tdef)   # U-eşdeğeri açık kesit: ölçüler kesitten; yoksa eski tip alanları
+    wi,di,tb,tw=sec ? mst_ch_u_dims(sec) : [tdef['inner_width'].to_f,tdef['inner_depth'].to_f,tdef['base'].to_f,tdef['wall'].to_f];raise "#{name}: kanal geometrisi geçersiz." if [wi,di,tb,tw].any?{|v|v<=0};ow=mst_ch_u_outer(wi,tw);oh=mst_ch_u_height(di,tb);uid=next_element_uid(model,'PK');g=c.entities.add_group;g.name="#{name} [#{uid}]";profile=mst_ch_u_profile(wi,di,tb,tw);uf=g.entities.add_face(profile.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise "#{name}: U kesiti oluşturulamadı." unless uf;uf.reverse! if uf.normal.x<0;uf.pushpull(plen)
     # PK üst kotunu yerleşimdeki en yüksek normal/dişli ana kalınlığına hizala.
-    ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;topz=z+ref_h;bottomz=topz-oh;g.transform!(Geom::Transformation.translation([x0,y,m(bottomz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1'};paint_channel_precast_formwork(g,ow,tw,di,tb,flags,ch_form_mat,nil);area=ow*tb+2*tw*di;vol=area*lm;fw=0.0;fw+=lm*ow if flags[:bottom];fw+=2*lm*oh if flags[:sides];fw+=lm*(wi+2*di) if flags[:inner];fw+=2*area if flags[:ends];sig=precast_signature('PK',lm,ow,oh,[name,wi,di,tb,tw].join(':'))
-    {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
+    ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;topz=z+ref_h;bottomz=topz-oh;g.transform!(Geom::Transformation.translation([x0,y,m(bottomz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1'};paint_channel_precast_formwork(g,ow,tw,di,tb,flags,ch_form_mat,nil);area=mst_ch_u_area(wi,di,tb,tw);vol=area*lm;ft=mst_ch_u_fw_terms(lm,wi,di,tb,tw);fw=0.0;fw+=ft[0] if flags[:bottom];fw+=ft[1] if flags[:sides];fw+=ft[2] if flags[:inner];fw+=ft[3] if flags[:ends];sig=precast_signature('PK',lm,ow,oh,[name,wi,di,tb,tw].join(':'))
+    {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(sec ? {'channel_section_json'=>mst_ch_json(sec)} : {}).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
    else
     raise "Bilinmeyen prekast sınıfı: #{fam}"
    end
@@ -4620,11 +4640,14 @@ def sync_precast_to_head_beams
    if z1.nil?||z2.nil?||(z1.to_f-z2.to_f).abs>0.005;skip+=1;next;end
    et=g.get_attribute(DICT,'element_type').to_s
    if et=='channel_precast'
-    u_h=g.get_attribute(DICT,'base_thickness_m',0).to_f+g.get_attribute(DICT,'inner_depth_m',0).to_f
+    cs=mst_ch_custom_section(g)   # ADR-0515-K2: U dışı kesitte yükseklik kesitten
+    u_h=cs ? mst_ch_height(cs) : g.get_attribute(DICT,'base_thickness_m',0).to_f+g.get_attribute(DICT,'inner_depth_m',0).to_f
     # Use the normal PD height from the same layout/support pair when available.
     mate=all.find{|p|p.get_attribute(DICT,'element_type')=='flat_precast' && p.get_attribute(DICT,'support_left_pid',0).to_i==g.get_attribute(DICT,'support_left_pid',0).to_i && p.get_attribute(DICT,'support_right_pid',0).to_i==g.get_attribute(DICT,'support_right_pid',0).to_i}
     pd_h=mate ? mate.get_attribute(DICT,'height_m',0).to_f : 0.0
     target_top=z1.to_f+pd_h;target_bottom=target_top-u_h
+    # karar 10: tek BK üstüne oturan kanal (Kanal Prekastı formu, iki destek aynı BK) — alt = BK üstü
+    if l==r;target_bottom=z1.to_f;target_top=target_bottom+u_h;end
     old=g.get_attribute(DICT,'bottom_elevation_m',target_bottom).to_f;dz=target_bottom-old
     if dz.abs>0.0005;g.transform!(Geom::Transformation.translation([0,0,m(dz)]));g.set_attribute(DICT,'bottom_elevation_m',target_bottom);g.set_attribute(DICT,'top_elevation_m',target_top);moved+=1;end
    else
@@ -4653,8 +4676,16 @@ def create_channel_precast(d)
  model=Sketchup.active_model
  hb=model.selection.find{|e|e.respond_to?(:get_attribute)&&e.get_attribute(DICT,'element_type').to_s=='head_beam'}
  raise 'Önce bir Başlık Kirişi seçiniz.' unless hb
- wi=d['inner_width_m'].to_f;di=d['inner_depth_m'].to_f;tb=d['base_thickness_m'].to_f;tw=d['wall_thickness_m'].to_f
- raise 'Kanal ölçüleri sıfırdan büyük olmalıdır.' if [wi,di,tb,tw].any?{|x|x<=0}
+ # ADR-0515-K2: kesit d['section'] (U dışı: tek parametrik kesit) ya da eski U alanları. Karar 10: tek yüz itme (iç grup yok),
+ # Component gövde (yerleşim deseni), destek = seçili BK (support_left/right_pid), kalıp yüzleri kesitten boyanır.
+ cs=mst_ch_custom_section(d)
+ if cs
+  ers=mst_ch_valid(cs);raise ers.join("\n") unless ers.empty?
+ else
+  sec=mst_ch_explicit(d)   # U-eşdeğeri açık kesit: ölçüler kesitten
+  wi,di,tb,tw=sec ? mst_ch_u_dims(sec) : [d['inner_width_m'].to_f,d['inner_depth_m'].to_f,d['base_thickness_m'].to_f,d['wall_thickness_m'].to_f]
+  raise 'Kanal ölçüleri sıfırdan büyük olmalıdır.' if [wi,di,tb,tw].any?{|x|x<=0}
+ end
  sl=d['seat_left_m'].to_f;sr=d['seat_right_m'].to_f
  hb_len=hb.get_attribute(DICT,'length_m');hb_len=hb.bounds.width.to_f/39.37007874015748 if hb_len.nil?
  len=d['length_mode'].to_s=='AUTO' ? hb_len.to_f+sl+sr : d['manual_length_m'].to_f
@@ -4662,21 +4693,32 @@ def create_channel_precast(d)
  b=hb.get_attribute(DICT,'bottom_elevation_m').to_f;hh=hb.get_attribute(DICT,'height_m').to_f;top=hb.get_attribute(DICT,'top_elevation_m');bk_top=top.nil? ? b+hh : top.to_f
  # Channel bottom/base bottom: U-section sits with its bottom at BK top in this first geometric implementation.
  z=bk_top
- outer=wi+2.0*tw
- model.start_operation('U Kanal Prekastı Oluştur',true)
- g=model.active_entities.add_group;g.name='Kanal Prekastı (U)'
+ outer=cs ? cs['total_width_m'] : wi+2.0*tw
+ fl={bottom:!!d['fw_bottom'],sides:!!d['fw_sides'],inner:!!d['fw_inner'],ends:!!d['fw_ends'],ledge:d.key?('fw_ledge') ? !!d['fw_ledge'] : true}
+ form_hex=d['formwork_color'].to_s.strip;form_hex='#6DBE73' if form_hex.empty?
+ model.start_operation(cs ? 'Kanal Prekastı Oluştur' : 'U Kanal Prekastı Oluştur',true)
+ g=model.active_entities.add_group;g.name=cs ? 'Kanal Prekastı' : 'Kanal Prekastı (U)'
  cx=hb.bounds.center.x;cy=hb.bounds.center.y
- # Length follows model X, section across Y; three solids = base + left/right walls.
+ # Length follows model X, section across Y; tek kesit yüzü yerel düzlemde (x = 0) itilir, sonra BK ortasına taşınır.
  x0=cx-len.m/2.0;y0=cy-outer.m/2.0
- base=g.entities.add_group;base.name='Taban'
- f=base.entities.add_face([x0,y0,z.m],[x0+len.m,y0,z.m],[x0+len.m,y0+outer.m,z.m],[x0,y0+outer.m,z.m]);f.pushpull(tb.m)
- [['Sol Yan Duvar',y0],['Sağ Yan Duvar',y0+(tw+wi).m]].each do |nm,yy|
-  wg=g.entities.add_group;wg.name=nm
-  wf=wg.entities.add_face([x0,yy,(z+tb).m],[x0+len.m,yy,(z+tb).m],[x0+len.m,yy+tw.m,(z+tb).m],[x0,yy+tw.m,(z+tb).m]);wf.pushpull(di.m)
+ prof=cs ? mst_ch_profile(cs) : mst_ch_u_profile(wi,di,tb,tw)
+ f=g.entities.add_face(prof.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise 'Kanal kesiti oluşturulamadı.' unless f;f.reverse! if f.normal.x<0;f.pushpull(len.m)
+ g.transform!(Geom::Transformation.translation([x0,y0,z.m]))
+ form_mat=material_for(model,"MAG Kanal Kalıp #{form_hex}",form_hex)
+ if cs
+  paint_channel_precast_formwork(g,outer,0,0,0,fl,form_mat,nil,cs)
+  rl=mst_ch_formwork_roles(cs,len);area=mst_ch_area(cs);vol=area*len
+  h={'element_type'=>'channel_precast','precast_type'=>"KANAL_PREKASTI_#{cs['preset']}",'inner_width_m'=>0.0,'inner_depth_m'=>0.0,'base_thickness_m'=>0.0,'wall_thickness_m'=>0.0,'outer_width_m'=>outer,'length_m'=>len,'seat_left_m'=>sl,'seat_right_m'=>sr,'concrete_class'=>d['concrete_class'].to_s,'bottom_elevation_m'=>z,'top_elevation_m'=>z+mst_ch_height(cs),'concrete_volume_m3'=>vol,'formwork_area_m2'=>mst_ch_formwork(cs,len,fl),'formwork_inner_m2'=>(d['fw_inner'] ? rl['INNER_FLOOR']+rl['INNER_SIDE'] : 0.0),'formwork_wall_top_m2'=>0.0,'formwork_bottom'=>d['fw_bottom'],'formwork_sides'=>d['fw_sides'],'formwork_inner'=>d['fw_inner'],'formwork_ends'=>d['fw_ends'],'formwork_ledge'=>fl[:ledge],'formwork_top'=>false,'channel_section_json'=>mst_ch_json(cs)}
+ else
+  paint_channel_precast_formwork(g,outer,tw,di,tb,fl,form_mat,nil)
+  area=mst_ch_u_area(wi,di,tb,tw);vol=area*len;ft=mst_ch_u_fw_terms(len,wi,di,tb,tw)
+  h={'element_type'=>'channel_precast','precast_type'=>'KANAL_PREKASTI_U','inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'outer_width_m'=>outer,'length_m'=>len,'seat_left_m'=>sl,'seat_right_m'=>sr,'concrete_class'=>d['concrete_class'].to_s,'bottom_elevation_m'=>z,'top_elevation_m'=>z+tb+di,'concrete_volume_m3'=>vol,'formwork_area_m2'=>((d['fw_bottom'] ? ft[0] : 0.0)+(d['fw_sides'] ? ft[1] : 0.0)+(d['fw_inner'] ? ft[2] : 0.0)+(d['fw_ends'] ? ft[3] : 0.0)),'formwork_inner_m2'=>(d['fw_inner'] ? ft[2] : 0.0),'formwork_wall_top_m2'=>0.0,'formwork_bottom'=>d['fw_bottom'],'formwork_sides'=>d['fw_sides'],'formwork_inner'=>d['fw_inner'],'formwork_ends'=>d['fw_ends'],'formwork_top'=>false}
+  h['channel_section_json']=mst_ch_json(sec) if sec
  end
- area=(outer*tb)+(2.0*tw*di);vol=area*len
- {'element_type'=>'channel_precast','precast_type'=>'KANAL_PREKASTI_U','inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'outer_width_m'=>outer,'length_m'=>len,'seat_left_m'=>sl,'seat_right_m'=>sr,'concrete_class'=>d['concrete_class'].to_s,'bottom_elevation_m'=>z,'top_elevation_m'=>z+tb+di,'concrete_volume_m3'=>vol,'formwork_area_m2'=>((d['fw_bottom'] ? len*outer : 0.0)+(d['fw_sides'] ? 2.0*len*(tb+di) : 0.0)+(d['fw_inner'] ? len*(wi+2.0*di) : 0.0)+(d['fw_ends'] ? 2.0*area : 0.0)),'formwork_inner_m2'=>(d['fw_inner'] ? len*(wi+2.0*di) : 0.0),'formwork_wall_top_m2'=>0.0,'formwork_bottom'=>d['fw_bottom'],'formwork_sides'=>d['fw_sides'],'formwork_inner'=>d['fw_inner'],'formwork_ends'=>d['fw_ends'],'formwork_top'=>false}.each{|k,v|g.set_attribute(DICT,k,v)}
+ h['support_left_pid']=hb.persistent_id;h['support_right_pid']=hb.persistent_id   # karar 10: bağımlılık ağında BK'nın çocuğu
+ h.each{|k,v|g.set_attribute(DICT,k,v)}
  finalize_bim_identity(g,model)
+ g=mst_precast_to_component!(g,model) if mst_precast_convert_check(g,model).nil?   # yerleşimdeki gibi; uymazsa Group kalır
  commit_with_dependencies(model)
  model.selection.clear;model.selection.add(g)
 rescue=>e
@@ -6528,7 +6570,7 @@ def element_signature(e)
   v << JSON.generate(HeadBeamEditor.signature_data(e))
   v
  when 'flat_precast' then [e.get_attribute(DICT,'length_m',0).to_f.round(3),e.get_attribute(DICT,'width_m',0).to_f.round(3),e.get_attribute(DICT,'height_m',0).to_f.round(3),e.get_attribute(DICT,'concrete_class','').to_s]
- when 'channel_precast' then [e.get_attribute(DICT,'length_m',0).to_f.round(3),e.get_attribute(DICT,'inner_width_m',0).to_f.round(3),e.get_attribute(DICT,'inner_depth_m',0).to_f.round(3),e.get_attribute(DICT,'base_thickness_m',0).to_f.round(3),e.get_attribute(DICT,'wall_thickness_m',0).to_f.round(3),e.get_attribute(DICT,'concrete_class','').to_s]
+ when 'channel_precast' then [e.get_attribute(DICT,'length_m',0).to_f.round(3),e.get_attribute(DICT,'inner_width_m',0).to_f.round(3),e.get_attribute(DICT,'inner_depth_m',0).to_f.round(3),e.get_attribute(DICT,'base_thickness_m',0).to_f.round(3),e.get_attribute(DICT,'wall_thickness_m',0).to_f.round(3),e.get_attribute(DICT,'concrete_class','').to_s]+((cs=mst_ch_custom_section(e)) ? [mst_ch_geom_sig(cs)] : [])   # ADR-0515-K2: kesit yalnız U dışında (eski U imzası aynı)
  when 'crane_precast' then [e.get_attribute(DICT,'length_m',0).to_f.round(3),e.get_attribute(DICT,'width_m',0).to_f.round(3),e.get_attribute(DICT,'thickness_m',0).to_f.round(3),e.get_attribute(DICT,'extra_depth_m',0).to_f.round(3),e.get_attribute(DICT,'left_tooth_m',0).to_f.round(3),e.get_attribute(DICT,'right_tooth_m',0).to_f.round(3),e.get_attribute(DICT,'concrete_class','').to_s]
  when 'deck_slab' then [e.get_attribute(DICT,'length_m',0).to_f.round(3),e.get_attribute(DICT,'width_m',0).to_f.round(3),e.get_attribute(DICT,'thickness_m',0).to_f.round(3),e.get_attribute(DICT,'concrete_class','').to_s]
  when 'curb' then [e.get_attribute(DICT,'length_m',0).to_f.round(3),e.get_attribute(DICT,'width_m',0).to_f.round(3),e.get_attribute(DICT,'height_m',0).to_f.round(3),e.get_attribute(DICT,'concrete_class','').to_s]
@@ -8562,7 +8604,9 @@ mst_read_batch do   # v0.51.5 P2: salt okuma, tek model taraması
    add_issue.call('ERROR',e,'PD/Kanal → BK','Sol destek BK bulunamadı.','Sol mesnet bağlantısını yeniden eşleyin.') unless beam_pids.include?(lp)
    add_issue.call('ERROR',e,'PD/Kanal → BK','Sağ destek BK bulunamadı.','Sağ mesnet bağlantısını yeniden eşleyin.') unless beam_pids.include?(rp)
    checks+=1;add_issue.call('ERROR',e,'Prekast Metrajı','Beton hacmi sıfır veya negatif.','Prekast geometrisi/metrajını kontrol edin.') if e.get_attribute(DICT,'concrete_volume_m3',0).to_f<=0
-   if t=='channel_precast';iw=e.get_attribute(DICT,'inner_width_m',0).to_f;idep=e.get_attribute(DICT,'inner_depth_m',0).to_f;checks+=1;add_issue.call('ERROR',e,'Kanal Geometrisi','Kanal iç genişlik/derinliği geçersiz.','Kanal kesit ölçülerini düzeltin.') if iw<=0||idep<=0;end
+   if t=='channel_precast' && (cs=mst_ch_custom_section(e))   # ADR-0515-K2: U dışı kesitte eski U ölçüleri 0 (karar 1); kesit denetlenir
+    ers=mst_ch_valid(cs);checks+=1;add_issue.call('ERROR',e,'Kanal Geometrisi',"Kanal kesiti geçersiz: #{ers.join(' ')}",'Kanal Prekastı formundan kesiti düzeltin.') unless ers.empty?
+   elsif t=='channel_precast';iw=e.get_attribute(DICT,'inner_width_m',0).to_f;idep=e.get_attribute(DICT,'inner_depth_m',0).to_f;checks+=1;add_issue.call('ERROR',e,'Kanal Geometrisi','Kanal iç genişlik/derinliği geçersiz.','Kanal kesit ölçülerini düzeltin.') if iw<=0||idep<=0;end
   when 'deck_slab'
    checks+=1;add_issue.call('ERROR',e,'Döşeme Metrajı','Beton hacmi sıfır veya negatif.','Döşeme geometrisi/metrajını kontrol edin.') if e.get_attribute(DICT,'concrete_volume_m3',0).to_f<=0
    sp=e.get_attribute(DICT,'support_pids','').to_s.split(',').map(&:to_i).reject{|x|x==0};checks+=1
@@ -8903,18 +8947,22 @@ def rebuild_flat_precast_parametric(g,o)
 end
 
 def rebuild_channel_parametric(g,o)
+  raise 'Bu kanal prekastı U kesit değil; Kanal Prekastı formundan düzenleyin.' if mst_ch_custom_section(g)   # karar 8 (37)
   h=mst_attr_hash(g);l=(o['length_m']||h['length_m']).to_f;wi=(o['inner_width_m']||h['inner_width_m']).to_f;di=(o['inner_depth_m']||h['inner_depth_m']).to_f;tb=(o['base_thickness_m']||h['base_thickness_m']).to_f;tw=(o['wall_thickness_m']||h['wall_thickness_m']).to_f
   raise 'Kanal ölçüleri geçersiz.' if [l,wi,di,tb,tw].any?{|x|x<=0}
   selected,form_mat,conc_mat=editor_precast_formwork(g,h,true)
   flags=[:bottom,:sides,:inner,:ends].zip(selected).to_h
-  ow=wi+2*tw;oh=tb+di; prof=[[0,0],[ow,0],[ow,oh],[ow-tw,oh],[ow-tw,tb],[tw,tb],[tw,oh],[0,oh]]
+  ow=mst_ch_u_outer(wi,tw);oh=mst_ch_u_height(di,tb); prof=mst_ch_u_profile(wi,di,tb,tw)
   g.entities.clear!;f=g.entities.add_face(prof.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise 'Kanal U kesiti oluşturulamadı.' unless f;f.reverse! if f.normal.x<0;f.pushpull(m(l))
   paint_channel_precast_formwork(g,ow,tw,di,tb,flags,form_mat,conc_mat)
-  h['formwork_area_m2']=[l*ow,2*l*oh,l*(wi+2*di),2*(ow*tb+2*tw*di)].each_with_index.sum{|area,i|selected[i] ? area : 0.0}
-  h['formwork_inner_m2']=flags[:inner] ? l*(wi+2*di) : 0.0
+  ft=mst_ch_u_fw_terms(l,wi,di,tb,tw)
+  h['formwork_area_m2']=ft.each_with_index.sum{|area,i|selected[i] ? area : 0.0}
+  h['formwork_inner_m2']=flags[:inner] ? ft[2] : 0.0
   h['formwork_wall_top_m2']=0.0
   flags.each{|k,v|h["formwork_#{k}"]=v};h['formwork_top']=false
-  h['length_m']=l;h['inner_width_m']=wi;h['inner_depth_m']=di;h['base_thickness_m']=tb;h['wall_thickness_m']=tw;h['outer_width_m']=ow;h['width_m']=ow;h['concrete_volume_m3']=(ow*tb+2*tw*di)*l;h['top_elevation_m']=h['bottom_elevation_m'].to_f+oh
+  h['length_m']=l;h['inner_width_m']=wi;h['inner_depth_m']=di;h['base_thickness_m']=tb;h['wall_thickness_m']=tw;h['outer_width_m']=ow;h['width_m']=ow;h['concrete_volume_m3']=mst_ch_u_area(wi,di,tb,tw)*l;h['top_elevation_m']=h['bottom_elevation_m'].to_f+oh
+  # ADR-0515-K2: U-eşdeğeri kesit kaydı varsa yeni U ölçüleriyle güncellenir (pasif orta çıkıntı ve ön ayar korunur)
+  if (sj=mst_ch_parse(h['channel_section_json'].to_s.empty? ? nil : h['channel_section_json']));u=mst_ch_from_u(wi,di,tb,tw);sj.merge!(u.select{|k,_|%w[total_width_m base_m left right].include?(k)});h['channel_section_json']=mst_ch_json(sj);end
   h['concrete_class']=o['concrete_class'].to_s unless o['concrete_class'].to_s.empty?;mst_restore_attrs(g,h);ensure_uid(g)
   mst_pc_after_rebuild!(g) if respond_to?(:mst_pc_after_rebuild!)   # v0.50 PC2
 end
@@ -10974,6 +11022,7 @@ require_relative 'rockfill_head_reference'
 require_relative 'rockfill_boq_source'
 require_relative 'rockfill_live'
 require_relative 'special_solids'
+require_relative 'channel_section'   # ADR-0515-K2 (37) — kanal prekastı tek parametrik kesit
 
 # v0.36.5 — Selected Pile BIM Detail Batch Update
 # Selection is the scope. KORU leaves the corresponding attributes untouched.
@@ -12303,7 +12352,7 @@ def mst_precast_dims_key(e,len=nil)
   a=->(k){(e.get_attribute(DICT,k,0).to_f*1000.0).round}
   l=((len.nil? ? e.get_attribute(DICT,'length_m',0) : len).to_f*1000.0).round
   case e.get_attribute(DICT,'element_type','').to_s
-  when 'channel_precast' then [l,a['inner_width_m'],a['inner_depth_m'],a['base_thickness_m'],a['wall_thickness_m']]
+  when 'channel_precast' then [l,a['inner_width_m'],a['inner_depth_m'],a['base_thickness_m'],a['wall_thickness_m']]+((cs=mst_ch_custom_section(e)) ? [mst_ch_geom_sig(cs)] : [])   # ADR-0515-K2: kesit yalnız U dışında
   when 'crane_precast' then [l,a['width_m'],a['height_m'],a['extra_depth_m'],a['left_tooth_m'],a['right_tooth_m']]
   else [l,a['width_m'],a['height_m']]
   end
@@ -12387,18 +12436,31 @@ def mst_rebuild_flat_precast_length(g,len)
 end
 
 def mst_rebuild_channel_precast_length(g,len)
-  h=mst_attr_hash(g);wi=h['inner_width_m'].to_f;di=h['inner_depth_m'].to_f;tb=h['base_thickness_m'].to_f;tw=h['wall_thickness_m'].to_f
-  ow=wi+2*tw;oh=tb+di
+  h=mst_attr_hash(g)
+  if (cs=mst_ch_custom_section(g))   # ADR-0515-K2: U dışı kesit — aynı kesit, yeni boy (5 kalıp rolü)
+    sel,form_mat=mst_precast_face_flags(g,MST_CH_FW_ROLES_X)
+    form_mat||=material_for(Sketchup.active_model,'MAG Kanal Kalıp #6DBE73','#6DBE73') if sel.any?
+    flags=mst_ch_flags_from_list(sel)
+    g.entities.clear!
+    f=g.entities.add_face(mst_ch_profile(cs).map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise 'Kanal kesiti oluşturulamadı.' unless f;f.reverse! if f.normal.x<0;f.pushpull(m(len))
+    paint_channel_precast_formwork(g,cs['total_width_m'],0,0,0,flags,form_mat,nil,cs)
+    h['length_m']=len;h['concrete_volume_m3']=mst_ch_area(cs)*len
+    h['formwork_area_m2']=mst_ch_formwork(cs,len,flags)
+    mst_restore_attrs(g,h)
+    return
+  end
+  wi=h['inner_width_m'].to_f;di=h['inner_depth_m'].to_f;tb=h['base_thickness_m'].to_f;tw=h['wall_thickness_m'].to_f
+  ow=mst_ch_u_outer(wi,tw);oh=mst_ch_u_height(di,tb)
   sel,form_mat=mst_precast_face_flags(g,[%w[OUTER_BOTTOM],%w[OUTER_SIDE],%w[INNER_FLOOR INNER_SIDE],%w[END_FACE]])
   form_mat||=material_for(Sketchup.active_model,'MAG Kanal Kalıp #6DBE73','#6DBE73') if sel.any?
   flags={bottom:sel[0],sides:sel[1],inner:sel[2],ends:sel[3]}
   g.entities.clear!
-  prof=[[0,0],[ow,0],[ow,oh],[ow-tw,oh],[ow-tw,tb],[tw,tb],[tw,oh],[0,oh]]
+  prof=mst_ch_u_profile(wi,di,tb,tw)
   f=g.entities.add_face(prof.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise 'Kanal U kesiti oluşturulamadı.' unless f;f.reverse! if f.normal.x<0;f.pushpull(m(len))
   paint_channel_precast_formwork(g,ow,tw,di,tb,flags,form_mat,nil)
-  area=ow*tb+2*tw*di
+  area=mst_ch_u_area(wi,di,tb,tw);ft=mst_ch_u_fw_terms(len,wi,di,tb,tw)
   h['length_m']=len;h['concrete_volume_m3']=area*len
-  h['formwork_area_m2']=(flags[:bottom] ? len*ow : 0.0)+(flags[:sides] ? 2*len*oh : 0.0)+(flags[:inner] ? len*(wi+2*di) : 0.0)+(flags[:ends] ? 2*area : 0.0)
+  h['formwork_area_m2']=(flags[:bottom] ? ft[0] : 0.0)+(flags[:sides] ? ft[1] : 0.0)+(flags[:inner] ? ft[2] : 0.0)+(flags[:ends] ? ft[3] : 0.0)
   mst_restore_attrs(g,h)
 end
 
@@ -12507,7 +12569,7 @@ MST_PRECAST_FW_ROLES={'flat_precast'=>[%w[BOTTOM],%w[LONG_SIDE_1],%w[LONG_SIDE_2
 def mst_precast_formula_volume(t,h,len=nil)
  g=->(k){h[k].to_f};l=(len || h['length_m']).to_f
  case t
- when 'channel_precast' then ((g['inner_width_m']+2*g['wall_thickness_m'])*g['base_thickness_m']+2*g['wall_thickness_m']*g['inner_depth_m'])*l
+ when 'channel_precast' then (cs=mst_ch_custom_section(h)) ? mst_ch_area(cs)*l : mst_ch_u_area(g['inner_width_m'],g['inner_depth_m'],g['base_thickness_m'],g['wall_thickness_m'])*l   # ADR-0515-K2
  when 'crane_precast' then g['width_m']*(g['height_m']*l+g['extra_depth_m']*[l-g['left_tooth_m']-g['right_tooth_m'],0.0].max)
  else l*g['width_m']*g['height_m']
  end
@@ -12524,8 +12586,10 @@ def mst_precast_def_params(e,len=nil)
  h={'type'=>t,'family'=>e.get_attribute(DICT,'precast_family','').to_s}
  MST_PRECAST_DEF_DIMS[t].each{|k|h[k]=e.get_attribute(DICT,k,0).to_f.round(6)}
  h['length_m']=len.to_f.round(6) if len
- flags,mat=mst_precast_face_flags(e,MST_PRECAST_FW_ROLES[t])
+ cs=t=='channel_precast' ? mst_ch_custom_section(e) : nil   # ADR-0515-K2: U dışı kesit anahtara girer (5 kalıp rolü); U'da anahtar aynı
+ flags,mat=mst_precast_face_flags(e,cs ? MST_CH_FW_ROLES_X : MST_PRECAST_FW_ROLES[t])
  h['fw']=flags.map{|f|f ? '1' : '0'}.join
+ h['section']=mst_ch_geom_key(cs) if cs
  h['form_mat']=mat ? mat.name : ''
  h['seg']=1
  # v0.51.5 K58: donatılı parça donatısız / farklı donatılı parçalarla aynı tanıma geçmez (donatısızların anahtarı değişmez)
@@ -12537,7 +12601,7 @@ end
 def mst_precast_def_label(p)
  l=format('%.3f',p['length_m'])
  case p['type']
- when 'channel_precast' then "Prekast PK #{l} × #{format('%.2f',p['inner_width_m'])}/#{format('%.2f',p['inner_depth_m'])}"
+ when 'channel_precast' then (cs=mst_ch_custom_section(p)) ? "Prekast PK #{l} × kesit #{format('%.2f',cs['total_width_m'])}/#{format('%.2f',mst_ch_height(cs))}" : "Prekast PK #{l} × #{format('%.2f',p['inner_width_m'])}/#{format('%.2f',p['inner_depth_m'])}"
  when 'crane_precast' then "Prekast #{p['family'].empty? ? 'PV' : p['family']} #{l} × #{format('%.2f',p['width_m'])} × #{format('%.2f',p['height_m'])}"
  else "Prekast PD #{l} × #{format('%.2f',p['width_m'])} × #{format('%.2f',p['height_m'])}"
  end
@@ -12554,8 +12618,13 @@ def mst_precast_build_geometry!(c,p,model=Sketchup.active_model)
   f=ents.add_face([0,0,0],[m(l),0,0],[m(l),m(w),0],[0,m(w),0]);f.reverse! if f.normal.z<0;f.pushpull(m(hh))
   paint_flat_precast_formwork(c,fl,mat,nil)
  when 'channel_precast'
-  wi=p['inner_width_m'].to_f;di=p['inner_depth_m'].to_f;tb=p['base_thickness_m'].to_f;tw=p['wall_thickness_m'].to_f;ow=wi+2*tw;oh=tb+di
-  prof=[[0,0],[ow,0],[ow,oh],[ow-tw,oh],[ow-tw,tb],[tw,tb],[tw,oh],[0,oh]]
+  if (cs=mst_ch_custom_section(p))   # ADR-0515-K2: U dışı kesit (p['section']), tek yüz itme, rol bazlı kalıp
+   f=ents.add_face(mst_ch_profile(cs).map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise 'Kanal kesiti oluşturulamadı.' unless f;f.reverse! if f.normal.x<0;f.pushpull(m(l))
+   paint_channel_precast_formwork(c,cs['total_width_m'],0,0,0,mst_ch_flags_from_list(fl),mat,nil,cs)
+   return c
+  end
+  wi=p['inner_width_m'].to_f;di=p['inner_depth_m'].to_f;tb=p['base_thickness_m'].to_f;tw=p['wall_thickness_m'].to_f;ow=mst_ch_u_outer(wi,tw);oh=mst_ch_u_height(di,tb)
+  prof=mst_ch_u_profile(wi,di,tb,tw)
   f=ents.add_face(prof.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise 'Kanal U kesiti oluşturulamadı.' unless f;f.reverse! if f.normal.x<0;f.pushpull(m(l))
   paint_channel_precast_formwork(c,ow,tw,di,tb,{bottom:fl[0],sides:fl[1],inner:fl[2],ends:fl[3]},mat,nil)
  when 'crane_precast'
@@ -12587,7 +12656,11 @@ def mst_precast_convert_check(g,model=Sketchup.active_model)
  return 'iç grup içeriyor' if g.entities.grep(Sketchup::Group).any? || g.entities.grep(Sketchup::ComponentInstance).any?
  p=mst_precast_def_params(g)
  t=p['type']
- return 'ölçüler eksik' if MST_PRECAST_DEF_DIMS[t].any?{|k|p[k].to_f<=0 && !%w[extra_depth_m left_tooth_m right_tooth_m].include?(k)}
+ if t=='channel_precast' && (cs=mst_ch_custom_section(p))   # ADR-0515-K2: U dışı kesitte eski U ölçüleri 0; kesit denetlenir
+  return 'kesit geçersiz' unless mst_ch_valid(cs).empty?
+ else
+  return 'ölçüler eksik' if MST_PRECAST_DEF_DIMS[t].any?{|k|p[k].to_f<=0 && !%w[extra_depth_m left_tooth_m right_tooth_m].include?(k)}
+ end
  vol=g.get_attribute(DICT,'concrete_volume_m3',0).to_f
  return format('kayıtlı hacim (%.4f) ölçülerle uyuşmuyor (%.4f)',vol,mst_precast_formula_volume(t,mst_attr_hash(g))) if (vol-mst_precast_formula_volume(t,mst_attr_hash(g))).abs>1e-4
  fw=mst_marked_area_m2(g.entities);st=g.get_attribute(DICT,'formwork_area_m2',fw).to_f
@@ -12609,8 +12682,9 @@ def mst_precast_role_formwork(p)
   w=p['width_m'].to_f;h=p['height_m'].to_f
   [l*w,l*h,l*h,w*h,w*h].each_with_index.sum{|a,i|f[i] ? a : 0.0}
  when 'channel_precast'
-  wi=p['inner_width_m'].to_f;di=p['inner_depth_m'].to_f;tb=p['base_thickness_m'].to_f;tw=p['wall_thickness_m'].to_f;ow=wi+2*tw;oh=tb+di
-  [l*ow,2*l*oh,l*(wi+2*di),2*(ow*tb+2*tw*di)].each_with_index.sum{|a,i|f[i] ? a : 0.0}
+  cs=mst_ch_custom_section(p);return mst_ch_formwork(cs,l,mst_ch_flags_from_list(f)) if cs   # ADR-0515-K2
+  wi=p['inner_width_m'].to_f;di=p['inner_depth_m'].to_f;tb=p['base_thickness_m'].to_f;tw=p['wall_thickness_m'].to_f
+  mst_ch_u_fw_terms(l,wi,di,tb,tw).each_with_index.sum{|a,i|f[i] ? a : 0.0}
  end
 end
 
@@ -12829,24 +12903,39 @@ def mst_kn_find_pk_type(model,elems,ow,oh)
   fits=->(wi,di,tb,tw){(wi+2*tw-ow).abs<=MST_KN_TOL && (tb+di-oh).abs<=MST_KN_TOL}
   roles=MST_PRECAST_FW_ROLES['channel_precast']
   existing=elems.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast'}
-  flags_of=lambda do |name|
-    ex=existing.find{|e|mst_precast_type_id(e)==name} || existing.first
+  flags_of=lambda do |name,custom=false|
+    # ADR-0515-K2: U dışı kesitte 5 kalıp rolü (taban üst ledge'i); örnek yalnız aynı türden (U / U dışı) parça
+    kind=existing.select{|e|(mst_ch_custom_section(e) ? true : false)==custom}
+    ex=kind.find{|e|mst_precast_type_id(e)==name} || kind.first
     if ex
-      fl,mat=mst_precast_face_flags(ex,roles);[fl.map{|f|f ? '1' : '0'}.join,mat ? mat.name : '']
+      fl,mat=mst_precast_face_flags(ex,custom ? MST_CH_FW_ROLES_X : roles);[fl.map{|f|f ? '1' : '0'}.join,mat ? mat.name : '']
     else
-      ['0010',material_for(model,'MAG Kanal Kalıp #6DBE73','#6DBE73').name]
+      [custom ? '00101' : '0010',material_for(model,'MAG Kanal Kalıp #6DBE73','#6DBE73').name]
     end
   end
   lib=(JSON.parse(model.get_attribute(DICT,'precast_type_library_json','[]').to_s) rescue [])
   (lib.is_a?(Array) ? lib : []).each do |t|
     next unless t.is_a?(Hash) && t['family'].to_s=='PK'
-    wi,di,tb,tw=%w[inner_width inner_depth base wall].map{|k|t[k].to_f}
+    if (cs=mst_ch_custom_section(t))   # ADR-0515-K2: U dışı kesit — dış genişlik = toplam, yükseklik = taban + en yüksek çıkıntı
+      next unless mst_ch_valid(cs).empty? && (cs['total_width_m']-ow).abs<=MST_KN_TOL && (mst_ch_height(cs)-oh).abs<=MST_KN_TOL
+      fw,mat=flags_of.(t['name'].to_s.strip,true)
+      cc=t['concrete'].to_s.strip;cc='C30/37' if cc.empty?
+      return {'name'=>t['name'].to_s.strip,'wi'=>0.0,'di'=>0.0,'tb'=>0.0,'tw'=>0.0,'section'=>cs,'concrete'=>cc,'fw'=>fw,'form_mat'=>mat,'source'=>'kütüphane'}
+    end
+    sec=mst_ch_explicit(t)
+    wi,di,tb,tw=sec ? mst_ch_u_dims(sec) : %w[inner_width inner_depth base wall].map{|k|t[k].to_f}
     next unless [wi,di,tb,tw].all?{|v|v>0} && fits.(wi,di,tb,tw)
     fw,mat=flags_of.(t['name'].to_s.strip)
     cc=t['concrete'].to_s.strip;cc='C30/37' if cc.empty?
     return {'name'=>t['name'].to_s.strip,'wi'=>wi,'di'=>di,'tb'=>tb,'tw'=>tw,'concrete'=>cc,'fw'=>fw,'form_mat'=>mat,'source'=>'kütüphane'}
   end
   existing.each do |e|
+    if (cs=mst_ch_custom_section(e))   # ADR-0515-K2
+      next unless (cs['total_width_m']-ow).abs<=MST_KN_TOL && (mst_ch_height(cs)-oh).abs<=MST_KN_TOL
+      fl,mat=mst_precast_face_flags(e,MST_CH_FW_ROLES_X)
+      return {'name'=>mst_precast_type_id(e),'wi'=>0.0,'di'=>0.0,'tb'=>0.0,'tw'=>0.0,'section'=>cs,'concrete'=>e.get_attribute(DICT,'concrete_class','C30/37').to_s,
+              'fw'=>fl.map{|f|f ? '1' : '0'}.join,'form_mat'=>mat ? mat.name : '','source'=>'modeldeki kanal'}
+    end
     wi,di,tb,tw=%w[inner_width_m inner_depth_m base_thickness_m wall_thickness_m].map{|k|e.get_attribute(DICT,k,0).to_f}
     next unless fits.(wi,di,tb,tw)
     fl,mat=mst_precast_face_flags(e,roles)
@@ -12943,7 +13032,7 @@ end
 # v0.38 KN1.1: one engineering type name = one geometry (same rule as the PD resize):
 # a PK of another length gets base-B, base-C… (an existing same-geometry name is reused).
 def mst_kn_type_name(base,lm,t,ctx)
-  dims=[(lm*1000.0).round]+%w[wi di tb tw].map{|k|(t[k].to_f*1000.0).round}
+  dims=[(lm*1000.0).round]+%w[wi di tb tw].map{|k|(t[k].to_f*1000.0).round}+(t['section'] ? [mst_ch_geom_sig(t['section'])] : [])   # ADR-0515-K2 (mst_precast_dims_key ile aynı)
   key=['channel_precast',base.upcase,dims]
   return ctx['reg'][key] if ctx['reg'][key]
   name=if ctx['pk_names'][base.upcase]
@@ -12965,6 +13054,7 @@ def mst_kn_create_pk!(c,model=Sketchup.active_model,ctx=nil)
   t=c['type'];lm=c['length']
   p={'type'=>'channel_precast','family'=>'PK','length_m'=>lm.round(6),'inner_width_m'=>t['wi'].round(6),'inner_depth_m'=>t['di'].round(6),
      'base_thickness_m'=>t['tb'].round(6),'wall_thickness_m'=>t['tw'].round(6),'fw'=>t['fw'],'form_mat'=>t['form_mat'].to_s,'seg'=>1}
+  cs=t['section'];(p['section']=mst_ch_geom_key(cs);p['fw']=mst_ch_fw_norm(cs,t['fw'])) if cs   # ADR-0515-K2: U dışı kesit (mst_precast_def_params ile aynı anahtar)
   d=mst_precast_definition(model,p)
   mate=c['mate'];par=mate.parent
   ents=par.respond_to?(:entities) ? par.entities : model.entities
@@ -12972,13 +13062,15 @@ def mst_kn_create_pk!(c,model=Sketchup.active_model,ctx=nil)
   tw=Geom::Transformation.translation(Geom::Point3d.new(m(c['x0']),m(c['y0']),m(c['z0'])))
   inst=ents.add_instance(d,ct.inverse*tw)
   base=t['name'];name=ctx ? mst_kn_type_name(base,lm,t,ctx) : base;uid=next_element_uid(model,'PK')
-  ow=t['wi']+2*t['tw'];oh=t['tb']+t['di'];vol=(ow*t['tb']+2*t['tw']*t['di'])*lm
+  if cs;ow=cs['total_width_m'];oh=mst_ch_height(cs);vol=mst_ch_area(cs)*lm
+  else ow=mst_ch_u_outer(t['wi'],t['tw']);oh=mst_ch_u_height(t['di'],t['tb']);vol=mst_ch_u_area(t['wi'],t['di'],t['tb'],t['tw'])*lm
+  end
   {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'precast_type'=>name,
-   'element_uid'=>uid,'type_signature'=>precast_signature('PK',lm,ow,oh,[name,t['wi'],t['di'],t['tb'],t['tw']].join(':')),
+   'element_uid'=>uid,'type_signature'=>precast_signature('PK',lm,ow,oh,(cs ? [name,mst_ch_geom_sig(cs)] : [name,t['wi'],t['di'],t['tb'],t['tw']]).join(':')),
    'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>t['wi'],'inner_depth_m'=>t['di'],'base_thickness_m'=>t['tb'],'wall_thickness_m'=>t['tw'],
    'bottom_elevation_m'=>c['z0'],'top_elevation_m'=>c['z0']+oh,'joint_m'=>c['joint'],'seat_each_side_m'=>c['seat'],'concrete_class'=>t['concrete'],
    'concrete_volume_m3'=>vol,'formwork_area_m2'=>mst_marked_area_m2(d.entities),'support_left_pid'=>c['l'].persistent_id,'support_right_pid'=>c['r'].persistent_id,
-   'kn_from_pocket'=>"#{element_visible_id(c['pocket']['bk'])}:#{c['pocket']['side']}"}.each{|k,v|inst.set_attribute(DICT,k,v)}
+   'kn_from_pocket'=>"#{element_visible_id(c['pocket']['bk'])}:#{c['pocket']['side']}"}.merge(cs ? {'channel_section_json'=>mst_ch_json(cs)} : {}).each{|k,v|inst.set_attribute(DICT,k,v)}
   inst.set_attribute(DICT,'precast_base_type_id',base) if name!=base
   %w[project ano zone structure].each{|k|v=mate.get_attribute(DICT,k,nil);inst.set_attribute(DICT,k,v) unless v.nil? || v.to_s.empty?}
   finalize_bim_identity(inst,model)

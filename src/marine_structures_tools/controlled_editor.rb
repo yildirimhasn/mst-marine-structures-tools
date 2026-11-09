@@ -19,10 +19,10 @@ module MAG
      points=[0,l].product([0,w],[0,h])
      volume=l*w*h
     else
-     w=dimensions['inner_width_m'];d=dimensions['inner_depth_m'];b=dimensions['base_thickness_m'];t=dimensions['wall_thickness_m'];outer=w+2*t;height=d+b
-     profile=[[0,0],[outer,0],[outer,height],[outer-t,height],[outer-t,b],[t,b],[t,height],[0,height]]
+     w=dimensions['inner_width_m'];d=dimensions['inner_depth_m'];b=dimensions['base_thickness_m'];t=dimensions['wall_thickness_m']
+     profile=api.mst_ch_u_profile(w,d,b,t)   # ADR-0515-K2: U formülü tek kaynak (channel_section.rb)
      points=[0,l].flat_map{|x|profile.map{|y,z|[x,y,z]}}
-     volume=(outer*b+2*t*d)*l
+     volume=api.mst_ch_u_area(w,d,b,t)*l
     end
     expected=points.map{|p|p.map{|v|api.m(v).to_f.round(6)}}.uniq.sort
     actual=e.entities.grep(Sketchup::Face).flat_map{|face|face.vertices.map{|v|v.position.to_a.map{|n|n.to_f.round(6)}}}.uniq.sort
@@ -52,6 +52,8 @@ module MAG
     raise 'Bu eleman türü için kontrollü düzenleme hazır değil.' unless FIELDS.key?(e.get_attribute(DICT,'element_type',''))
     # 25/8 (03.11.2026, NCR-003): BK yalnız Başlık Kirişi sayfasındaki ortak formda düzenlenir; güvence arayüze bırakılmaz
     raise 'Başlık kirişi, Başlık Kirişi sayfasındaki ortak formda düzenlenir (Çalışma Alanı → Elemanı Düzenle).' if e.get_attribute(DICT,'element_type','')=='head_beam'
+    # karar 8 (37, ADR-0515-K2): U dışı kanal prekastı bu düzenleyicide desteklenmez
+    raise 'Bu kanal prekastı U kesit değil; Kanal Prekastı formundan düzenleyin.' if e.get_attribute(DICT,'element_type','')=='channel_precast' && api.mst_ch_custom_section(e)
     raise 'Yalnız özgün grup geometrisi düzenlenebilir.' unless e.is_a?(Sketchup::Group)
     (entry[:path]+[e]).each do |node|
      raise 'Kilitli eleman veya üst grup düzenlenemez.' if node.locked?
@@ -137,9 +139,9 @@ module MAG
      w=n['width_m'];h=n['height_m'];volume=l*w*h
      areas=[l*w,l*h,l*h,w*h,w*h]
     else
-     w=n['inner_width_m'];d=n['inner_depth_m'];b=n['base_thickness_m'];t=n['wall_thickness_m'];outer=w+2*t;height=d+b
-     volume=(outer*b+2*t*d)*l
-     areas=[l*outer,2*l*height,l*(w+2*d),2*(outer*b+2*t*d)]
+     w=n['inner_width_m'];d=n['inner_depth_m'];b=n['base_thickness_m'];t=n['wall_thickness_m']
+     volume=api.mst_ch_u_area(w,d,b,t)*l
+     areas=api.mst_ch_u_fw_terms(l,w,d,b,t)
     end
     formwork=areas.each_with_index.sum{|area,i|flags[i] ? area : 0.0}
     unless geometry_changed
