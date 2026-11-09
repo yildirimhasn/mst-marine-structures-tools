@@ -814,6 +814,18 @@ label{font-size:11px;color:#4c687f;font-weight:500}
       <div id="pkPocketInfo" class="pk-pocket-info"></div>
       <div id="pkPickList" class="pk-list"></div>
     </section>
+    <!-- ADR-0515-K2 P3: PK kot yöntemi (create_flat_precast pk_elevation_* / kn_place JSON) + salt okuma kot önizlemesi -->
+    <section class="pd-panel pd-span2" id="pkElevPanel"><h3>2c. Kanal Prekastı (PK) Kot Yöntemi</h3>
+      <div class="channel-layout-note">Seçim <b>PD Yerleşimini Oluştur</b> ve <b>Ceplere Kanal Prekastı Yerleştir</b> komutlarına gider. <b>Üst kot</b> önceki davranıştır: yerleşimde PK üstü en kalın PD/PDÖ/PV üstüne hizalanır; ceplere yerleştirmede kanal cep tabanına oturur. <b>Kotu Önizle</b> salt okumadır, modeli değiştirmez; önizleme için modelde iki BK seçin, yerleşimdeki ilk PK satırının tipi kullanılır.</div>
+      <div class="grid2" style="margin-top:7px">
+        <label>Kot yöntemi<select id="pk_elev_mode" onchange="mstPkElevChanged()"><option value="TOP" selected>Üst kot (varsayılan)</option><option value="POCKET">BK kanal cebine oturt</option><option value="MANUAL">Manuel kot</option></select></label>
+        <label id="pkElevRefRow" style="opacity:.45">Referans kotu (m)<input id="pk_elev_ref_m" inputmode="decimal" placeholder="ör. 2,450" disabled onchange="mstPkElevChanged()"></label>
+        <label id="pkElevFaceRow" style="opacity:.45">Referans yüzey<select id="pk_elev_ref_face" disabled onchange="mstPkElevChanged()"><option value="TOP" selected>Üst yüzey</option><option value="BOTTOM">Alt yüzey</option></select></label>
+      </div>
+      <div style="margin-top:7px"><button type="button" class="secondary" onclick="mstPkElevPreview()">⊥ Kotu Önizle</button></div>
+      <div id="pkElevStatus" class="pk-status" role="status" aria-live="polite"></div>
+      <div id="pkElevInfo" class="pk-pocket-info"></div>
+    </section>
     <section class="pd-panel"><h3>3. Parametreler</h3>
       <div class="grid2">
         <label>PD Derzi (m)<input id="pd_joint_m" value="0.02" oninput="refreshPDSummary()"></label>
@@ -858,7 +870,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
       <button class="action secondary" onclick="sketchup.precast_type_rename()" title="Modelde seçili prekastın tipini (aynı ad + aynı ölçüdeki tüm parçalar) yeniden adlandırır">✎ &nbsp; Seçili Prekast Tip Adını Değiştir</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><button class="action secondary" onclick="sketchup.precast_to_component()" title="Seçili prekastlar veya Prekast Layout grubu">⧉ Component'e Çevir</button><button class="action secondary" onclick="sketchup.precast_to_group()" title="Tek parçayı ayrı düzenlemek (ör. kalıp yüzü) için">▭ Group'a Çevir</button></div>
       <button class="action secondary" style="margin-top:6px" onclick="sketchup.precast_purge_defs()">🧹 &nbsp; Kullanılmayan Prekast Tanımlarını Temizle</button>
-      <button class="action secondary" style="margin-top:6px" onclick="sketchup.kn_place()" title="BK cebi olan ve üstünde kanal prekastı olmayan açıklıklara cebe uyan kanalı yerleştirir (önizlemeli, tek Geri Al)">⊔ &nbsp; Ceplere Kanal Prekastı Yerleştir</button>
+      <button class="action secondary" style="margin-top:6px" onclick="mstPkKnPlace()" title="BK cebi olan ve üstünde kanal prekastı olmayan açıklıklara cebe uyan kanalı yerleştirir (önizlemeli, tek Geri Al)">⊔ &nbsp; Ceplere Kanal Prekastı Yerleştir</button>
       <button class="action secondary" style="margin-top:6px" onclick="sketchup.kn_pockets()" title="BK betonuna gömülü ama altında cep olmayan kanal prekastları için iki BK'ya cebi otomatik açar (önizlemeli, tek Geri Al)">⊓ &nbsp; Kanal Prekastlarına BK Cebi Aç</button>
       <button class="action secondary" onclick="sketchup.sync_precast()">↻ &nbsp; Seçili Elemanların Bağlı Kotlarını Önizle</button>
     </section>
@@ -1479,7 +1491,7 @@ function renderPrecastTypes(){
  box.innerHTML=precastTypes.map(function(t){
   var common='<label>Tip Adı<input value="'+esc(t.name)+'" onchange="setPT(\''+t.uid+'\',\'name\',this.value)"></label><label>Sınıf<input value="'+familyLabel(t.family)+'" readonly></label>';
   var lg=t.family==='PK'?mstPkLegacyOf(t):null;
-  var geo=lg?'<label>İç Genişlik<input value="'+esc(String(lg.inner_width))+'" readonly></label><label>İç Derinlik<input value="'+esc(String(lg.inner_depth))+'" readonly></label><label>Taban<input value="'+esc(String(lg.base))+'" readonly></label><label>Duvar<input value="'+esc(String(lg.wall))+'" readonly></label><div class="hint" style="grid-column:1 / -1">Kesit tip kaydından (ön ayar '+esc(lg.sec.preset)+', toplam genişlik '+esc(window.mstChSection.f3(lg.sec.total_width_m))+' m). Eski alanlar kesitle eşitlenir'+(window.mstChSection.uEquiv(lg.sec)?'':'; U dışı kesitte 0')+'. Bu kesit burada düzenlenmez.</div>':t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
+  var geo=lg?'<label>İç Genişlik<input value="'+esc(String(lg.inner_width))+'" readonly></label><label>İç Derinlik<input value="'+esc(String(lg.inner_depth))+'" readonly></label><label>Taban<input value="'+esc(String(lg.base))+'" readonly></label><label>Duvar<input value="'+esc(String(lg.wall))+'" readonly></label><div class="hint" style="grid-column:1 / -1">Kesit tip kaydından (ön ayar '+esc(lg.sec.preset)+', toplam genişlik '+esc(window.mstChSection.f3(lg.sec.total_width_m))+' m). Eski alanlar kesitle eşitlenir'+(window.mstChSection.uEquiv(lg.sec)?'':'; U dışı kesitte 0')+'. Bu kesit burada düzenlenmez.</div>'+mstPkTopRefField(t,lg.sec):t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
   if(t.family==='PDO'||t.family==='PV')geo+='<label>Diş Derinliği<input type="number" step=".01" value="'+t.extra+'" onchange="setPT(\''+t.uid+'\',\'extra\',this.value)"></label><label>Sol Diş<input type="number" step=".01" value="'+t.left+'" onchange="setPT(\''+t.uid+'\',\'left\',this.value)"></label><label>Sağ Diş<input type="number" step=".01" value="'+t.right+'" onchange="setPT(\''+t.uid+'\',\'right\',this.value)"></label>';
   return '<div style="border:1px solid #d8e3ea;border-radius:8px;padding:8px;margin:7px 0"><div style="display:grid;grid-template-columns:repeat(3,minmax(110px,1fr));gap:6px">'+common+geo+'<label>Beton<select onchange="setPT(\''+t.uid+'\',\'concrete\',this.value)"><option'+(t.concrete==='C30/37'?' selected':'')+'>C30/37</option><option'+(t.concrete==='C35/45'?' selected':'')+'>C35/45</option><option'+(t.concrete==='C40/50'?' selected':'')+'>C40/50</option></select></label></div><div style="text-align:right;margin-top:5px"><button type="button" class="secondary" onclick="deletePrecastType(\''+t.uid+'\')">Tipi Sil</button></div></div>';
  }).join('');
@@ -1493,7 +1505,7 @@ function refreshAllPDRowOptions(){Array.prototype.slice.call(document.querySelec
 function addPDRow(family){family=family||'PD';var arr=typesOfFamily(family);if(!arr.length){addPrecastType(family);arr=typesOfFamily(family)}var box=document.getElementById('pdLayoutRows'),row=document.createElement('div');row.className='pd-layout-row';row.style.cssText='display:grid;grid-template-columns:1.1fr 1.15fr .8fr .65fr auto auto auto;gap:6px;align-items:end;margin:7px 0;padding:8px;border:1px solid #ddd;border-radius:8px';row.innerHTML='<label>Sınıf<select class="pd-family" onchange="pdFamilyChanged(this)"><option value="PD">PD</option><option value="PDO">PDÖ</option><option value="PV">PV</option><option value="PK">PK</option></select></label><label>Tip<select class="pd-type" onchange="pdRowTypeChanged(this)"></select></label><label>Genişlik (m)<input class="pd-width" readonly></label><label>Adet<input class="pd-count" type="number" step="1" min="1" value="1"></label><button type="button" class="secondary" title="Yukarı taşı" onclick="movePDRow(this,-1)">↑</button><button type="button" class="secondary" title="Aşağı taşı" onclick="movePDRow(this,1)">↓</button><button type="button" class="secondary pd-del" title="Satırı sil" onclick="this.closest(\'.pd-layout-row\').remove();refreshPDSummary()">✕</button>';box.appendChild(row);row.querySelector('.pd-family').value=family;row.querySelector('.pd-type').innerHTML=rowTypeOptions(family,arr[0].uid);row.querySelector('.pd-count').addEventListener('input',refreshPDSummary);pdRowTypeChanged(row.querySelector('.pd-type'))}
 function movePDRow(btn,dir){const row=btn.closest('.pd-layout-row'),box=row.parentNode;if(dir<0&&row.previousElementSibling)box.insertBefore(row,row.previousElementSibling);if(dir>0&&row.nextElementSibling)box.insertBefore(row.nextElementSibling,row)}
 function clearPDRows(){document.getElementById('pdLayoutRows').innerHTML='';refreshPDSummary()}
-function createPD(){const ids=['pd_type','pd_height_m','pd_seat_m','pd_joint_m','pd_y_offset_m','pd_concrete_class'];const d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.pd_layout_rows=JSON.stringify(pdRows());d.precast_type_library=JSON.stringify(mstPkLibraryForSave(precastTypes));d.pd_body_mode=(document.getElementById('pd_body_mode')||{}).value||'COMPONENT';d.pd_formwork_color=document.getElementById('pd_formwork_color').value;d.pd_concrete_color=document.getElementById('pd_concrete_color').value;d.channel_formwork_color=document.getElementById('channel_formwork_color').value;d.channel_concrete_color=document.getElementById('channel_concrete_color').value;d.channel_fw_bottom=document.getElementById('channel_fw_bottom').checked?'1':'0';d.channel_fw_sides=document.getElementById('channel_fw_sides').checked?'1':'0';d.channel_fw_inner=document.getElementById('channel_fw_inner').checked?'1':'0';d.channel_fw_ends=document.getElementById('channel_fw_ends').checked?'1':'0';d.channel_fw_top='0';['pd_fw_bottom','pd_fw_long1','pd_fw_long2','pd_fw_end1','pd_fw_end2','pd_fw_top'].forEach(id=>d[id]=document.getElementById(id).checked?'1':'0');if(pdRows().length===0){alert('En az bir prekast yerleşim satırı ekleyiniz.');return}sketchup.create_flat_precast(JSON.stringify(d))}
+function createPD(){const ids=['pd_type','pd_height_m','pd_seat_m','pd_joint_m','pd_y_offset_m','pd_concrete_class'];const d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.pd_layout_rows=JSON.stringify(pdRows());d.precast_type_library=JSON.stringify(mstPkLibraryForSave(precastTypes));d.pd_body_mode=(document.getElementById('pd_body_mode')||{}).value||'COMPONENT';d.pd_formwork_color=document.getElementById('pd_formwork_color').value;d.pd_concrete_color=document.getElementById('pd_concrete_color').value;d.channel_formwork_color=document.getElementById('channel_formwork_color').value;d.channel_concrete_color=document.getElementById('channel_concrete_color').value;d.channel_fw_bottom=document.getElementById('channel_fw_bottom').checked?'1':'0';d.channel_fw_sides=document.getElementById('channel_fw_sides').checked?'1':'0';d.channel_fw_inner=document.getElementById('channel_fw_inner').checked?'1':'0';d.channel_fw_ends=document.getElementById('channel_fw_ends').checked?'1':'0';d.channel_fw_top='0';['pd_fw_bottom','pd_fw_long1','pd_fw_long2','pd_fw_end1','pd_fw_end2','pd_fw_top'].forEach(id=>d[id]=document.getElementById(id).checked?'1':'0');if(pdRows().length===0){alert('En az bir prekast yerleşim satırı ekleyiniz.');return}if(pdRows().some(function(r){return r.family==='PK'})){var eo=mstPkElevOpts();if(eo.mode!=='TOP'){if(eo.err){alert(eo.err);return}d.pk_elevation_mode=eo.mode;if(eo.mode==='MANUAL'){d.pk_elevation_ref_m=eo.ref;d.pk_elevation_ref_face=eo.face}}}sketchup.create_flat_precast(JSON.stringify(d))}
 document.addEventListener('DOMContentLoaded',function(){renderPrecastTypes();if(document.getElementById('pdLayoutRows')&&!document.querySelector('.pd-layout-row')){addPDRow('PD');addPDRow('PDO');addPDRow('PK');addPDRow('PV')}setTimeout(function(){if(window.sketchup&&sketchup.load_precast_type_library)sketchup.load_precast_type_library();},150)});
 
 
@@ -2279,19 +2291,22 @@ function mstPkCheckPockets(){
 function mstPkBeamsChanged(two){
  if(two){mstPkCheckPockets();return}
  mstPk.step=0;mstPk.cand=null;mstPk.ref=null;mstPk.msg='Cep uyumu için modelde iki BK seçin.';mstPkRender();
+ if(mstPk.elevAsked){mstPk.elev=null;mstPk.elevMsg='Kot önizlemesi için modelde iki BK seçin.';mstPkElevRender()}
 }
 window.mstPkCandidates=function(pl){
  pl=pl||{};
  if(mstPk.step===1&&pl.ok){
-  var c=(pl.ciftler||[])[0];
-  if(c&&typeof c.cep_tabani_m==='number'&&typeof c.cep_derinligi_m==='number'){
-   var rh=mstPkLayoutRefH(),bk=c.cep_tabani_m+c.cep_derinligi_m;
-   mstPk.ref={top:bk+rh.h,bk:bk,rh:rh};mstPk.step=2;
+  var c=(pl.ciftler||[])[0],num=function(v){return typeof v==='number'&&isFinite(v)};
+  // P3: Ruby bk_ust_m (BK üst kotu) varsa esas; yoksa cep tabanı + cep derinliğinden türetilir (ekranda TÜRETİLDİ)
+  if(c&&(num(c.bk_ust_m)||(num(c.cep_tabani_m)&&num(c.cep_derinligi_m)))){
+   var rh=mstPkLayoutRefH(),drv=!num(c.bk_ust_m),bk=drv?c.cep_tabani_m+c.cep_derinligi_m:c.bk_ust_m;
+   mstPk.ref={top:bk+rh.h,bk:bk,rh:rh,derived:drv,warn:drv&&c.bk_ust_uyari?String(c.bk_ust_uyari):''};mstPk.step=2;
    sketchup.pk_pocket_candidates(JSON.stringify({ref_top_m:mstPk.ref.top}));   // 2. adım: referans üst ile uyum
    return;
   }
  }
  mstPk.step=0;mstPk.cand=pl;mstPk.msg='';mstPkRender();
+ if(mstPk.elevAsked)mstPkElevPreview();   // P3: referans üst değişti → kot önizlemesi yenilenir
 };
 // Seçili tip, yerleşimdeki ilk PK satırına atanır (satır yoksa eklenir); oluşturma yine "PD Yerleşimini Oluştur" ile.
 function mstPkUseType(uid){
@@ -2316,7 +2331,7 @@ function mstPkRender(){
  var c=mstPk.cand,h='';
  if(c&&!c.ok)h='<div class="pk-pair"><span class="pk-tag bad">CEP UYUMU YOK</span> '+esc(c.neden||'Kanal cebi uyumu okunamadı.')+'</div>';
  else if(c&&c.ok)(c.ciftler||[]).forEach(function(p){
-  var r=mstPk.ref,refTxt=r&&p.referans_kaynagi==='girdi'?mstPkF3(p.referans_ust_m)+' m = BK üstü '+mstPkF3(r.bk)+' m (cep tabanı + cep derinliği) + '+esc(r.rh.src)+(r.rh.est?' <span class="pk-tag est">VARSAYILAN</span>':''):(typeof p.referans_ust_m==='number'?mstPkF3(p.referans_ust_m)+' m ('+esc(p.referans_kaynagi||'')+')':'<span class="pk-tag est">BELİRLENEMEDİ</span>');
+  var r=mstPk.ref,refTxt=r&&p.referans_kaynagi==='girdi'?mstPkF3(p.referans_ust_m)+' m = BK üstü '+mstPkF3(r.bk)+' m '+(r.derived?'(cep tabanı + cep derinliği) <span class="pk-tag est">TÜRETİLDİ</span>'+(r.warn?' ('+esc(r.warn)+')':''):'(BK üst kotu)')+' + '+esc(r.rh.src)+(r.rh.est?' <span class="pk-tag est">VARSAYILAN</span>':''):(typeof p.referans_ust_m==='number'?mstPkF3(p.referans_ust_m)+' m ('+esc(p.referans_kaynagi||'')+')':'<span class="pk-tag est">BELİRLENEMEDİ</span>');
   var jt=mstPkF3(p.derz_m)+' m ('+esc(p.derz_kaynagi||'')+')'+(p.derz_kaynagi==='varsayılan'?' <span class="pk-tag est">VARSAYILAN</span>':'');
   var be=p.beklenen||{};
   h+='<div class="pk-pair"><b>'+esc(p.aciklik||'')+' · '+esc(p.taraf_ad||'')+' cebi</b> '+(p.cep_uygun?'<span class="pk-tag ok">CEP UYGUN</span>':'<span class="pk-tag bad">CEP SORUNLU</span>')+
@@ -2349,6 +2364,83 @@ function mstPkRender(){
  mstPk.cat.forEach(function(en,i){var sv=document.getElementById('pkMini'+i),ok=!!(en.gecerli&&en.section&&typeof en.section==='object');if(sv)chDrawSection(ok?en.section:null,ok,sv,true)});   // sv yoksa çizilmez (ana önizlemeye düşmesin)
 }
 document.addEventListener('DOMContentLoaded',function(){setTimeout(mstPkRefresh,300);});
+
+/* ADR-0515-K2 P3 — PK kot yöntemi (K5): TOP (varsayılan, önceki kural) | POCKET | MANUAL. TOP seçiliyken create_flat_precast ve
+   kn_place girdisi eskisiyle birebir aynıdır (anahtar eklenmez). Önizleme salt okuma: sketchup.pk_elevation_preview(json) →
+   mstPkElevation (main.rb mst_pk_send_elevation); kot burada hesaplanmaz, Ruby'den gelir. */
+var PK_ELEV_LABELS={TOP:'Üst kot (PD üstüne hizalı)',POCKET:'BK kanal cebine oturtma',MANUAL:'Manuel kot'};
+function mstPkElevOpts(){
+ var g=function(id){var e=document.getElementById(id);return e?e.value:''};
+ var md=g('pk_elev_mode');if(md!=='POCKET'&&md!=='MANUAL')md='TOP';
+ var o={mode:md};
+ if(md==='MANUAL'){
+  var raw=String(g('pk_elev_ref_m')||'').trim(),v=raw===''?NaN:parseEngineeringNumber(raw);
+  if(typeof v==='number'&&isFinite(v))o.ref=v;else o.err='Manuel kot yönteminde referans kotunu (m) girin; ör. 2,450.';
+  o.face=g('pk_elev_ref_face')==='BOTTOM'?'BOTTOM':'TOP';
+ }
+ return o;
+}
+// kn_place / pk_elevation_preview girdisi (önek yok); TOP → null (eski çağrı)
+function mstPkElevJson(eo){if(eo.mode==='TOP')return null;var o={elevation_mode:eo.mode};if(eo.mode==='MANUAL'){o.elevation_ref_m=eo.ref;o.elevation_ref_face=eo.face}return o}
+function mstPkKnPlace(){
+ if(!(window.sketchup&&sketchup.kn_place))return;
+ var eo=mstPkElevOpts();if(eo.mode==='TOP'){sketchup.kn_place();return}
+ if(eo.err){alert(eo.err);return}
+ sketchup.kn_place(JSON.stringify(mstPkElevJson(eo)));
+}
+function mstPkElevSync(){
+ var md=mstPkElevOpts().mode,man=md==='MANUAL',ids=['pk_elev_ref_m','pk_elev_ref_face'];
+ ids.forEach(function(id){var e=document.getElementById(id);if(e)e.disabled=!man});
+ ['pkElevRefRow','pkElevFaceRow'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.opacity=man?'1':'.45'});
+}
+function mstPkElevChanged(){mstPkElevSync();mstPkElevPreview()}
+// Yerleşimdeki ilk PK satırının tipi; kesitli kayıtta kesit + seçilen üst yüzey, eski kayıtta tip adı (Ruby katalogdan okur)
+function mstPkElevPreview(){
+ mstPk.elevAsked=true;mstPk.elev=null;mstPk.elevRef=null;
+ var eo=mstPkElevOpts();
+ if(eo.err){mstPk.elevMsg=eo.err;mstPkElevRender();return}
+ var row=pdRows().filter(function(r){return r.family==='PK'})[0],t=row?typeByUid(row.type_uid):null;
+ if(!t){mstPk.elevMsg='Yerleşimde PK satırı yok; kot önizlemesi için bir PK satırı ekleyin.';mstPkElevRender();return}
+ if(!(window.sketchup&&sketchup.pk_elevation_preview))return;
+ var o={elevation_mode:eo.mode},sec=mstPkSectionOf(t);
+ if(eo.mode==='MANUAL'){o.elevation_ref_m=eo.ref;o.elevation_ref_face=eo.face}
+ if(sec){o.section=sec;if(t.channel_top_ref)o.channel_top_ref=t.channel_top_ref}else o.kod=t.name;
+ if(mstPk.ref&&typeof mstPk.ref.top==='number'){o.ref_top_m=mstPk.ref.top;mstPk.elevRef=mstPk.ref}
+ mstPk.elevType=t.name;mstPk.elevMsg='Kot önizlemesi okunuyor…';mstPkElevRender();
+ sketchup.pk_elevation_preview(JSON.stringify(o));
+}
+window.mstPkElevation=function(pl){mstPk.elev=pl||{ok:false,neden:'Kot önizlemesi okunamadı.',uyarilar:[]};mstPk.elevMsg='';mstPkElevRender()};
+function mstPkElevRender(){
+ var st=document.getElementById('pkElevStatus'),box=document.getElementById('pkElevInfo');if(!box)return;
+ if(st)st.textContent=mstPk.elevMsg||'';
+ var p=mstPk.elev;if(!p){box.innerHTML='';return}
+ var F=mstPkF3,num=function(v){return typeof v==='number'&&isFinite(v)},md=PK_ELEV_LABELS[p.mod]?p.mod:'TOP',ws=Array.isArray(p.uyarilar)?p.uyarilar:[];
+ var cep=num(p.cep_tabani_m)?'Cep tabanı '+F(p.cep_tabani_m)+' m'+(num(p.karsi_cep_tabani_m)?' / karşı cep '+F(p.karsi_cep_tabani_m)+' m':'')+(p.taraf==='start'?' (başlangıç cebi)':p.taraf==='end'?' (son cebi)':'')+' — model geometrisi':'Cep tabanı: bulunamadı';
+ var wl=ws.length?'<ul class="pk-why">'+ws.map(function(w){return '<li>'+esc(w)+'</li>'}).join('')+'</ul>':'';
+ var head='<b>'+esc(mstPk.elevType||'PK')+' · '+esc(PK_ELEV_LABELS[md])+'</b> <span class="pk-tag est">ÖNİZLEME — MODEL DEĞİŞMEZ</span> ';
+ if(!p.ok){box.innerHTML='<div class="pk-pair">'+head+'<span class="pk-tag bad">KOT HESAPLANAMADI</span> '+esc(p.neden||'')+'<div class="pk-dims">'+cep+'</div>'+wl+'</div>';return}
+ var r=mstPk.elevRef,src;
+ if(md==='MANUAL')src='Kullanıcı girdisi: '+F(p.referans_m)+' m ('+(p.yuz==='BOTTOM'?'alt yüzey':'üst yüzey')+')';
+ else if(md==='POCKET')src='Alt kot = cep tabanı (model geometrisi)';
+ else src='Üst kot '+F(p.pd_ust_m)+' m = '+(r?'BK üstü '+F(r.bk)+' m '+(r.derived?'(cep tabanı + cep derinliği) <span class="pk-tag est">TÜRETİLDİ</span>'+(r.warn?' ('+esc(r.warn)+')':''):'(BK üst kotu)')+' + '+esc(r.rh.src)+(r.rh.est?' <span class="pk-tag est">VARSAYILAN</span>':''):'açıklıktaki PD üstü (model geometrisi)');
+ var top=p.ust_yuzey&&window.mstChSection.LABELS[p.ust_yuzey]?window.mstChSection.LABELS[p.ust_yuzey]+' çıkıntı üstü (tipte seçildi)':'en yüksek açık çıkıntı üstü (varsayılan)';
+ box.innerHTML='<div class="pk-pair">'+head+(ws.length?'<span class="pk-tag bad">UYARI</span>':'<span class="pk-tag ok">KOT HESAPLANDI</span>')+
+  '<div class="pk-dims">Alt kot '+F(p.alt_kot_m)+' m · üst kot '+F(p.ust_kot_m)+' m · toplam yükseklik '+F(p.toplam_yukseklik_m)+' m</div>'+
+  '<div class="pk-dims">Tanımlı üst yüzey: '+top+' · kotu '+F(p.referans_ust_kot_m)+' m (alttan '+F(p.referans_yuksekligi_m)+' m)</div>'+
+  '<div class="pk-dims">'+src+'</div><div class="pk-dims">'+cep+'</div>'+wl+'</div>';
+}
+// Tip kaydında üst yüzey çıkıntısı (karar 2): boş = en yüksek açık çıkıntı (anahtar yazılmaz)
+function mstPkSetTopRef(uid,v){
+ var t=typeByUid(uid);if(!t)return;v=String(v||'').toLowerCase();
+ if(window.mstChSection.PARTS.indexOf(v)>=0)t.channel_top_ref=v;else delete t.channel_top_ref;
+ if(mstPk.elevAsked)mstPkElevPreview();
+}
+function mstPkTopRefField(t,sec){
+ var S=window.mstChSection,a=S.active(sec),cur=String(t.channel_top_ref||'').toLowerCase(),hit=false;
+ var opts=a.map(function(x){var s=x.part===cur;if(s)hit=true;return '<option value="'+x.part+'"'+(s?' selected':'')+'>'+S.LABELS[x.part]+' çıkıntı üstü (alttan '+S.f3(S.height(sec,x.part))+' m)</option>'}).join('');
+ return '<label>Üst yüzey (kot referansı)<select onchange="mstPkSetTopRef(\''+t.uid+'\',this.value)"><option value=""'+(hit?'':' selected')+'>En yüksek açık çıkıntı (varsayılan, '+S.f3(S.height(sec))+' m)</option>'+opts+'</select></label>'+
+  (cur&&!hit?'<div class="hint" style="grid-column:1 / -1">Kayıtlı üst yüzey seçimi ('+esc(cur)+') bu kesitte açık değil; en yüksek açık çıkıntı kullanılır.</div>':'');
+}
 
 
 
