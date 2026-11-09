@@ -123,14 +123,15 @@ LIB5 = [
   { 'uid' => 'pkl', 'family' => 'PK', 'name' => 'PK-L', 'section' => SEC_L, 'concrete' => 'C30/37' },
   { 'uid' => 'pkl0', 'family' => 'PK', 'name' => 'PK-L0', 'section' => SEC_L, 'fw_ledge' => false, 'concrete' => 'C30/37' }
 ].freeze
-def layout5(rows, extra = {}, lib = LIB5, group_dy = nil)
+def layout5(rows, extra = {}, lib = LIB5, group_dy = nil, group_dz = 0.0)
   fresh_model
   $model.set_attribute(D, 'precast_type_library_json', JSON.generate(lib))
   l = bk_y(9101, 0.0, 1.0); r = bk_y(9102, 4.0, 5.0)
-  if group_dy   # Ö1: BK'lar Y'de ötelenmiş tek örnekli grup içinde (kullanıcı grubu düzenliyor; seçim grup içinde)
-    gr = Sketchup::Group.new(9100, {}); gr.transformation = Geom::Transformation.translation([0, group_dy * IN, 0])
+  $kp5_gr = nil
+  if group_dy   # Ö1: BK'lar Y (ve Z) ötelenmiş tek örnekli grup içinde (kullanıcı grubu düzenliyor; seçim grup içinde)
+    gr = Sketchup::Group.new(9100, {}); gr.transformation = Geom::Transformation.translation([0, group_dy * IN, group_dz * IN])
     [l, r].each { |b| $model.entities.delete(b); gr.entities << b; b.parent = gr.definition }
-    put(gr)
+    put(gr); $kp5_gr = gr
   end
   $model.selection.push(l, r)
   data = { 'pd_layout_rows' => JSON.generate(rows), 'precast_type_library' => JSON.generate(lib), 'pd_seat_m' => '0.15', 'pd_joint_m' => '0.02', 'pd_y_offset_m' => '2.02',
@@ -281,6 +282,46 @@ $ui_msgs = []
 M.mst_pk_reseat_after_edit([l], $model, false)
 t('6.3 sessiz değil: uyarı kutusu (önceki davranış)', $ui_msgs.join.include?('yatayda kaydı'), true)
 M.singleton_class.send(:alias_method, :mst_pk_reseat_plan, :kp5_orig_plan)
+
+# ---------------------------------------------------------------- 7. 38 Ö1 Z yarısı: Z'de ötelenmiş grup içindeki BK (cep tabanı dünya kotu → kapsayıcı uzayı)
+# Gerçek SketchUp: grup düzenlenirken seçim ve active_entities grubun içindedir; sahte modelde de öyle kurulur.
+class Sketchup::Model
+  def active_entities; $kp5_gr ? $kp5_gr.entities : @entities; end
+end
+tz = ->(e) { e.transformation.to_a[14] / IN }
+ok, pk, = layout5(ROWS_U, { 'pk_elevation_mode' => 'POCKET' }, LIB5, 20.0, 1.0)
+lay = pk && pk.parent.respond_to?(:instances) ? pk.parent.instances[0] : nil
+t('7.1 Prekast Yerleşimi POCKET, grup +Y 20 / +Z 1,0: alt kot (dünya) 3,20; PK grup içinde yerel z 2,20 (dünya 3,20 = cep tabanı)',
+  [ok, pk && near(attrs(pk)['bottom_elevation_m'], 3.2), pk && near(tz.(pk), 2.2, 1e-9), lay && lay.transformation.identity?], [true, true, true, true])
+# yeniden oturtma: BK + PK aynı Z ötelenmiş grupta; cep derinliği 0,90 → cep tabanı yerel 2,10 / dünya 3,10; PK yerel 2,20 (dünya 3,20)
+fresh_model
+l = bk_y(9401, 0.0, 1.0, 3.0, 0.9); r = bk_y(9402, 4.0, 5.0, 3.0, 0.9)
+pz = Sketchup::Group.new(9431, 'element_type' => 'channel_precast', 'precast_family' => 'PK', 'precast_id' => 'PK9431', 'support_left_pid' => 9401, 'support_right_pid' => 9402,
+                               'bottom_elevation_m' => 3.2, 'top_elevation_m' => 4.0, 'elevation_mode' => 'POCKET', 'seat_bk_left_uid' => 'BK-U9401', 'seat_bk_left_side' => 'start',
+                               'seat_bk_right_uid' => 'BK-U9402', 'seat_bk_right_side' => 'start')
+pz.bounds = Geom::BoundingBox.new([0.85 * IN, 2.02 * IN, 2.2 * IN], [4.15 * IN, 3.22 * IN, 3.0 * IN])
+gr = Sketchup::Group.new(9400, {}); gr.transformation = Geom::Transformation.translation([0, 0, 1.0 * IN])
+[l, r].each { |b| $model.entities.delete(b) }
+[l, r, pz].each { |b| gr.entities << b; b.parent = gr.definition }
+put(gr)
+res = M.mst_pk_reseat_after_edit([l], $model, true)
+t('7.2 yeniden oturtma, grup +Z 1,0: yerel dz −0,10 (yerel 2,10 = dünya 3,10 cep tabanı), alt kot 3,10',
+  [res['moved'], near(tz.(pz), -0.1, 1e-9), near(pz.get_attribute(D, 'bottom_elevation_m'), 3.1)], [[pz], true, true])
+# KN cebe yerleştirme: BK + PD aynı Z ötelenmiş grupta
+fresh_model
+$model.set_attribute(D, 'precast_type_library_json', JSON.generate(LIB5))
+l = bk_y(9201, 0.0, 1.0); r = bk_y(9202, 4.0, 5.0)
+pdz = Sketchup::Group.new(9203, 'element_type' => 'flat_precast', 'precast_id' => 'PD9203', 'support_left_pid' => 9201, 'support_right_pid' => 9202, 'joint_m' => 0.02, 'seat_each_side_m' => 0.15)
+pdz.bounds = Geom::BoundingBox.new([0.85 * IN, 4.0 * IN, 2.7 * IN], [4.15 * IN, 5.0 * IN, 3.0 * IN])
+gr = Sketchup::Group.new(9200, {}); gr.transformation = Geom::Transformation.translation([0, 0, 1.0 * IN])
+[l, r].each { |b| $model.entities.delete(b) }
+[l, r, pdz].each { |b| gr.entities << b; b.parent = gr.definition }
+put(gr)
+kp = M.mst_kn_place_plan($model, nil, nil, nil, M.mst_pk_elev_opts('elevation_mode' => 'POCKET'))
+c2 = kp['cands'][0]
+inst = c2 && M.mst_kn_create_pk!(c2, $model, nil)
+t('7.3 KN POCKET, grup +Z 1,0: alt kot (dünya) 3,20; örnek grup içinde yerel z 2,20',
+  [c2 && near(c2['z0'], 3.2), inst && near(attrs(inst)['bottom_elevation_m'], 3.2), inst && near(tz.(inst), 2.2, 1e-9)], [true, true, true])
 
 puts "#{$ok} geçti, #{$bad} kaldı"
 exit($bad.zero? ? 0 : 1)
