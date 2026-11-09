@@ -65,3 +65,7 @@ Kullanıcı kararları bu bölümün altına eklenecek.
 11. (09.11.2026, P1a sonrası) Sol / sağ taban üstü (yan çıkıntının dış tarafı) döşemede "açık kalır / döşeme doldurur" tipte seçilir; varsayılan L ve U açık, K dolu (karar 3 bu seçimle uygulanır).
 12. (ana oturum, teknik) U-eşdeğeri girdide channel_section_json yalnız açık `section` verisi varsa yazılır (eski girdide yazılan anahtarlar birebir aynı); U dışında outer_width_m / width_m = toplam genişlik, iç ölçü anahtarları 0. Tek BK'lı form PK BK boyu değişince yeniden boyutlanmaz (bilinen sınır, P5 notu). channel_top_ref üretime P3 içinde bağlanır.
 13. (ana oturum, teknik, P2) Tip kaydında (precast_type_library_json) açık `section` esastır; arayüz kayıt yazarken eski alanları (inner_width, inner_depth, base, wall) section ile eşitler (U-eşdeğerinde uDims, U dışında 0). Öğe üzerinde eski sürümün değiştirdiği eski anahtarlar P1a kuralıyla geçerli sayılır. Prekast Yerleşimi cep uyumu için arayüz `ref_top_m` (BK üstü + yerleşimdeki en kalın PD/PV) gönderir; iki BK seçimi zorunlu.
+14. (09.11.2026, P4 sonrası, kullanıcı) Özel (OZEL) kesitte ledge seçimi yoksa varsayılan **dolu** (`deck_ledge_left/right` = fill).
+15. (09.11.2026, kullanıcı) UU alçak orta çıkıntının üstü döşemede **açık bölgede** (kanal açıklığına dahil).
+16. (09.11.2026, kullanıcı) Sol/Sağ ledge Açık / Dolu seçimi bu pakette arayüze (Kanal Prekastı formu + tip kartı) eklenir.
+17. (09.11.2026, kullanıcı) Yeni PK oluşturulunca döşeme kendiliğinden güncellenmez; **bilinen sınır** (elle "Döşemeyi güncelle"), sürüm notuna yazılır.
