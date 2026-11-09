@@ -913,6 +913,11 @@ label{font-size:11px;color:#4c687f;font-weight:500}
      </div>
     </fieldset>
    </div>
+   <div class="ch-form" id="channelDeckLedgeRow">
+    <label>Döşemede sol taban üstü (ledge)<span><select id="channel_deck_ledge_left" style="width:190px" onchange="updateChannelPrecastUI()"><option value="" selected>Varsayılan (ön ayara göre: Açık)</option><option value="open">Açık kalır</option><option value="fill">Döşeme doldurur</option></select></span></label>
+    <label>Döşemede sağ taban üstü (ledge)<span><select id="channel_deck_ledge_right" style="width:190px" onchange="updateChannelPrecastUI()"><option value="" selected>Varsayılan (ön ayara göre: Açık)</option><option value="open">Açık kalır</option><option value="fill">Döşeme doldurur</option></select></span></label>
+    <p class="ch-preset-note" id="channelDeckLedgeNote">Taban üstü = en dış açık çıkıntının dışında kalan taban. Seçim prekast kesitini ve betonunu değiştirmez; döşeme oluşturulurken / yenilenirken bu bölgenin açık kalacağını ya da döşeme betonuyla dolacağını belirler. Varsayılan: U, L, Çift gözlü açık; Kademeli plak ve Özel dolu.</p>
+   </div>
    <div class="ch-form">
     <label>Eleman Boyu<span><select id="channel_length_mode" onchange="updateChannelPrecastUI()"><option value="AUTO">Otomatik (BK arası)</option><option value="MANUAL">Manuel</option></select></span></label>
     <label>Sol Oturma Payı<span><input id="channel_seat_left_m" type="number" step="0.01" value="0.15" oninput="updateChannelPrecastUI()"> m</span></label>
@@ -1491,7 +1496,7 @@ function renderPrecastTypes(){
  box.innerHTML=precastTypes.map(function(t){
   var common='<label>Tip Adı<input value="'+esc(t.name)+'" onchange="setPT(\''+t.uid+'\',\'name\',this.value)"></label><label>Sınıf<input value="'+familyLabel(t.family)+'" readonly></label>';
   var lg=t.family==='PK'?mstPkLegacyOf(t):null;
-  var geo=lg?'<label>İç Genişlik<input value="'+esc(String(lg.inner_width))+'" readonly></label><label>İç Derinlik<input value="'+esc(String(lg.inner_depth))+'" readonly></label><label>Taban<input value="'+esc(String(lg.base))+'" readonly></label><label>Duvar<input value="'+esc(String(lg.wall))+'" readonly></label><div class="hint" style="grid-column:1 / -1">Kesit tip kaydından (ön ayar '+esc(lg.sec.preset)+', toplam genişlik '+esc(window.mstChSection.f3(lg.sec.total_width_m))+' m). Eski alanlar kesitle eşitlenir'+(window.mstChSection.uEquiv(lg.sec)?'':'; U dışı kesitte 0')+'. Bu kesit burada düzenlenmez.</div>'+mstPkTopRefField(t,lg.sec):t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
+  var geo=lg?'<label>İç Genişlik<input value="'+esc(String(lg.inner_width))+'" readonly></label><label>İç Derinlik<input value="'+esc(String(lg.inner_depth))+'" readonly></label><label>Taban<input value="'+esc(String(lg.base))+'" readonly></label><label>Duvar<input value="'+esc(String(lg.wall))+'" readonly></label><div class="hint" style="grid-column:1 / -1">Kesit tip kaydından (ön ayar '+esc(lg.sec.preset)+', toplam genişlik '+esc(window.mstChSection.f3(lg.sec.total_width_m))+' m). Eski alanlar kesitle eşitlenir'+(window.mstChSection.uEquiv(lg.sec)?'':'; U dışı kesitte 0')+'. Bu kesit burada düzenlenmez.</div>'+mstPkTopRefField(t,lg.sec)+mstPkDeckField(t,lg.sec):t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
   if(t.family==='PDO'||t.family==='PV')geo+='<label>Diş Derinliği<input type="number" step=".01" value="'+t.extra+'" onchange="setPT(\''+t.uid+'\',\'extra\',this.value)"></label><label>Sol Diş<input type="number" step=".01" value="'+t.left+'" onchange="setPT(\''+t.uid+'\',\'left\',this.value)"></label><label>Sağ Diş<input type="number" step=".01" value="'+t.right+'" onchange="setPT(\''+t.uid+'\',\'right\',this.value)"></label>';
   return '<div style="border:1px solid #d8e3ea;border-radius:8px;padding:8px;margin:7px 0"><div style="display:grid;grid-template-columns:repeat(3,minmax(110px,1fr));gap:6px">'+common+geo+'<label>Beton<select onchange="setPT(\''+t.uid+'\',\'concrete\',this.value)"><option'+(t.concrete==='C30/37'?' selected':'')+'>C30/37</option><option'+(t.concrete==='C35/45'?' selected':'')+'>C35/45</option><option'+(t.concrete==='C40/50'?' selected':'')+'>C40/50</option></select></label></div><div style="text-align:right;margin-top:5px"><button type="button" class="secondary" onclick="deletePrecastType(\''+t.uid+'\')">Tipi Sil</button></div></div>';
  }).join('');
@@ -2178,7 +2183,25 @@ function chReadSection(){
   var k=S.PARTS[i],cb=document.getElementById('channel_'+k+'_on');
   s[k]={on:!!(cb&&cb.checked),width_m:g('channel_'+k+'_width_m'),height_m:g('channel_'+k+'_height_m'),offset_m:g('channel_'+k+'_offset_m')};
  }
+ for(var j=0;j<CH_DECK_KEYS.length;j++){var de=document.getElementById('channel_'+CH_DECK_KEYS[j]),dv=chDeckFlag(de?de.value:'');if(dv)s[CH_DECK_KEYS[j]]=dv}   // karar 16: yalnız seçilirse
  return s;
+}
+// ADR-0515-K2 karar 16: döşemede sol / sağ taban üstü (ledge) Açık / Dolu. Kural channel_section.rb:22-23 (MST_CH_DECK_KEYS,
+// MST_CH_DECK_FILL_PRESETS) ve :325-335 (mst_ch_deck_flag, mst_ch_deck_ledges) ile aynı: seçim yoksa U, L, UU açık; K ve OZEL
+// (bilinmeyen ön ayar da OZEL, mst_ch_parse :73) dolu. "Varsayılan" seçiliyken anahtar yazılmaz (eski kayıt aynen kalır).
+// Ledge yan çıkıntının Var/Yok bayrağına bağlı değil: en dış AÇIK çıkıntının dışındaki taban (mst_ch_deck_strips :348, :353).
+var CH_DECK_KEYS=['deck_ledge_left','deck_ledge_right'],CH_DECK_TXT={open:'Açık',fill:'Dolu'};
+function chDeckFlag(v){var s=String(v===null||v===undefined?'':v).trim().toLowerCase();if(s==='open'||s==='acik'||s==='açık')return 'open';if(s==='fill'||s==='dolu')return 'fill';return ''}
+function chDeckDefault(preset){var p=String(preset===null||preset===undefined?'':preset).trim().toUpperCase();if(p!=='OZEL'&&!Object.prototype.hasOwnProperty.call(window.mstChSection.PRESETS,p))p='OZEL';return (p==='K'||p==='OZEL')?'fill':'open'}
+function chDeckDefaultText(preset){return 'Varsayılan (ön ayara göre: '+CH_DECK_TXT[chDeckDefault(preset)]+')'}
+function chDeckOptions(preset,cur){return '<option value=""'+(cur?'':' selected')+'>'+chDeckDefaultText(preset)+'</option><option value="open"'+(cur==='open'?' selected':'')+'>Açık kalır</option><option value="fill"'+(cur==='fill'?' selected':'')+'>Döşeme doldurur</option>'}
+// Formda: varsayılan seçeneğin metni ön ayarla, not satırı taban üstü genişlikleriyle (formdaki ölçülerden) güncellenir.
+function chSyncDeckLedge(sec,ok){
+ var S=window.mstChSection,i;
+ for(i=0;i<CH_DECK_KEYS.length;i++){var e=document.getElementById('channel_'+CH_DECK_KEYS[i]),o=e?e.options:null;if(o&&o.length)o[0].textContent=chDeckDefaultText(chSectionPreset)}
+ var n=document.getElementById('channelDeckLedgeNote');if(!n)return;
+ var a=ok?S.active(sec):[],w=a.length?'Formdaki ölçülerden taban üstü genişliği: sol '+S.f3(a[0].y0)+' m · sağ '+S.f3(S.num(sec.total_width_m)-a[a.length-1].y1)+' m (0 m ise seçim etkisizdir). ':'';
+ n.textContent='Taban üstü = en dış açık çıkıntının dışında kalan taban. '+w+'Seçim prekast kesitini ve betonunu değiştirmez; döşeme oluşturulurken / yenilenirken bu bölgenin açık kalacağını ya da döşeme betonuyla dolacağını belirler. Varsayılan: U, L, Çift gözlü açık; Kademeli plak ve Özel dolu.';
 }
 // Pasif çıkıntı: alanlar soluk ve devre dışı, değer silinmez.
 function chSyncPartState(){
@@ -2248,6 +2271,7 @@ function updateChannelPrecastUI(){
  chText('channelPresetLabel',CH_PRESET_LABELS[chSectionPreset]||chSectionPreset);
  var bs=document.querySelectorAll('[data-ch-preset]');for(i=0;i<bs.length;i++)bs[i].setAttribute('aria-pressed',bs[i].getAttribute('data-ch-preset')===chSectionPreset?'true':'false');
  chDrawSection(sec,ok);
+ chSyncDeckLedge(sec,ok);
  var ul=document.getElementById('channelSectionErrors');
  if(ul){ul.innerHTML='';for(i=0;i<errs.length;i++){var li=document.createElement('li');li.textContent=errs[i];ul.appendChild(li)}}
  var btn=document.getElementById('channelModelBtn');
@@ -2440,6 +2464,27 @@ function mstPkTopRefField(t,sec){
  var opts=a.map(function(x){var s=x.part===cur;if(s)hit=true;return '<option value="'+x.part+'"'+(s?' selected':'')+'>'+S.LABELS[x.part]+' çıkıntı üstü (alttan '+S.f3(S.height(sec,x.part))+' m)</option>'}).join('');
  return '<label>Üst yüzey (kot referansı)<select onchange="mstPkSetTopRef(\''+t.uid+'\',this.value)"><option value=""'+(hit?'':' selected')+'>En yüksek açık çıkıntı (varsayılan, '+S.f3(S.height(sec))+' m)</option>'+opts+'</select></label>'+
   (cur&&!hit?'<div class="hint" style="grid-column:1 / -1">Kayıtlı üst yüzey seçimi ('+esc(cur)+') bu kesitte açık değil; en yüksek açık çıkıntı kullanılır.</div>':'');
+}
+// Karar 16: tip kaydında döşeme ledge seçimi. Yazılan yer mstPkSectionOf / mst_ch_explicit ile aynı arama sırasındaki kesit kaynağıdır
+// (tipin kendisi, channel_section_json ya da section; JSON metniyse yalnız değişince yeniden yazılır). Varsayılan = anahtar silinir.
+function mstPkDeckSrc(t){
+ if(!t||t.family!=='PK')return null;
+ var own=Object.prototype.hasOwnProperty,cj=t.channel_section_json;
+ if(own.call(t,'total_width_m')||own.call(t,'base_m'))return {obj:t};
+ var key=(cj!==null&&cj!==undefined&&cj!==false)?'channel_section_json':'section',raw=t[key],o=raw;
+ if(typeof raw==='string'){o=null;try{o=JSON.parse(raw)}catch(e){o=null}}
+ return (o!==null&&typeof o==='object'&&!Array.isArray(o))?{obj:o,key:key,str:typeof raw==='string'}:null;
+}
+function mstPkSetDeck(uid,side,v){
+ var t=typeByUid(uid),src=mstPkDeckSrc(t);if(!src)return;
+ var k=side==='right'?'deck_ledge_right':'deck_ledge_left',had=Object.prototype.hasOwnProperty.call(src.obj,k);v=chDeckFlag(v);
+ if(v){if(had&&src.obj[k]===v)return;src.obj[k]=v}else{if(!had)return;delete src.obj[k]}
+ if(src.str)t[src.key]=JSON.stringify(src.obj);
+}
+function mstPkDeckField(t,sec){
+ var src=mstPkDeckSrc(t),h='',sd=[['left','sol'],['right','sağ']],i;if(!src)return '';
+ for(i=0;i<sd.length;i++)h+='<label>Döşemede '+sd[i][1]+' taban üstü (ledge)<select onchange="mstPkSetDeck(\''+t.uid+'\',\''+sd[i][0]+'\',this.value)">'+chDeckOptions(sec.preset,chDeckFlag(src.obj['deck_ledge_'+sd[i][0]]))+'</select></label>';
+ return h+'<div class="hint" style="grid-column:1 / -1">Taban üstü seçimi yalnız döşemeyi etkiler (prekast kesiti ve betonu değişmez); seçim tip kaydına yazılır ve bu tipten yerleştirilen PK\'larda kullanılır.</div>';
 }
 
 
