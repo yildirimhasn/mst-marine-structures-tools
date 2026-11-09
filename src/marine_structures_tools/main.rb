@@ -4580,6 +4580,17 @@ def create_flat_precast(data=nil)
  pd_form_hex=data['pd_formwork_color'].to_s.strip;pd_form_hex='#66A9E8' if pd_form_hex.empty?;pd_form_mat=material_for(model,"MAG PD Kalıp #{pd_form_hex}",pd_form_hex)
  ch_form_hex=data['channel_formwork_color'].to_s.strip;ch_form_hex='#6DBE73' if ch_form_hex.empty?;ch_form_mat=material_for(model,"MAG Kanal Kalıp #{ch_form_hex}",ch_form_hex)
  tooth_form_mat=material_for(model,'MAG Dişli Prekast Kalıp #FFD966','#FFD966')
+ # ADR-0515-K2 P3: PK kot yöntemi (pk_elevation_mode / pk_elevation_ref_m / pk_elevation_ref_face); gelmezse TOP = önceki kural (kot birebir aynı).
+ # POCKET: PK'nın Y aralığının altındaki iki BK cebinin tabanı; cep yoksa / taşarsa oluşturulmaz (tahmin yok). → [alt, tanımlı üst, öznitelikler]
+ pk_elev=mst_pk_elev_opts(data,'pk_')
+ pk_z=lambda do |nm,ow_m,ohr,top0|
+  p=q=nil
+  if pk_elev['mode']=='POCKET'
+   yy=y.to_f/MST_IN_PER_M;p,q,ws=mst_pk_seat_find(lb,rb,yy,yy+ow_m);raise "#{nm}: #{ws.join('; ')}" unless ws.empty?
+  end
+  tg=mst_pk_elev_target(pk_elev,ohr,top0,p && p['floor_z']);raise "#{nm}: #{tg['errors'].join(' ')}" unless tg['ok']
+  [tg['bottom'],tg['top'],mst_pk_elev_attrs(pk_elev,p,q)]
+ end
  model.start_operation('Prekast Yerleşimi - Çoklu Tip',true) unless @precast_batch_mode   # K15: toplu yerleşimde çağıranın işlemi
  begin
   c=model.active_entities.add_group;c.name='Prekast Layout';c.set_attribute(DICT,'element_type','precast_layout')
@@ -4601,15 +4612,15 @@ def create_flat_precast(data=nil)
     if (cs=mst_ch_custom_section(tdef))
      ers=mst_ch_valid(cs);raise "#{name}: #{ers.join(' ')}" unless ers.empty?
      ow=cs['total_width_m'];oh=mst_ch_height(cs);uid=next_element_uid(model,'PK');g=c.entities.add_group;g.name="#{name} [#{uid}]";uf=g.entities.add_face(mst_ch_profile(cs).map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise "#{name}: kanal kesiti oluşturulamadı." unless uf;uf.reverse! if uf.normal.x<0;uf.pushpull(plen)
-     ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;topz=z+ref_h;bottomz=topz-oh;g.transform!(Geom::Transformation.translation([x0,y,m(bottomz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1',ledge:data['channel_fw_ledge']!='0'};paint_channel_precast_formwork(g,ow,0,0,0,flags,ch_form_mat,nil,cs);vol=mst_ch_area(cs)*lm;fw=mst_ch_formwork(cs,lm,flags);sig=precast_signature('PK',lm,ow,oh,[name,mst_ch_geom_sig(cs)].join(':'))
-     {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>0.0,'inner_depth_m'=>0.0,'base_thickness_m'=>0.0,'wall_thickness_m'=>0.0,'channel_section_json'=>mst_ch_json(cs),'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
+     ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;tref=mst_pk_top_ref(tdef,cs);ohr=mst_ch_height(cs,tref);bottomz,topz,ea=pk_z.(name,ow,ohr,z+ref_h);topz=bottomz+oh unless ohr==oh;g.transform!(Geom::Transformation.translation([x0,y,m(bottomz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1',ledge:data['channel_fw_ledge']!='0'};paint_channel_precast_formwork(g,ow,0,0,0,flags,ch_form_mat,nil,cs);vol=mst_ch_area(cs)*lm;fw=mst_ch_formwork(cs,lm,flags);sig=precast_signature('PK',lm,ow,oh,[name,mst_ch_geom_sig(cs)].join(':'))
+     {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>0.0,'inner_depth_m'=>0.0,'base_thickness_m'=>0.0,'wall_thickness_m'=>0.0,'channel_section_json'=>mst_ch_json(cs),'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(ea).merge(tref ? {'channel_top_ref'=>tref} : {}).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
      next
     end
     sec=mst_ch_explicit(tdef)   # U-eşdeğeri açık kesit: ölçüler kesitten; yoksa eski tip alanları
     wi,di,tb,tw=sec ? mst_ch_u_dims(sec) : [tdef['inner_width'].to_f,tdef['inner_depth'].to_f,tdef['base'].to_f,tdef['wall'].to_f];raise "#{name}: kanal geometrisi geçersiz." if [wi,di,tb,tw].any?{|v|v<=0};ow=mst_ch_u_outer(wi,tw);oh=mst_ch_u_height(di,tb);uid=next_element_uid(model,'PK');g=c.entities.add_group;g.name="#{name} [#{uid}]";profile=mst_ch_u_profile(wi,di,tb,tw);uf=g.entities.add_face(profile.map{|yy,zz|Geom::Point3d.new(0,m(yy),m(zz))});raise "#{name}: U kesiti oluşturulamadı." unless uf;uf.reverse! if uf.normal.x<0;uf.pushpull(plen)
     # PK üst kotunu yerleşimdeki en yüksek normal/dişli ana kalınlığına hizala.
-    ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;topz=z+ref_h;bottomz=topz-oh;g.transform!(Geom::Transformation.translation([x0,y,m(bottomz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1'};paint_channel_precast_formwork(g,ow,tw,di,tb,flags,ch_form_mat,nil);area=mst_ch_u_area(wi,di,tb,tw);vol=area*lm;ft=mst_ch_u_fw_terms(lm,wi,di,tb,tw);fw=0.0;fw+=ft[0] if flags[:bottom];fw+=ft[1] if flags[:sides];fw+=ft[2] if flags[:inner];fw+=ft[3] if flags[:ends];sig=precast_signature('PK',lm,ow,oh,[name,wi,di,tb,tw].join(':'))
-    {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(sec ? {'channel_section_json'=>mst_ch_json(sec)} : {}).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
+    ref_h=pieces.reject{|x|x['family'].to_s=='PK'}.map{|x|x['height'].to_f}.max||0.30;bottomz,topz,ea=pk_z.(name,ow,oh,z+ref_h);g.transform!(Geom::Transformation.translation([x0,y,m(bottomz)]));flags={bottom:data['channel_fw_bottom']=='1',sides:data['channel_fw_sides']=='1',inner:data['channel_fw_inner']!='0',ends:data['channel_fw_ends']=='1'};paint_channel_precast_formwork(g,ow,tw,di,tb,flags,ch_form_mat,nil);area=mst_ch_u_area(wi,di,tb,tw);vol=area*lm;ft=mst_ch_u_fw_terms(lm,wi,di,tb,tw);fw=0.0;fw+=ft[0] if flags[:bottom];fw+=ft[1] if flags[:sides];fw+=ft[2] if flags[:inner];fw+=ft[3] if flags[:ends];sig=precast_signature('PK',lm,ow,oh,[name,wi,di,tb,tw].join(':'))
+    {'element_type'=>'channel_precast','precast_family'=>'PK','precast_id'=>name,'precast_type_id'=>name,'library_type_id'=>name,'element_uid'=>uid,'type_signature'=>sig,'precast_type'=>name,'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>wi,'inner_depth_m'=>di,'base_thickness_m'=>tb,'wall_thickness_m'=>tw,'bottom_elevation_m'=>bottomz,'top_elevation_m'=>topz,'joint_m'=>joint,'seat_each_side_m'=>seat,'concrete_class'=>cc,'concrete_volume_m3'=>vol,'formwork_area_m2'=>fw,'support_left_pid'=>lb.persistent_id,'support_right_pid'=>rb.persistent_id}.merge(sec ? {'channel_section_json'=>mst_ch_json(sec)} : {}).merge(ea).each{|k,v|g.set_attribute(DICT,k,v)};finalize_bim_identity(g,model);y+=m(ow)+m(joint)
    else
     raise "Bilinmeyen prekast sınıfı: #{fam}"
    end
@@ -4640,14 +4651,17 @@ def sync_precast_to_head_beams
    if z1.nil?||z2.nil?||(z1.to_f-z2.to_f).abs>0.005;skip+=1;next;end
    et=g.get_attribute(DICT,'element_type').to_s
    if et=='channel_precast'
+    if mst_pk_elev_mode(g)!='TOP';skip+=1;next;end   # ADR-0515-K2 P3: POCKET / MANUAL PK kendi kot yöntemini korur
     cs=mst_ch_custom_section(g)   # ADR-0515-K2: U dışı kesitte yükseklik kesitten
-    u_h=cs ? mst_ch_height(cs) : g.get_attribute(DICT,'base_thickness_m',0).to_f+g.get_attribute(DICT,'inner_depth_m',0).to_f
+    tref=cs ? mst_pk_top_ref(g,cs) : nil   # P3: seçilen üst yüzey PD üstüne (yoksa en yüksek açık çıkıntı, önceki değer)
+    u_h=cs ? mst_ch_height(cs,tref) : g.get_attribute(DICT,'base_thickness_m',0).to_f+g.get_attribute(DICT,'inner_depth_m',0).to_f
     # Use the normal PD height from the same layout/support pair when available.
     mate=all.find{|p|p.get_attribute(DICT,'element_type')=='flat_precast' && p.get_attribute(DICT,'support_left_pid',0).to_i==g.get_attribute(DICT,'support_left_pid',0).to_i && p.get_attribute(DICT,'support_right_pid',0).to_i==g.get_attribute(DICT,'support_right_pid',0).to_i}
     pd_h=mate ? mate.get_attribute(DICT,'height_m',0).to_f : 0.0
     target_top=z1.to_f+pd_h;target_bottom=target_top-u_h
     # karar 10: tek BK üstüne oturan kanal (Kanal Prekastı formu, iki destek aynı BK) — alt = BK üstü
     if l==r;target_bottom=z1.to_f;target_top=target_bottom+u_h;end
+    target_top=target_bottom+mst_ch_height(cs) if tref   # üst kot = gerçek üst
     old=g.get_attribute(DICT,'bottom_elevation_m',target_bottom).to_f;dz=target_bottom-old
     if dz.abs>0.0005;g.transform!(Geom::Transformation.translation([0,0,m(dz)]));g.set_attribute(DICT,'bottom_elevation_m',target_bottom);g.set_attribute(DICT,'top_elevation_m',target_top);moved+=1;end
    else
@@ -10988,10 +11002,11 @@ def show_dialog
  @d.add_action_callback('precast_type_rename'){|_|mst_precast_type_rename}
  @d.add_action_callback('pile_rebar_apply'){|_,j|begin;r=mst_pile_rebar_apply(JSON.parse(j));@d.execute_script("mstPileRebarDone(#{JSON.generate(r)})");rescue=>e;UI.messagebox("Kazık donatısı: #{e.message}");end}
  @d.add_action_callback('precast_to_component'){|_|mst_precast_convert(true)}
- @d.add_action_callback('kn_place'){|_|mst_kn_place(nil,false)}
+ @d.add_action_callback('kn_place'){|_,j|mst_kn_place(nil,false,(j.to_s.strip.empty? ? nil : mst_pk_elev_opts((JSON.parse(j.to_s) rescue nil))))}   # P3: kot yöntemi isteğe bağlı (yoksa TOP)
  @d.add_action_callback('kn_pockets'){|_|mst_kn_open_pockets(false)}
  @d.add_action_callback('pk_type_catalog'){|_|mst_pk_send_catalog(@d)}   # ADR-0515-K2 P2: salt okuma (mstPkCatalog)
  @d.add_action_callback('pk_pocket_candidates'){|_,j|mst_pk_send_candidates(@d,j)}   # ADR-0515-K2 P2: salt okuma (mstPkCandidates)
+ @d.add_action_callback('pk_elevation_preview'){|_,j|mst_pk_send_elevation(@d,j)}   # ADR-0515-K2 P3: salt okuma (mstPkElevation)
  @d.add_action_callback('precast_to_group'){|_|mst_precast_convert(false)}
  @d.add_action_callback('precast_purge_defs'){|_|mst_purge_unused_precast_definitions}
  @d.add_action_callback('universal_formwork_face_tool'){|_|activate_universal_formwork_face_tool}
@@ -12919,7 +12934,7 @@ def mst_kn_find_pk_type(model,elems,ow,oh)
     next unless g['errors'].empty? && mst_kn_pk_fits?(g,ow,oh)
     fw,mat=flags_of.(t['name'].to_s.strip,g['custom'])
     cc=t['concrete'].to_s.strip;cc='C30/37' if cc.empty?
-    return {'name'=>t['name'].to_s.strip,'wi'=>0.0,'di'=>0.0,'tb'=>0.0,'tw'=>0.0,'section'=>g['section'],'concrete'=>cc,'fw'=>fw,'form_mat'=>mat,'source'=>'kütüphane'} if g['custom']
+    return {'name'=>t['name'].to_s.strip,'wi'=>0.0,'di'=>0.0,'tb'=>0.0,'tw'=>0.0,'section'=>g['section'],'top_ref'=>g['top_ref'],'concrete'=>cc,'fw'=>fw,'form_mat'=>mat,'source'=>'kütüphane'} if g['custom']
     wi,di,tb,tw=g['dims']
     return {'name'=>t['name'].to_s.strip,'wi'=>wi,'di'=>di,'tb'=>tb,'tw'=>tw,'concrete'=>cc,'fw'=>fw,'form_mat'=>mat,'source'=>'kütüphane'}
   end
@@ -12928,7 +12943,7 @@ def mst_kn_find_pk_type(model,elems,ow,oh)
     next unless mst_kn_pk_fits?(g,ow,oh)
     fl,mat=mst_precast_face_flags(e,g['custom'] ? MST_CH_FW_ROLES_X : roles)
     if g['custom']   # ADR-0515-K2
-      return {'name'=>mst_precast_type_id(e),'wi'=>0.0,'di'=>0.0,'tb'=>0.0,'tw'=>0.0,'section'=>g['section'],'concrete'=>e.get_attribute(DICT,'concrete_class','C30/37').to_s,
+      return {'name'=>mst_precast_type_id(e),'wi'=>0.0,'di'=>0.0,'tb'=>0.0,'tw'=>0.0,'section'=>g['section'],'top_ref'=>g['top_ref'],'concrete'=>e.get_attribute(DICT,'concrete_class','C30/37').to_s,
               'fw'=>fl.map{|f|f ? '1' : '0'}.join,'form_mat'=>mat ? mat.name : '','source'=>'modeldeki kanal'}
     end
     wi,di,tb,tw=g['dims']
@@ -12952,7 +12967,8 @@ end
 # errors: tip kaydında aday olmayı engelleyen geometri hatası (öğede denetlenmez — eski kuralla aynı).
 def mst_pk_geom(x,lib)
   if (cs=mst_ch_custom_section(x))
-    return {'custom'=>true,'section'=>cs,'dims'=>[0.0,0.0,0.0,0.0],'ow'=>cs['total_width_m'],'oh'=>mst_ch_height(cs),'errors'=>lib ? mst_ch_valid(cs) : [],'legacy'=>false}
+    tr=mst_pk_top_ref(x,cs)   # P3 (karar 2, 12): tipte / öğede seçilen üst yüzey; yoksa en yüksek açık çıkıntı (önceki değer)
+    return {'custom'=>true,'section'=>cs,'dims'=>[0.0,0.0,0.0,0.0],'ow'=>cs['total_width_m'],'oh'=>mst_ch_height(cs,tr),'top_ref'=>tr,'errors'=>lib ? mst_ch_valid(cs) : [],'legacy'=>false}
   end
   sec=lib ? mst_ch_explicit(x) : nil
   d=if lib then sec ? mst_ch_u_dims(sec) : %w[inner_width inner_depth base wall].map{|k|x[k].to_f}
@@ -13110,8 +13126,224 @@ def mst_pk_send_candidates(dlg,raw)
   dlg.execute_script("window.mstPkCandidates && mstPkCandidates(#{JSON.generate(pl)})")
 end
 
+# ---------------------------------------------------------------------------
+# ADR-0515-K2 P3 (docs/duzeltme/37 K3, K5; kararlar 2, 6, 12): PK kot yöntemi + cep bağı.
+# Yeni öğe anahtarları (eski sürüm okumaz; yoksa TOP = önceki kural, kot birebir aynı):
+#  elevation_mode TOP | POCKET | MANUAL, elevation_ref_face TOP | BOTTOM, elevation_ref_m (yalnız MANUAL),
+#  seat_bk_left_uid / seat_bk_right_uid + seat_bk_left_side / seat_bk_right_side ('start' | 'end'; yalnız POCKET; PID ikinci yol),
+#  channel_top_ref (tipte seçilen üst yüzey çıkıntısı; yalnız seçildiyse). TOP kipinde (girdi yoksa) hiçbiri yazılmaz.
+# ---------------------------------------------------------------------------
+MST_PK_ELEV_MODES=%w[TOP POCKET MANUAL].freeze
+
+# Ham kot girdisi → {'mode','ref_m','face','given'}; tanınmayan / boş mod → TOP, given=false (anahtar yazılmaz).
+def mst_pk_elev_opts(src,prefix='')
+  h=src.is_a?(Hash) ? src : {}
+  g=->(k){v=h["#{prefix}#{k}"];v.nil? || v.to_s.strip.empty? ? nil : v}
+  mode=g.('elevation_mode').to_s.strip.upcase;given=MST_PK_ELEV_MODES.include?(mode);mode='TOP' unless given
+  face=g.('elevation_ref_face').to_s.strip.upcase;face='TOP' unless face=='BOTTOM'
+  rv=g.('elevation_ref_m');ref=rv.nil? ? nil : mst_ch_num(rv);ref=nil if ref && !ref.finite?
+  {'mode'=>mode,'ref_m'=>ref,'face'=>face,'given'=>given}
+end
+
+def mst_pk_elev_mode(e)
+  md=e.get_attribute(DICT,'elevation_mode','').to_s.strip.upcase
+  MST_PK_ELEV_MODES.include?(md) ? md : 'TOP'
+end
+
+# Tipte / öğede seçilen üst yüzey çıkıntısı (karar 2): kesitte açık bir çıkıntıysa adı, değilse nil (en yüksek açık çıkıntı).
+def mst_pk_top_ref(x,sec)
+  r=(x.respond_to?(:get_attribute) ? x.get_attribute(DICT,'channel_top_ref',nil) : (x.is_a?(Hash) ? x['channel_top_ref'] : nil)).to_s.strip.downcase
+  sec.is_a?(Hash) && mst_ch_active(sec).any?{|a|a['part']==r} ? r : nil
+end
+
+# Alt kot ve tanımlı üst yüzey kotu (m). oh: alttan tanımlı üst yüzeye yükseklik; top_default: TOP kipinin üst kotu (önceki kural);
+# floor: POCKET cep tabanı. → {'ok','bottom','top','errors'}
+def mst_pk_elev_target(o,oh,top_default,floor=nil)
+  bad=->(msg){{'ok'=>false,'bottom'=>nil,'top'=>nil,'errors'=>[msg]}}
+  case o['mode']
+  when 'MANUAL'
+    return bad.('Elle kot yönteminde referans kotu girilmelidir.') if o['ref_m'].nil?
+    b,tp=o['face']=='BOTTOM' ? [o['ref_m'],o['ref_m']+oh] : [o['ref_m']-oh,o['ref_m']]
+  when 'POCKET'
+    return bad.("Cebe oturtma için PK altında iki BK'da hizalı kanal cebi bulunamadı.") if floor.nil?
+    b,tp=[floor,floor+oh]
+  else
+    return bad.('Üst kot (PD üstü) belirlenemedi.') if top_default.nil?
+    tp=top_default;b=tp-oh
+  end
+  {'ok'=>true,'bottom'=>b,'top'=>tp,'errors'=>[]}
+end
+
+# PK'nın Y aralığının (m, dünya) altındaki iki BK cebi → [sol cep, sağ cep, uyarılar]. Cep yoksa, taban kotu farklıysa
+# ya da PK cep genişliğinin dışına taşıyorsa cepler nil + uyarı (tahmin edilmez).
+def mst_pk_seat_find(l,r,y0,y1,pockets_of=nil)
+  pockets_of||=->(b){mst_bk_pockets(b)}
+  f=->(v){mst_pk_f3c(v)}
+  pick=->(b){pockets_of.(b).find{|x|x['axis']=='y' && [x['box']['y'][1],y1].min-[x['box']['y'][0],y0].max>0.01}}
+  p=pick.(l);q=pick.(r)
+  return [nil,nil,["#{element_visible_id(l)} / #{element_visible_id(r)}: PK altında kanal cebi yok (Y #{f[y0]}–#{f[y1]} m)"]] unless p && q
+  return [nil,nil,["iki cebin taban kotu farklı (#{f[p['floor_z']]} / #{f[q['floor_z']]} m)"]] if (p['floor_z']-q['floor_z']).abs>MST_KN_TOL
+  out=[p,q].find{|x|y0<x['box']['y'][0]-MST_KN_TOL || y1>x['box']['y'][1]+MST_KN_TOL}
+  return [nil,nil,["PK (Y #{f[y0]}–#{f[y1]} m) #{element_visible_id(out['bk'])} cebinin (Y #{f[out['box']['y'][0]]}–#{f[out['box']['y'][1]]} m) dışına taşıyor"]] if out
+  [p,q,[]]
+end
+
+# Öğeye yazılacak kot anahtarları (girdi yoksa boş → eski çıktı).
+def mst_pk_elev_attrs(o,p=nil,q=nil)
+  return {} unless o.is_a?(Hash) && o['given']
+  h={'elevation_mode'=>o['mode'],'elevation_ref_face'=>o['face']}
+  h['elevation_ref_m']=o['ref_m'] if o['mode']=='MANUAL'
+  if o['mode']=='POCKET' && p && q
+    h.merge!('seat_bk_left_uid'=>p['bk'].get_attribute(DICT,'element_uid','').to_s,'seat_bk_left_side'=>p['side'],
+             'seat_bk_right_uid'=>q['bk'].get_attribute(DICT,'element_uid','').to_s,'seat_bk_right_side'=>q['side'])
+  end
+  h
+end
+
+# Salt okuma kot önizlemesi. o: elevation_mode / elevation_ref_m / elevation_ref_face, 'kod' (katalog tipi) ya da 'section'
+# (+ 'channel_top_ref'), 'side' ('start' | 'end'), 'ref_top_m' (TOP üst kotu; yoksa açıklıktaki PD üstü). Model yazmaz.
+def mst_pk_elevation_preview(model,bk_ref,o,elems=nil,pockets_of=nil)
+  o={} unless o.is_a?(Hash)
+  eo=mst_pk_elev_opts(o)
+  base={'ok'=>false,'neden'=>nil,'mod'=>eo['mode'],'yuz'=>eo['face'],'referans_m'=>eo['ref_m'],'uyarilar'=>[]}
+  bks=Array(bk_ref).select{|b|b.respond_to?(:valid?) && b.valid? && b.get_attribute(DICT,'element_type','').to_s=='head_beam'}.uniq
+  return base.merge('neden'=>'Kot önizlemesi için iki BK seçin.') unless bks.length==2
+  unless elems
+    elems=[];collect_elements(model.entities,elems)
+  end
+  pockets_of||=->(b){mst_bk_pockets(b)}
+  f=->(v){mst_pk_f3c(v)}
+  if (raw=o['section'])
+    sec=mst_ch_parse(raw);errs=sec ? mst_ch_valid(sec) : ['Kesit verisi okunamadı.']
+    return base.merge('neden'=>errs.join(' ')) unless errs.empty?
+    ref=mst_pk_top_ref(o,sec);full=mst_ch_height(sec);hr=mst_ch_height(sec,ref)
+  else
+    code=o['kod'].to_s.strip
+    return base.merge('neden'=>'Kanal prekastı tipi seçin.') if code.empty?
+    en=mst_pk_type_catalog(model,elems).find{|x|x['kod'].to_s.upcase==code.upcase}
+    return base.merge('neden'=>"Kanal prekastı tipi bulunamadı: #{code}") unless en
+    g=en['_g']
+    return base.merge('neden'=>g['errors'].join(' ')) unless g['errors'].empty?
+    ref=g['top_ref'];hr=g['oh'];full=g['custom'] ? mst_ch_height(g['section']) : g['oh']
+  end
+  box={};wb=->(e){box[e]||=mst_world_box(e)}
+  l,r=bks.sort_by{|b|wb[b]['x'].sum}
+  side=o['side'].to_s.strip.downcase;side=nil unless %w[start end].include?(side)
+  warns=[]
+  p=pockets_of.(l).find{|x|side.nil? || x['side']==side}
+  q=p && pockets_of.(r).find{|x|mst_kn_ov(p['box'],x['box'],p['axis'])>0.01}
+  floor=nil
+  if p.nil? then warns << "#{element_visible_id(l)}'de #{side ? (side=='start' ? 'başlangıç' : 'son') : 'kanal'} cebi yok"
+  elsif q.nil? then warns << "#{element_visible_id(l)} #{mst_kn_side_label(p)} cebinin karşısında #{element_visible_id(r)}'de cep yok"
+  elsif (p['floor_z']-q['floor_z']).abs>MST_KN_TOL then warns << "iki cebin taban kotu farklı (#{f[p['floor_z']]} / #{f[q['floor_z']]} m)"
+  else floor=p['floor_z']
+  end
+  typ=->(e){e.get_attribute(DICT,'element_type','').to_s}
+  span_pre=elems.select{|e|e.valid? && MST_PRECAST_TYPES.include?(typ[e]) && typ[e]!='channel_precast' &&
+                          [e.get_attribute(DICT,'support_left_pid',0).to_i,e.get_attribute(DICT,'support_right_pid',0).to_i].sort==[l.persistent_id,r.persistent_id].sort}
+  rv=o['ref_top_m'];rv=nil if rv.to_s.strip.empty?
+  top0=rv ? rv.to_s.tr(',','.').to_f : (span_pre.empty? ? nil : span_pre.map{|e|wb[e]['z'][1]}.max)
+  tg=mst_pk_elev_target(eo,hr,top0,floor)
+  return base.merge('neden'=>tg['errors'].join(' '),'uyarilar'=>warns,'cep_tabani_m'=>floor) unless tg['ok']
+  bot=tg['bottom'];top=hr==full ? tg['top'] : bot+full
+  if floor && eo['mode']!='POCKET'
+    warns << "kanal altı #{f[bot]} m cep tabanının (#{f[floor]} m) altında; BK betonuna gömülür" if bot<floor-MST_KN_TOL
+    warns << "kanal cebe oturmuyor (alt #{f[bot]} m, cep tabanı #{f[floor]} m)" if bot>floor+MST_KN_TOL
+  end
+  base.merge('ok'=>true,'alt_kot_m'=>bot,'ust_kot_m'=>top,'referans_ust_kot_m'=>tg['top'],'ust_yuzey'=>ref,'toplam_yukseklik_m'=>full,
+             'referans_yuksekligi_m'=>hr,'cep_tabani_m'=>floor,'karsi_cep_tabani_m'=>q ? q['floor_z'] : nil,'taraf'=>p ? p['side'] : nil,
+             'pd_ust_m'=>top0,'uyarilar'=>warns)
+end
+
+def mst_pk_send_elevation(dlg,raw)
+  pl=begin
+    o=(JSON.parse(raw.to_s) rescue nil)
+    if o.is_a?(Hash)
+      model=Sketchup.active_model;res=nil
+      mst_plan_readonly do
+        sel=model.selection.to_a.select{|e|e.respond_to?(:get_attribute) && e.get_attribute(DICT,'element_type','').to_s=='head_beam'}
+        res=mst_pk_elevation_preview(model,sel,o)
+      end
+      mst_pk_json_safe(res)
+    else
+      {'ok'=>false,'neden'=>'Kot önizleme girdisi okunamadı.','uyarilar'=>[]}
+    end
+  rescue => e
+    {'ok'=>false,'neden'=>"Kanal prekastı kot önizlemesi okunamadı: #{e.message}",'uyarilar'=>[]}
+  end
+  dlg.execute_script("window.mstPkElevation && mstPkElevation(#{JSON.generate(pl)})")
+end
+
+# Karar 6: BK cebi değişince POCKET modlu PK'lar cep tabanına. Yalnız düzenlenen BK'lara (UID, yoksa destek PID) bağlı PK;
+# kayıtlı cep artık yoksa, cep yatayda kaydıysa ya da iki cebin taban kotu farklıysa taşınmaz, uyarı. → {'moves','warnings'}
+def mst_pk_reseat_plan(beams,elems,pockets_of=nil)
+  pockets_of||=->(b){mst_bk_pockets(b)}
+  typ=->(e){e.get_attribute(DICT,'element_type','').to_s}
+  f=->(v){mst_pk_f3c(v)}
+  edited=Array(beams).select{|b|b.respond_to?(:valid?) && b.valid?}
+  bks=elems.select{|e|e.valid? && typ[e]=='head_beam'}
+  by_uid={};by_pid={};bks.each{|b|u=b.get_attribute(DICT,'element_uid','').to_s;by_uid[u]=b unless u.empty?;by_pid[b.persistent_id]=b}
+  box={};wb=->(e){box[e]||=mst_world_box(e)}
+  moves=[];warns=[]
+  elems.each do |e|
+    next unless e.valid? && typ[e]=='channel_precast' && mst_pk_elev_mode(e)=='POCKET'
+    l=by_uid[e.get_attribute(DICT,'seat_bk_left_uid','').to_s] || by_pid[e.get_attribute(DICT,'support_left_pid',0).to_i]
+    r=by_uid[e.get_attribute(DICT,'seat_bk_right_uid','').to_s] || by_pid[e.get_attribute(DICT,'support_right_pid',0).to_i]
+    next unless l && r && (edited.include?(l) || edited.include?(r))
+    cid=element_visible_id(e);eb=wb[e]
+    pick=lambda do |b,key|
+      ps=pockets_of.(b).select{|x|x['axis']=='y'};sd=e.get_attribute(DICT,key,'').to_s
+      %w[start end].include?(sd) ? ps.find{|x|x['side']==sd} : ps.find{|x|mst_kn_ov(eb,x['box'],'y')>0.01}
+    end
+    p=pick.(l,'seat_bk_left_side');q=pick.(r,'seat_bk_right_side')
+    unless p && q
+      warns << "#{cid}: kayıtlı BK cebi artık yok (#{element_visible_id(p ? r : l)}); cebe yeniden oturtulmadı.";next
+    end
+    out=[p,q].find{|x|eb['y'][0]<x['box']['y'][0]-MST_KN_TOL || eb['y'][1]>x['box']['y'][1]+MST_KN_TOL}
+    if out
+      warns << "#{cid}: #{element_visible_id(out['bk'])} cebi yatayda kaydı (cep Y #{f[out['box']['y'][0]]}–#{f[out['box']['y'][1]]} m, kanal Y #{f[eb['y'][0]]}–#{f[eb['y'][1]]} m); cebe yeniden oturtulmadı.";next
+    end
+    if (p['floor_z']-q['floor_z']).abs>MST_KN_TOL
+      warns << "#{cid}: iki cebin taban kotu farklı (#{f[p['floor_z']]} / #{f[q['floor_z']]} m); cebe yeniden oturtulmadı.";next
+    end
+    dz=p['floor_z']-eb['z'][0]
+    moves << {'e'=>e,'dz'=>dz,'bottom'=>p['floor_z'],'top'=>e.get_attribute(DICT,'top_elevation_m',eb['z'][1]).to_f+dz} if dz.abs>0.0005
+  end
+  {'moves'=>moves,'warnings'=>warns}
+end
+
+# BK düzenlemesinden sonra (mst_kn_after_edit): önceki (BK) işleme bağlı transparent işlem → tek Geri Al.
+# Saydam işlem abort edilmez (v0.51.5 K12 kuralı, dependency_rebuild.rb:154-163); hata olursa commit + bildirim.
+def mst_pk_reseat_after_edit(beams,model=Sketchup.active_model,quiet=false,elems=nil,pockets_of=nil)
+  unless elems
+    elems=[];collect_elements(model.entities,elems)
+  end
+  pl=mst_pk_reseat_plan(beams,elems,pockets_of)
+  done=[];errs=[]
+  unless pl['moves'].empty?
+    model.start_operation('MST Kanal Prekastı Cebe Oturt',true,false,true)   # önceki adıma bağlı (tek Geri Al)
+    begin
+      pl['moves'].each do |mv|
+        e=mv['e']
+        e.transform!(Geom::Transformation.translation([0,0,m(mv['dz'])]))
+        e.set_attribute(DICT,'bottom_elevation_m',mv['bottom']);e.set_attribute(DICT,'top_elevation_m',mv['top'])
+        done << e
+      end
+      commit_with_dependencies(model)
+    rescue Exception => ex
+      (model.commit_operation rescue nil)
+      errs << ex.message
+    end
+  end
+  msg=[]
+  msg << "#{done.length} kanal prekastı BK cebine yeniden oturtuldu: #{done.first(12).map{|e|element_visible_id(e)}.join(', ')}" unless quiet || done.empty?
+  msg.concat(pl['warnings'].map{|w|"⚠ #{w}"});msg.concat(errs.map{|w|"⚠ Cebe oturtma hatası: #{w}"})
+  UI.messagebox("Kanal prekastı cebe oturtma:\n"+msg.join("\n")) unless msg.empty?
+  {'moved'=>done,'warnings'=>pl['warnings'],'errors'=>errs}
+end
+
 # Candidates for automatic placement. only_beams: limit to spans touching these BKs.
-def mst_kn_place_plan(model=Sketchup.active_model,only_beams=nil,elems=nil,pockets_of=nil)
+def mst_kn_place_plan(model=Sketchup.active_model,only_beams=nil,elems=nil,pockets_of=nil,elev=nil)
   unless elems
     elems=[];collect_elements(model.entities,elems)
   end
@@ -13169,9 +13401,16 @@ def mst_kn_place_plan(model=Sketchup.active_model,only_beams=nil,elems=nil,pocke
       if (er=mst_bk_span_frame_error(l) || mst_bk_span_frame_error(r))   # v0.51.5 K22 aşama 1
         warns << "#{span}: #{er}";next
       end
+      z0=p['floor_z']
+      if elev && elev['mode']=='MANUAL'   # ADR-0515-K2 P3: elle kot; TOP / POCKET = cep tabanı (önceki kural)
+        hr=ty['section'] ? mst_ch_height(ty['section'],ty['top_ref']) : mst_ch_u_height(ty['di'],ty['tb'])
+        tg=mst_pk_elev_target(elev,hr,nil)
+        unless tg['ok'];warns << "#{span}: #{tg['errors'].join(' ')}";next;end
+        z0=tg['bottom']
+      end
       lb=wb[l];rb=wb[r];clear=rb['x'][0]-lb['x'][1]
       cands << {'l'=>l,'r'=>r,'span'=>span,'pocket'=>p,'type'=>ty,'x0'=>lb['x'][1]-seat,'length'=>clear+2*seat,'y0'=>a0+joint,
-                'z0'=>p['floor_z'],'ow'=>ow,'oh'=>oh,'joint'=>joint,'seat'=>seat,'mate'=>m0,'top'=>pdt}
+                'z0'=>z0,'ow'=>ow,'oh'=>oh,'joint'=>joint,'seat'=>seat,'mate'=>m0,'top'=>pdt,'pocket_r'=>q,'elev'=>elev}
     end
     pr.each{|q|next if used_r[q];warns << "#{span}: #{element_visible_id(r)} #{mst_kn_side_label(q)} cebinin karşısında #{element_visible_id(l)}'de cep yok; kanal iki ucundan oturamaz."}
   end
@@ -13184,7 +13423,7 @@ def mst_kn_preview_text(kp,title='Ceplere Kanal Prekastı Yerleştir')
   kp['cands'].first(20).each do |c|
     t=c['type']
     lines << "#{c['span']}: #{t['name']} (#{t['source']}) boy #{f3[c['length']]} m, dış #{f3[c['ow']]} × #{f3[c['oh']]} m, iç #{f3[t['wi']]} × #{f3[t['di']]} m"
-    lines << "   cep #{mst_kn_side_label(c['pocket'])}: Y #{f3[c['y0']]}–#{f3[c['y0']+c['ow']]} m, alt #{f3[c['z0']]} m, üst #{f3[c['z0']+c['oh']]} m (= PD üstü)"
+    lines << "   cep #{mst_kn_side_label(c['pocket'])}: Y #{f3[c['y0']]}–#{f3[c['y0']+c['ow']]} m, alt #{f3[c['z0']]} m, üst #{f3[c['z0']+c['oh']]} m #{c['elev'] && c['elev']['mode']=='MANUAL' ? '(elle kot)' : '(= PD üstü)'}"
   end
   unless kp['warnings'].empty?
     lines << '' << 'Uyarılar:'
@@ -13235,7 +13474,7 @@ def mst_kn_create_pk!(c,model=Sketchup.active_model,ctx=nil)
    'length_m'=>lm,'width_m'=>ow,'layout_width_m'=>ow,'inner_width_m'=>t['wi'],'inner_depth_m'=>t['di'],'base_thickness_m'=>t['tb'],'wall_thickness_m'=>t['tw'],
    'bottom_elevation_m'=>c['z0'],'top_elevation_m'=>c['z0']+oh,'joint_m'=>c['joint'],'seat_each_side_m'=>c['seat'],'concrete_class'=>t['concrete'],
    'concrete_volume_m3'=>vol,'formwork_area_m2'=>mst_marked_area_m2(d.entities),'support_left_pid'=>c['l'].persistent_id,'support_right_pid'=>c['r'].persistent_id,
-   'kn_from_pocket'=>"#{element_visible_id(c['pocket']['bk'])}:#{c['pocket']['side']}"}.merge(cs ? {'channel_section_json'=>mst_ch_json(cs)} : {}).each{|k,v|inst.set_attribute(DICT,k,v)}
+   'kn_from_pocket'=>"#{element_visible_id(c['pocket']['bk'])}:#{c['pocket']['side']}"}.merge(cs ? {'channel_section_json'=>mst_ch_json(cs)} : {}).merge(t['top_ref'] ? {'channel_top_ref'=>t['top_ref']} : {}).merge(mst_pk_elev_attrs(c['elev'],c['pocket'],c['pocket_r'])).each{|k,v|inst.set_attribute(DICT,k,v)}   # P3: kot yöntemi / cep bağı (girdi yoksa yazılmaz)
   inst.set_attribute(DICT,'precast_base_type_id',base) if name!=base
   %w[project ano zone structure].each{|k|v=mate.get_attribute(DICT,k,nil);inst.set_attribute(DICT,k,v) unless v.nil? || v.to_s.empty?}
   finalize_bim_identity(inst,model)
@@ -13258,15 +13497,17 @@ end
 # Button / after-edit entry point. only_beams=nil: whole model. quiet: no message when nothing to do.
 # After a BK edit: only when an edited BK has a pocket (cheap check first).
 def mst_kn_after_edit(beams)
+  # ADR-0515-K2 P3 karar 6: POCKET modlu PK'lar değişen cebe yeniden oturur (BK işlemine bağlı transparent işlem, tek Geri Al)
+  begin;mst_pk_reseat_after_edit(beams,Sketchup.active_model,true);rescue => e;UI.messagebox("Kanal prekastı cebe oturtma hatası: #{e.message}");end
   bs=beams.select{|b|b.valid? && !mst_bk_pockets_local(mst_attr_hash(b)).empty?}
   mst_kn_place(bs,true) unless bs.empty?
   # v0.38 DS2: decks resting on the edited BKs rebuild themselves (same undo step)
   mst_deck_after_edit(beams,Sketchup.active_model,true) rescue puts("DS2 döşeme güncelleme: #{$!.message}")
 end
 
-def mst_kn_place(only_beams=nil,quiet=false)
+def mst_kn_place(only_beams=nil,quiet=false,elev=nil)
   model=Sketchup.active_model
-  kp=mst_kn_place_plan(model,only_beams)
+  kp=mst_kn_place_plan(model,only_beams,nil,nil,elev)
   if kp['cands'].empty?
     return if quiet && kp['warnings'].empty?
     msg=kp['warnings'].empty? ? 'Boş BK cebi yok; yerleştirilecek kanal prekastı bulunmadı.' : "Kanal prekastı yerleştirilemedi:\n\n"+kp['warnings'].first(12).map{|w|"⚠ #{w}"}.join("\n")
