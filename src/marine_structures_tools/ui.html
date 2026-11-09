@@ -304,6 +304,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
 .channel-card.ch-wide{grid-column:1/-1}.ch-base-row{display:grid;grid-template-columns:1fr 1fr;grid-column-gap:14px}.ch-presets{padding:2px 10px 6px}.ch-presets button{margin:0 5px 5px 0;padding:6px 10px;border:1px solid #9cc3de;border-radius:5px;background:#fff;color:#0b5f98;font-size:8px;font-weight:700;cursor:pointer}.ch-presets button[aria-pressed="true"]{background:#2684ca;border-color:#1f6fa8;color:#fff}.ch-presets button:focus,.ch-part input:focus,.channel-model:focus{outline:2px solid #0b5f98;outline-offset:1px}.ch-preset-note{font-size:8px;color:#355d78;margin:1px 0 0}
 .ch-parts{display:grid;grid-template-columns:repeat(3,1fr);grid-column-gap:7px;padding:0 10px 4px}.ch-part{margin:0;padding:3px 8px 4px;border:1px solid #c7d8e4;border-radius:6px;background:#fbfdfe;min-width:0}.ch-part legend{padding:0 4px;font-size:9px;font-weight:700;color:#0870bb}.ch-part legend label{font-weight:700;cursor:pointer}.ch-part .ch-form{padding:0}.ch-part .ch-form input{width:72px}.ch-part.ch-part-off{background:#f1f3f5}.ch-part.ch-part-off .ch-form{opacity:.45}
 .ch-section-svg{display:block;width:calc(100% - 16px);height:170px;margin:8px;background:#f9fbfc;border:1px solid #e0e9ee;border-radius:4px}.ch-svg-msg{font-size:9px;fill:#a1001c}.ch-svg-dim{font-size:9px;fill:#173650}.ch-section-info{margin:0 9px 7px}.ch-section-info div{display:flex;justify-content:space-between;padding:3px 4px;font-size:8px}.ch-section-info b{color:#0870bb}.ch-section-note{font-size:7px;color:#5d7487;margin:2px 4px 0}.ch-errors{margin:0 9px 8px;padding:6px 8px 6px 22px;border:1px solid #e3a3ad;border-radius:5px;background:#fdf1f3;color:#a1001c;font-size:8px}.ch-errors:empty{display:none}.channel-model:disabled{background:#9fb4c3;cursor:not-allowed}
+.pk-status{margin-top:7px;font-size:12px;color:#173650}.pk-status:empty{display:none}.pk-pocket-info{margin-top:7px;font-size:12px}.pk-pocket-info:empty{display:none}.pk-pair{border:1px solid #c9dce9;border-radius:6px;padding:6px 8px;margin:5px 0;background:#f7fafc}.pk-list{margin-top:6px}.pk-item{display:grid;grid-template-columns:110px 1fr;grid-gap:8px;align-items:start;border:1px solid #d8e3ea;border-radius:7px;padding:7px;margin:6px 0;background:#fff}.pk-item.pk-ok{border-color:#5b9b62}.pk-item.pk-bad{border-color:#d08a2c}.pk-mini{display:block;width:110px;height:58px;background:#f9fbfc;border:1px solid #e0e9ee;border-radius:4px}.pk-mini-msg{font-size:30px;fill:#a1001c}.pk-head{font-size:13px}.pk-dims{font-size:12px;color:#173650;margin-top:2px}.pk-src{display:inline-block;font-size:11px;padding:1px 6px;border-radius:9px;background:#e7f0f7;color:#0d4278;margin-left:4px}.pk-src.model{background:#eef0e3;color:#4b5320}.pk-tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:9px;margin:2px 4px 0 0}.pk-tag.ok{background:#e3f3e5;color:#1f6b2a}.pk-tag.bad{background:#fdf0dd;color:#8a4b00}.pk-tag.est{background:#fdf0dd;color:#8a4b00}.pk-why{font-size:12px;color:#8a4b00;margin:2px 0 0 0;padding-left:16px}.pk-err{font-size:12px;color:#a1001c;margin:2px 0 0 0;padding-left:16px}.pk-item button:focus,.pk-pick-actions button:focus{outline:2px solid #147ec8;outline-offset:2px}
 
 
 .channel-layout-note{margin:5px 0 7px;padding:7px 9px;background:#eef7fd;border-left:3px solid #1885cf;border-radius:4px;font-size:8px;color:#355d78}.channel-add{border-color:#6eb4e3!important;color:#0870bb!important;background:#eef8ff!important}.channel-width-locked{background:#eef3f6!important;color:#416276!important;font-weight:700}.pd-layout-row select.pd-type{width:100%;height:30px;border:1px solid #c9d8e3;border-radius:5px;background:#fff;padding:4px 7px;color:#173650}
@@ -804,6 +805,14 @@ label{font-size:11px;color:#4c687f;font-weight:500}
       <div id="pdLayoutRows"></div>
       <div class="channel-layout-note">Yerleşim satırında önce sınıfı, sonra tanımladığınız tipi seçin. Genişlik tip kütüphanesinden otomatik gelir.</div>
       <div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap"><button type="button" class="secondary" onclick="addPDRow('PD')">＋ PD Ekle</button><button type="button" class="secondary" onclick="addPDRow('PDO')">＋ PDÖ Ekle</button><button type="button" class="secondary" onclick="addPDRow('PV')">＋ PV Ekle</button><button type="button" class="secondary channel-add" onclick="addPDRow('PK')">＋ PK Ekle</button><button type="button" class="secondary" onclick="clearPDRows()">Temizle</button></div>
+    </section>
+    <!-- ADR-0515-K2 P2: PK seçim listesi + BK kanal cebi uyumu (salt okuma; yerleşim yine "PD Yerleşimini Oluştur" ile) -->
+    <section class="pd-panel pd-span2" id="pkPickPanel"><h3>2b. PD Yerleşim Düzeni — Kanal Prekastı (PK) Seçimi ve Cep Uyumu</h3>
+      <div class="channel-layout-note">Liste modelde kayıtlı tip kütüphanesinden ve modeldeki PK'lardan okunur. Formda kaydedilmemiş tip değişiklikleri, yerleşim oluşturulunca listeye girer. Cep uyumu için modelde <b>iki BK</b> seçin ve <b>Cep Uyumunu Denetle</b>'ye basın; yerleşim satırları değişirse denetimi yenileyin.</div>
+      <div style="margin-top:7px"><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkRefresh()">↻ PK Listesini Yenile</button><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkCheckPockets()">⊔ Cep Uyumunu Denetle</button></div>
+      <div id="pkPickStatus" class="pk-status" role="status" aria-live="polite"></div>
+      <div id="pkPocketInfo" class="pk-pocket-info"></div>
+      <div id="pkPickList" class="pk-list"></div>
     </section>
     <section class="pd-panel"><h3>3. Parametreler</h3>
       <div class="grid2">
@@ -1441,7 +1450,19 @@ var precastTypes=[
 function loadPrecastTypeLibrary(raw){try{var a=JSON.parse(raw);if(Array.isArray(a)&&a.length){precastTypes=a;renderPrecastTypes();refreshAllPDRowOptions();}}catch(e){}}
 function familyLabel(f){return {PD:'PD — Normal',PDO:'PDÖ — Dişli/Değişken',PV:'PV — Vinç',PK:'PK — Kanal'}[f]||f}
 function familyPrefix(f){return {PD:'PD',PDO:'PDÖ',PV:'PV',PK:'PK'}[f]||'PD'}
-function typeWidth(t){return t.family==='PK'?(Number(t.inner_width||0)+2*Number(t.wall||0)):Number(t.width||0)}
+function typeWidth(t){var lg=t.family==='PK'?mstPkLegacyOf(t):null;if(lg)return Number(lg.sec.total_width_m)||0;return t.family==='PK'?(Number(t.inner_width||0)+2*Number(t.wall||0)):Number(t.width||0)}
+// ADR-0515-K2 karar 13: PK tip kaydında açık kesit (section / channel_section_json; mst_ch_explicit ile aynı arama) esastır.
+function mstPkSectionOf(t){
+ var S=window.mstChSection;if(!S||!t||t.family!=='PK')return null;
+ var own=Object.prototype.hasOwnProperty,cj=t.channel_section_json;
+ var raw=(own.call(t,'total_width_m')||own.call(t,'base_m'))?t:((cj!==null&&cj!==undefined&&cj!==false)?cj:t.section);
+ if(raw===null||raw===undefined||raw===false||((typeof raw==='string'||raw instanceof Array)&&!raw.length))return null;
+ return S.parse(raw);
+}
+// Eski alanlar (inner_width, inner_depth, base, wall) kesitten: U-eşdeğerinde uDims, U dışında 0. Kesit yoksa null (eski kayıt olduğu gibi).
+function mstPkLegacyOf(t){var S=window.mstChSection,sec=mstPkSectionOf(t);if(!sec)return null;var u=S.uEquiv(sec)?S.uDims(sec):[0,0,0,0];return {sec:sec,inner_width:u[0],inner_depth:u[1],base:u[2],wall:u[3]}}
+// Kayda giden kütüphane: kesitli PK kaydının kopyasında eski alanlar kesitle eşitlenir; diğer bütün alanlar (bilinmeyenler dahil) aynen kalır.
+function mstPkLibraryForSave(arr){return arr.map(function(t){var lg=mstPkLegacyOf(t);if(!lg)return t;var c={},k;for(k in t)if(Object.prototype.hasOwnProperty.call(t,k))c[k]=t[k];c.inner_width=lg.inner_width;c.inner_depth=lg.inner_depth;c.base=lg.base;c.wall=lg.wall;return c})}
 function typeByUid(uid){return precastTypes.find(function(t){return t.uid===uid})}
 function typesOfFamily(f){return precastTypes.filter(function(t){return t.family===f})}
 function uniqueTypeName(name,uid){name=(name||'').trim();return name && !precastTypes.some(function(t){return t.uid!==uid&&t.name.toLowerCase()===name.toLowerCase()})}
@@ -1457,7 +1478,8 @@ function renderPrecastTypes(){
  var box=document.getElementById('precastTypeLibrary');if(!box)return;
  box.innerHTML=precastTypes.map(function(t){
   var common='<label>Tip Adı<input value="'+esc(t.name)+'" onchange="setPT(\''+t.uid+'\',\'name\',this.value)"></label><label>Sınıf<input value="'+familyLabel(t.family)+'" readonly></label>';
-  var geo=t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
+  var lg=t.family==='PK'?mstPkLegacyOf(t):null;
+  var geo=lg?'<label>İç Genişlik<input value="'+esc(String(lg.inner_width))+'" readonly></label><label>İç Derinlik<input value="'+esc(String(lg.inner_depth))+'" readonly></label><label>Taban<input value="'+esc(String(lg.base))+'" readonly></label><label>Duvar<input value="'+esc(String(lg.wall))+'" readonly></label><div class="hint" style="grid-column:1 / -1">Kesit tip kaydından (ön ayar '+esc(lg.sec.preset)+', toplam genişlik '+esc(window.mstChSection.f3(lg.sec.total_width_m))+' m). Eski alanlar kesitle eşitlenir'+(window.mstChSection.uEquiv(lg.sec)?'':'; U dışı kesitte 0')+'. Bu kesit burada düzenlenmez.</div>':t.family==='PK'?'<label>İç Genişlik<input type="number" step=".01" value="'+t.inner_width+'" onchange="setPT(\''+t.uid+'\',\'inner_width\',this.value)"></label><label>İç Derinlik<input type="number" step=".01" value="'+t.inner_depth+'" onchange="setPT(\''+t.uid+'\',\'inner_depth\',this.value)"></label><label>Taban<input type="number" step=".01" value="'+t.base+'" onchange="setPT(\''+t.uid+'\',\'base\',this.value)"></label><label>Duvar<input type="number" step=".01" value="'+t.wall+'" onchange="setPT(\''+t.uid+'\',\'wall\',this.value)"></label>':'<label>Genişlik<input type="number" step=".01" value="'+t.width+'" onchange="setPT(\''+t.uid+'\',\'width\',this.value)"></label><label>Ana Kalınlık<input type="number" step=".01" value="'+t.height+'" onchange="setPT(\''+t.uid+'\',\'height\',this.value)"></label>';
   if(t.family==='PDO'||t.family==='PV')geo+='<label>Diş Derinliği<input type="number" step=".01" value="'+t.extra+'" onchange="setPT(\''+t.uid+'\',\'extra\',this.value)"></label><label>Sol Diş<input type="number" step=".01" value="'+t.left+'" onchange="setPT(\''+t.uid+'\',\'left\',this.value)"></label><label>Sağ Diş<input type="number" step=".01" value="'+t.right+'" onchange="setPT(\''+t.uid+'\',\'right\',this.value)"></label>';
   return '<div style="border:1px solid #d8e3ea;border-radius:8px;padding:8px;margin:7px 0"><div style="display:grid;grid-template-columns:repeat(3,minmax(110px,1fr));gap:6px">'+common+geo+'<label>Beton<select onchange="setPT(\''+t.uid+'\',\'concrete\',this.value)"><option'+(t.concrete==='C30/37'?' selected':'')+'>C30/37</option><option'+(t.concrete==='C35/45'?' selected':'')+'>C35/45</option><option'+(t.concrete==='C40/50'?' selected':'')+'>C40/50</option></select></label></div><div style="text-align:right;margin-top:5px"><button type="button" class="secondary" onclick="deletePrecastType(\''+t.uid+'\')">Tipi Sil</button></div></div>';
  }).join('');
@@ -1471,7 +1493,7 @@ function refreshAllPDRowOptions(){Array.prototype.slice.call(document.querySelec
 function addPDRow(family){family=family||'PD';var arr=typesOfFamily(family);if(!arr.length){addPrecastType(family);arr=typesOfFamily(family)}var box=document.getElementById('pdLayoutRows'),row=document.createElement('div');row.className='pd-layout-row';row.style.cssText='display:grid;grid-template-columns:1.1fr 1.15fr .8fr .65fr auto auto auto;gap:6px;align-items:end;margin:7px 0;padding:8px;border:1px solid #ddd;border-radius:8px';row.innerHTML='<label>Sınıf<select class="pd-family" onchange="pdFamilyChanged(this)"><option value="PD">PD</option><option value="PDO">PDÖ</option><option value="PV">PV</option><option value="PK">PK</option></select></label><label>Tip<select class="pd-type" onchange="pdRowTypeChanged(this)"></select></label><label>Genişlik (m)<input class="pd-width" readonly></label><label>Adet<input class="pd-count" type="number" step="1" min="1" value="1"></label><button type="button" class="secondary" title="Yukarı taşı" onclick="movePDRow(this,-1)">↑</button><button type="button" class="secondary" title="Aşağı taşı" onclick="movePDRow(this,1)">↓</button><button type="button" class="secondary pd-del" title="Satırı sil" onclick="this.closest(\'.pd-layout-row\').remove();refreshPDSummary()">✕</button>';box.appendChild(row);row.querySelector('.pd-family').value=family;row.querySelector('.pd-type').innerHTML=rowTypeOptions(family,arr[0].uid);row.querySelector('.pd-count').addEventListener('input',refreshPDSummary);pdRowTypeChanged(row.querySelector('.pd-type'))}
 function movePDRow(btn,dir){const row=btn.closest('.pd-layout-row'),box=row.parentNode;if(dir<0&&row.previousElementSibling)box.insertBefore(row,row.previousElementSibling);if(dir>0&&row.nextElementSibling)box.insertBefore(row.nextElementSibling,row)}
 function clearPDRows(){document.getElementById('pdLayoutRows').innerHTML='';refreshPDSummary()}
-function createPD(){const ids=['pd_type','pd_height_m','pd_seat_m','pd_joint_m','pd_y_offset_m','pd_concrete_class'];const d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.pd_layout_rows=JSON.stringify(pdRows());d.precast_type_library=JSON.stringify(precastTypes);d.pd_body_mode=(document.getElementById('pd_body_mode')||{}).value||'COMPONENT';d.pd_formwork_color=document.getElementById('pd_formwork_color').value;d.pd_concrete_color=document.getElementById('pd_concrete_color').value;d.channel_formwork_color=document.getElementById('channel_formwork_color').value;d.channel_concrete_color=document.getElementById('channel_concrete_color').value;d.channel_fw_bottom=document.getElementById('channel_fw_bottom').checked?'1':'0';d.channel_fw_sides=document.getElementById('channel_fw_sides').checked?'1':'0';d.channel_fw_inner=document.getElementById('channel_fw_inner').checked?'1':'0';d.channel_fw_ends=document.getElementById('channel_fw_ends').checked?'1':'0';d.channel_fw_top='0';['pd_fw_bottom','pd_fw_long1','pd_fw_long2','pd_fw_end1','pd_fw_end2','pd_fw_top'].forEach(id=>d[id]=document.getElementById(id).checked?'1':'0');if(pdRows().length===0){alert('En az bir prekast yerleşim satırı ekleyiniz.');return}sketchup.create_flat_precast(JSON.stringify(d))}
+function createPD(){const ids=['pd_type','pd_height_m','pd_seat_m','pd_joint_m','pd_y_offset_m','pd_concrete_class'];const d={};ids.forEach(id=>d[id]=document.getElementById(id).value);d.pd_layout_rows=JSON.stringify(pdRows());d.precast_type_library=JSON.stringify(mstPkLibraryForSave(precastTypes));d.pd_body_mode=(document.getElementById('pd_body_mode')||{}).value||'COMPONENT';d.pd_formwork_color=document.getElementById('pd_formwork_color').value;d.pd_concrete_color=document.getElementById('pd_concrete_color').value;d.channel_formwork_color=document.getElementById('channel_formwork_color').value;d.channel_concrete_color=document.getElementById('channel_concrete_color').value;d.channel_fw_bottom=document.getElementById('channel_fw_bottom').checked?'1':'0';d.channel_fw_sides=document.getElementById('channel_fw_sides').checked?'1':'0';d.channel_fw_inner=document.getElementById('channel_fw_inner').checked?'1':'0';d.channel_fw_ends=document.getElementById('channel_fw_ends').checked?'1':'0';d.channel_fw_top='0';['pd_fw_bottom','pd_fw_long1','pd_fw_long2','pd_fw_end1','pd_fw_end2','pd_fw_top'].forEach(id=>d[id]=document.getElementById(id).checked?'1':'0');if(pdRows().length===0){alert('En az bir prekast yerleşim satırı ekleyiniz.');return}sketchup.create_flat_precast(JSON.stringify(d))}
 document.addEventListener('DOMContentLoaded',function(){renderPrecastTypes();if(document.getElementById('pdLayoutRows')&&!document.querySelector('.pd-layout-row')){addPDRow('PD');addPDRow('PDO');addPDRow('PK');addPDRow('PV')}setTimeout(function(){if(window.sketchup&&sketchup.load_precast_type_library)sketchup.load_precast_type_library();},150)});
 
 
@@ -1519,9 +1541,11 @@ function setPDBeamLengths(leftLen,rightLen,usable){
     } else t.textContent='BK seçiniz';
   }
   if(u)u.textContent=isFinite(c) ? c.toFixed(3)+' m' : '—';
+  try{mstPkBeamsChanged(isFinite(a)&&isFinite(b));}catch(e){}   // ADR-0515-K2 P2: iki BK seçiliyse cep uyumu
 }
 function refreshPDBKLengths(){
   try{sketchup.pd_bk_length_info();}catch(e){}
+  try{mstPkRefresh();}catch(e){}   // ADR-0515-K2 P2: PK listesi
 }
 
 
@@ -2165,19 +2189,20 @@ function chSvgEl(svg,tag,attrs,text){
  if(text!==undefined&&text!==null)e.textContent=text;
  svg.appendChild(e);return e;
 }
-// Enine kesit önizlemesi (yalnız çizim; model değişmez)
-function chDrawSection(sec,ok){
- var svg=document.getElementById('channelSectionSvg');if(!svg)return;
+// Enine kesit önizlemesi (yalnız çizim; model değişmez). svgEl / mini: P2 PK seçim listesi küçük önizlemesi (yalnız kontur, ölçü yazısı yok).
+function chDrawSection(sec,ok,svgEl,mini){
+ var svg=svgEl||document.getElementById('channelSectionSvg');if(!svg)return;
  while(svg.firstChild)svg.removeChild(svg.firstChild);
  var W=320,H=170;
- if(!ok){chSvgEl(svg,'text',{x:W/2,y:H/2,'text-anchor':'middle','class':'ch-svg-msg'},'Kesit geçersiz: aşağıdaki hataları düzeltin.');return}
+ if(!ok){chSvgEl(svg,'text',{x:W/2,y:H/2,'text-anchor':'middle','class':mini?'pk-mini-msg':'ch-svg-msg'},mini?'Kesit geçersiz':'Kesit geçersiz: aşağıdaki hataları düzeltin.');return}
  var S=window.mstChSection,pts=S.profile(sec),t=sec.total_width_m,b=sec.base_m,hTot=S.height(sec),a=S.active(sec),top=null,i;
  for(i=0;i<a.length;i++)if(!top||a[i].h>top.h)top=a[i];
- var padL=16,padR=70,padT=12,padB=34,sc=Math.min((W-padL-padR)/t,(H-padT-padB)/hTot);
+ var padL=mini?12:16,padR=mini?12:70,padT=mini?12:12,padB=mini?12:34,sc=Math.min((W-padL-padR)/t,(H-padT-padB)/hTot);
  var ox=padL+((W-padL-padR)-t*sc)/2,oy=H-padB;
  var X=function(y){return (ox+y*sc).toFixed(1)},Y=function(z){return (oy-z*sc).toFixed(1)};
  var ps=[];for(i=0;i<pts.length;i++)ps.push(X(pts[i][0])+','+Y(pts[i][1]));
- chSvgEl(svg,'polygon',{points:ps.join(' '),fill:'#aeb5ba',stroke:'#4e5960','stroke-width':'1'});
+ chSvgEl(svg,'polygon',{points:ps.join(' '),fill:'#aeb5ba',stroke:'#4e5960','stroke-width':mini?'3':'1'});
+ if(mini)return;
  // toplam genişlik ölçüsü
  var yd=oy+13,st={stroke:'#173650','stroke-width':'0.8'};
  chSvgEl(svg,'line',{x1:X(0),y1:yd,x2:X(t),y2:yd,stroke:st.stroke,'stroke-width':st['stroke-width']});
@@ -2228,6 +2253,102 @@ function createChannelPrecast(){
  if(window.sketchup&&sketchup.create_channel_precast)sketchup.create_channel_precast(JSON.stringify(d));
 }
 document.addEventListener('DOMContentLoaded',function(){setTimeout(updateChannelPrecastUI,120);});
+
+/* ADR-0515-K2 P2 — Prekast Yerleşimi PK seçim listesi + BK kanal cebi uyumu. Salt okuma: sketchup.pk_type_catalog → mstPkCatalog,
+   sketchup.pk_pocket_candidates(json) → mstPkCandidates (main.rb mst_pk_send_*). Uyum ölçütü ve neden metinleri Ruby'den gelir;
+   burada hesap yok. Referans üst (karar 13) = BK üstü (cep tabanı + cep derinliği, dünya kotu) + yerleşimdeki en kalın PD/PDÖ/PV
+   (create_flat_precast'teki PK üst kotu kuralı; PD/PDÖ/PV satırı yoksa 0,30 m). Uyumsuz tip yerleşimde yine seçilebilir (uyarılı). */
+var mstPk={cat:null,catErr:null,cand:null,step:0,ref:null,msg:''};
+function mstPkF3(v){return (typeof v==='number'&&isFinite(v))?window.mstChSection.f3(v):'—'}
+function mstPkRefresh(){if(window.sketchup&&sketchup.pk_type_catalog){mstPk.msg='PK listesi okunuyor…';mstPkRender();sketchup.pk_type_catalog()}}
+window.mstPkCatalog=function(pl){
+ pl=pl||{};mstPk.cat=pl.ok?(Array.isArray(pl.tipler)?pl.tipler:[]):[];mstPk.catErr=pl.ok?null:(pl.neden||'Kanal prekastı tip listesi okunamadı.');
+ if(mstPk.msg==='PK listesi okunuyor…')mstPk.msg='';mstPkRender();
+};
+// Yerleşimdeki en kalın PD / PDÖ / PV ana kalınlığı (create_flat_precast: PK dışı parçaların height en büyüğü, yoksa 0,30)
+function mstPkLayoutRefH(){
+ var rows=pdRows().filter(function(r){return r.family!=='PK'}),h=null,name='';
+ rows.forEach(function(r){var t=typeByUid(r.type_uid),v=t?(Number(t.height)||0):0;if(h===null||v>h){h=v;name=r.type_name}});
+ return h===null?{h:0.30,src:'varsayılan 0,300 m (yerleşimde PD/PDÖ/PV satırı yok)',est:true}:{h:h,src:'yerleşimdeki en kalın PD/PDÖ/PV '+mstPkF3(h)+' m ('+name+')',est:false};
+}
+function mstPkCheckPockets(){
+ if(!(window.sketchup&&sketchup.pk_pocket_candidates))return;
+ mstPk.step=1;mstPk.ref=null;mstPk.msg='Cep uyumu denetleniyor…';mstPkRender();
+ sketchup.pk_pocket_candidates(JSON.stringify({}));   // 1. adım: cep tabanı + derinliği (BK üstü) okunur
+}
+function mstPkBeamsChanged(two){
+ if(two){mstPkCheckPockets();return}
+ mstPk.step=0;mstPk.cand=null;mstPk.ref=null;mstPk.msg='Cep uyumu için modelde iki BK seçin.';mstPkRender();
+}
+window.mstPkCandidates=function(pl){
+ pl=pl||{};
+ if(mstPk.step===1&&pl.ok){
+  var c=(pl.ciftler||[])[0];
+  if(c&&typeof c.cep_tabani_m==='number'&&typeof c.cep_derinligi_m==='number'){
+   var rh=mstPkLayoutRefH(),bk=c.cep_tabani_m+c.cep_derinligi_m;
+   mstPk.ref={top:bk+rh.h,bk:bk,rh:rh};mstPk.step=2;
+   sketchup.pk_pocket_candidates(JSON.stringify({ref_top_m:mstPk.ref.top}));   // 2. adım: referans üst ile uyum
+   return;
+  }
+ }
+ mstPk.step=0;mstPk.cand=pl;mstPk.msg='';mstPkRender();
+};
+// Seçili tip, yerleşimdeki ilk PK satırına atanır (satır yoksa eklenir); oluşturma yine "PD Yerleşimini Oluştur" ile.
+function mstPkUseType(uid){
+ var t=typeByUid(uid);if(!t){mstPk.msg='Bu tip formdaki tip kütüphanesinde bulunamadı; listeyi yenileyin.';mstPkRender();return}
+ var row=Array.prototype.slice.call(document.querySelectorAll('.pd-layout-row')).filter(function(r){return r.querySelector('.pd-family').value==='PK'})[0];
+ if(!row){addPDRow('PK');var all=document.querySelectorAll('.pd-layout-row');row=all[all.length-1]}
+ var sel=row.querySelector('.pd-type');sel.value=uid;pdRowTypeChanged(sel);
+ var bad=mstPkFitOf(t.name,'kütüphane').filter(function(x){return !x.uyumlu});
+ mstPk.msg=t.name+' ilk PK yerleşim satırına atandı.'+(bad.length?' Uyarı: seçili BK cebine uymuyor ('+bad.map(function(x){return x.taraf_ad+' cebi: '+(x.nedenler.concat(x.uyarilar).join('; ')||'cep uygun değil')}).join(' | ')+'). Yerleşim yine oluşturulabilir; ölçüyü kontrol edin.':'');
+ mstPkRender();
+}
+// Bir tipin her cep çifti için uyum kaydı (Ruby adaylar[] + çiftin uyarıları)
+function mstPkFitOf(kod,kaynak){
+ var c=mstPk.cand,out=[];if(!c||!c.ok)return out;
+ (c.ciftler||[]).forEach(function(p){(p.adaylar||[]).forEach(function(a){if(a.kod===kod&&a.kaynak===kaynak)out.push({taraf_ad:p.taraf_ad,uyumlu:!!a.uyumlu,secilecek:!!a.secilecek,nedenler:a.nedenler||[],uyarilar:p.uyarilar||[]})})});
+ return out;
+}
+function mstPkRender(){
+ var st=document.getElementById('pkPickStatus'),info=document.getElementById('pkPocketInfo'),box=document.getElementById('pkPickList');if(!box)return;
+ if(st)st.textContent=mstPk.msg||'';
+ // cep çifti bilgisi
+ var c=mstPk.cand,h='';
+ if(c&&!c.ok)h='<div class="pk-pair"><span class="pk-tag bad">CEP UYUMU YOK</span> '+esc(c.neden||'Kanal cebi uyumu okunamadı.')+'</div>';
+ else if(c&&c.ok)(c.ciftler||[]).forEach(function(p){
+  var r=mstPk.ref,refTxt=r&&p.referans_kaynagi==='girdi'?mstPkF3(p.referans_ust_m)+' m = BK üstü '+mstPkF3(r.bk)+' m (cep tabanı + cep derinliği) + '+esc(r.rh.src)+(r.rh.est?' <span class="pk-tag est">VARSAYILAN</span>':''):(typeof p.referans_ust_m==='number'?mstPkF3(p.referans_ust_m)+' m ('+esc(p.referans_kaynagi||'')+')':'<span class="pk-tag est">BELİRLENEMEDİ</span>');
+  var jt=mstPkF3(p.derz_m)+' m ('+esc(p.derz_kaynagi||'')+')'+(p.derz_kaynagi==='varsayılan'?' <span class="pk-tag est">VARSAYILAN</span>':'');
+  var be=p.beklenen||{};
+  h+='<div class="pk-pair"><b>'+esc(p.aciklik||'')+' · '+esc(p.taraf_ad||'')+' cebi</b> '+(p.cep_uygun?'<span class="pk-tag ok">CEP UYGUN</span>':'<span class="pk-tag bad">CEP SORUNLU</span>')+
+   '<div class="pk-dims">Cep genişliği '+mstPkF3(p.cep_genisligi_m)+' m · cep derinliği '+mstPkF3(p.cep_derinligi_m)+' m · cep tabanı '+mstPkF3(p.cep_tabani_m)+' m'+(typeof p.karsi_cep_tabani_m==='number'?' / karşı cep '+mstPkF3(p.karsi_cep_tabani_m)+' m':'')+'</div>'+
+   '<div class="pk-dims">Derz '+jt+' · referans üst '+refTxt+'</div>'+
+   '<div class="pk-dims">Beklenen: dış genişlik '+mstPkF3(be.dis_genislik_m)+' m · toplam yükseklik '+mstPkF3(be.toplam_yukseklik_m)+' m</div>'+
+   ((p.uyarilar||[]).length?'<ul class="pk-why">'+p.uyarilar.map(function(w){return '<li>'+esc(w)+'</li>'}).join('')+'</ul>':'')+'</div>';
+ });
+ if(info)info.innerHTML=h;
+ // tip listesi
+ if(mstPk.catErr){box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">LİSTE OKUNAMADI</span> '+esc(mstPk.catErr)+'</div>';return}
+ if(!mstPk.cat){box.innerHTML='';return}
+ if(!mstPk.cat.length){box.innerHTML='<div class="hint">Modelde kayıtlı PK tipi yok. Tip kütüphanesinde PK tanımlayıp yerleşim oluşturunca veya modelde PK bulununca listelenir.</div>';return}
+ box.innerHTML=mstPk.cat.map(function(en,i){
+  var lib=en.kaynak==='kütüphane',fit=mstPkFitOf(en.kod,en.kaynak),ok=fit.length&&fit.every(function(x){return x.uyumlu}),bad=fit.filter(function(x){return !x.uyumlu});
+  var pr=String(en.on_ayar||''),prl=CH_PRESET_LABELS[pr]||pr;
+  var tags=fit.length?(ok?'<span class="pk-tag ok">UYUMLU</span>':'<span class="pk-tag bad">UYUMSUZ</span>'):'';
+  if(fit.some(function(x){return x.secilecek}))tags+='<span class="pk-tag ok">OTOMATİK YERLEŞTİRMENİN SEÇTİĞİ</span>';
+  if(en.eski_kayit)tags+='<span class="pk-tag est">ESKİ U KAYDI (kesit verisi yok, U alanlarından)</span>';
+  var why=bad.map(function(x){return '<li>'+esc(x.taraf_ad)+' cebi: '+esc(x.nedenler.concat(x.uyarilar).join('; ')||'cep uygun değil')+'</li>'}).join('');
+  var errs=(en.hatalar||[]).map(function(e){return '<li>'+esc(e)+'</li>'}).join('');
+  var act=lib?(typeByUid(en.uid)?'<button type="button" class="secondary" onclick="mstPkUseType(mstPk.cat['+i+'].uid)"'+(en.gecerli?'':' disabled title="Kesit geçersiz"')+'>Yerleşimde kullan'+(bad.length?' (uyumsuz)':'')+'</button>':'<div class="hint">Formdaki tip kütüphanesinde yok (silinmiş veya kaydedilmemiş olabilir).</div>'):'<div class="hint">Yalnız modelde var; yerleşimde kullanmak için tip kütüphanesine ekleyin.</div>';
+  return '<div class="pk-item'+(fit.length?(ok?' pk-ok':' pk-bad'):'')+'"><svg class="pk-mini" id="pkMini'+i+'" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet" role="img" aria-label="'+esc(en.kod)+' kesit önizlemesi"></svg><div>'+
+   '<div class="pk-head"><b>'+esc(en.kod)+'</b> · '+esc(prl)+' ('+esc(pr)+')<span class="pk-src'+(lib?'':' model')+'">'+esc(en.kaynak_ad||en.kaynak)+(en.adet_modelde?' · modelde '+en.adet_modelde+' adet':'')+'</span></div>'+
+   '<div class="pk-dims">Toplam genişlik '+mstPkF3(en.toplam_genislik_m)+' m · toplam yükseklik '+mstPkF3(en.toplam_yukseklik_m)+' m · taban '+mstPkF3(en.taban_m)+' m'+(typeof en.kesit_alani_m2==='number'?' · kesit alanı '+mstPkF3(en.kesit_alani_m2)+' m²':'')+(en.beton?' · '+esc(en.beton):'')+'</div>'+
+   (en.cikinti_ozet?'<div class="pk-dims">'+esc(en.cikinti_ozet)+'</div>':'')+
+   '<div>'+tags+'</div>'+(why?'<ul class="pk-why">'+why+'</ul>':'')+(errs?'<ul class="pk-err">'+errs+'</ul>':'')+
+   '<div class="pk-pick-actions" style="margin-top:4px">'+act+'</div></div></div>';
+ }).join('');
+ mstPk.cat.forEach(function(en,i){var sv=document.getElementById('pkMini'+i),ok=!!(en.gecerli&&en.section&&typeof en.section==='object');if(sv)chDrawSection(ok?en.section:null,ok,sv,true)});   // sv yoksa çizilmez (ana önizlemeye düşmesin)
+}
+document.addEventListener('DOMContentLoaded',function(){setTimeout(mstPkRefresh,300);});
 
 
 
