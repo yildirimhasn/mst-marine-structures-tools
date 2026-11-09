@@ -49,3 +49,16 @@ ui.html JS'in tip kaydını gidiş-dönüşte koruması; rebuild_channel_paramet
 10. Tek kanal formu (Group, iç grup, destek PID yok): a) yeni kesitle Component + destek PID / b) olduğu gibi — öneri a (bağımlılık ve metrajı etkiler).
 
 Kullanıcı kararları bu bölümün altına eklenecek.
+
+## Kullanıcı kararları (09.11.2026; "önerilerle devam")
+0. Dört şekil ayrı tip değil, tek parametrik kesitin ön ayarları; her PK kodu bir ölçü takımı taşır.
+1. U dışı kesitte eski U anahtarlarına 0 yazılır (a).
+2. Üst yüzey: varsayılan en yüksek açık çıkıntı üstü; tipte isteğe bağlı çıkıntı seçimi (`channel_top_ref`).
+3. Döşeme: çıkıntılar arası kanal gözleri açık; prekast gövdesi dışındaki alçak taban (dış ledge) üstü döşeme betonuyla dolar (a + c) → kutu yerine kontur boşaltılır.
+4. Taban üst ledge kalıbı ayrı rol, varsayılan kalıplı.
+5. Çıkıntısız düz plak reddedilir.
+6. BK cebi değişince POCKET modlu PK otomatik yeniden oturur; BK düzenlemesiyle tek Geri Al (transparent, abort yok).
+7. PK silinince döşeme: Model Kontrolü uyarısı + elle "Döşemeyi güncelle" (observer yok).
+8. U dışı PK Kontrollü Düzenlemede desteklenmez; Kanal Prekastı formuna yönlendirilir.
+9. U dışı kesit donatısı hacim × kg/m³ (ayrıntılı plan için belge gerekli).
+10. Tek kanal formu yeni kesitle Component + destek PID (bağımlılık ve metraj etkisi kabul).
