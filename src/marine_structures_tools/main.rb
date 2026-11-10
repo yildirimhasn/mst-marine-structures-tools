@@ -4586,15 +4586,18 @@ def create_flat_precast(data=nil)
  # POCKET: PK'nın Y aralığının altındaki iki BK cebinin tabanı; cep yoksa / taşarsa oluşturulmaz (tahmin yok). → [alt, tanımlı üst, öznitelikler]
  pk_elev=mst_pk_elev_opts(data,'pk_');pk_lz=0.0
  pk_z=lambda do |nm,ow_m,ohr,top0|
-  p=q=nil
+  p=q=st=nil
   if pk_elev['mode']=='POCKET'
    # 38 Ö1: y (BK'ların bulunduğu kapsayıcının yerel uzayı) → dünya; cep kutuları (mst_bk_pockets) dünya uzayında
    wt=mst_world_tr(lb);yy,yy1=[y,y+m(ow_m)].map{|v|Geom::Point3d.new(x0,v,0).transform(wt).y.to_f/MST_IN_PER_M}.minmax
    p,q,ws=mst_pk_seat_find(lb,rb,yy,yy1);raise "#{nm}: #{ws.join('; ')}" unless ws.empty?
+  elsif pk_elev['mode']=='SUPPORT'   # K3 P3: iki BK'nın PK Y aralığındaki üstü (dünya, Ö1 ile aynı çevirim); belirsizse oluşturulmaz
+   wt=mst_world_tr(lb);yy,yy1=[y,y+m(ow_m)].map{|v|Geom::Point3d.new(x0,v,0).transform(wt).y.to_f/MST_IN_PER_M}.minmax
+   st,p,q,ws=mst_pk_support_find(lb,rb,yy,yy1);raise "#{nm}: #{ws.join('; ')}" unless ws.empty?
   end
-  tg=mst_pk_elev_target(pk_elev,ohr,top0,p && p['floor_z']);raise "#{nm}: #{tg['errors'].join(' ')}" unless tg['ok']
-  # 38 Ö1 (Z): POCKET alt kotu dünya (cep tabanı); yerleşim kapsayıcının uzayında → kapsayıcının z ötelemesi düşülür (öznitelik dünya kotu kalır)
-  pk_lz=pk_elev['mode']=='POCKET' ? Geom::Point3d.new(x0,y,0).transform(mst_world_tr(lb)).z.to_f/MST_IN_PER_M : 0.0
+  tg=mst_pk_elev_target(pk_elev,ohr,top0,p && p['floor_z'],st);raise "#{nm}: #{tg['errors'].join(' ')}" unless tg['ok']
+  # 38 Ö1 (Z): POCKET / SUPPORT alt kotu dünya (cep tabanı / BK üstü); yerleşim kapsayıcının uzayında → kapsayıcının z ötelemesi düşülür (öznitelik dünya kotu kalır)
+  pk_lz=%w[POCKET SUPPORT].include?(pk_elev['mode']) ? Geom::Point3d.new(x0,y,0).transform(mst_world_tr(lb)).z.to_f/MST_IN_PER_M : 0.0
   [tg['bottom'],tg['top'],mst_pk_elev_attrs(pk_elev,p,q)]
  end
  model.start_operation('Prekast Yerleşimi - Çoklu Tip',true) unless @precast_batch_mode   # K15: toplu yerleşimde çağıranın işlemi
@@ -13484,8 +13487,11 @@ end
 #  elevation_mode TOP | POCKET | MANUAL, elevation_ref_face TOP | BOTTOM, elevation_ref_m (yalnız MANUAL),
 #  seat_bk_left_uid / seat_bk_right_uid + seat_bk_left_side / seat_bk_right_side ('start' | 'end'; yalnız POCKET; PID ikinci yol),
 #  channel_top_ref (tipte seçilen üst yüzey çıkıntısı; yalnız seçildiyse). TOP kipinde (girdi yoksa) hiçbiri yazılmaz.
+# ADR-0515-K3 P3 (docs/duzeltme/41 karar 6; 40a madde 8 "Alt kottan yerleştir"): elevation_mode SUPPORT — PK alt yüzü iki destek
+#  BK'nın üst kotuna (dünya; mst_pk_support_find, iki BK üstü > MST_KN_TOL farklıysa yerleşim yok). Cep varsa da cebe inmez (o POCKET).
+#  Öğeye seat_bk_left_uid / seat_bk_right_uid (+ PK cep üstündeyse _side) yazılır; elevation_ref_face / elevation_ref_m yazılmaz.
 # ---------------------------------------------------------------------------
-MST_PK_ELEV_MODES=%w[TOP POCKET MANUAL].freeze
+MST_PK_ELEV_MODES=%w[TOP POCKET MANUAL SUPPORT].freeze
 
 # Ham kot girdisi → {'mode','ref_m','face','given'}; tanınmayan / boş mod → TOP, given=false (anahtar yazılmaz).
 def mst_pk_elev_opts(src,prefix='')
@@ -13497,6 +13503,8 @@ def mst_pk_elev_opts(src,prefix='')
   {'mode'=>mode,'ref_m'=>ref,'face'=>face,'given'=>given}
 end
 
+# Eski sürüm uyumu (K3 P3): K2 P3 sürümü SUPPORT kipini tanımaz → TOP okur (bu işlevin önceki hâli); orada "PD Kotlarını BK ile
+# Güncelle" SUPPORT PK'yı PD üstüne taşıyabilir, BK düzenlemesinde yeniden oturtmaz. Öznitelikler korunur (yeni sürümde yine SUPPORT).
 def mst_pk_elev_mode(e)
   md=e.get_attribute(DICT,'elevation_mode','').to_s.strip.upcase
   MST_PK_ELEV_MODES.include?(md) ? md : 'TOP'
@@ -13509,10 +13517,13 @@ def mst_pk_top_ref(x,sec)
 end
 
 # Alt kot ve tanımlı üst yüzey kotu (m). oh: alttan tanımlı üst yüzeye yükseklik; top_default: TOP kipinin üst kotu (önceki kural);
-# floor: POCKET cep tabanı. → {'ok','bottom','top','errors'}
-def mst_pk_elev_target(o,oh,top_default,floor=nil)
+# floor: POCKET cep tabanı; bk_top: SUPPORT iki destek BK üstü (mst_pk_support_find). → {'ok','bottom','top','errors'}
+def mst_pk_elev_target(o,oh,top_default,floor=nil,bk_top=nil)
   bad=->(msg){{'ok'=>false,'bottom'=>nil,'top'=>nil,'errors'=>[msg]}}
   case o['mode']
+  when 'SUPPORT'
+    return bad.("Alt kottan yerleştirme için iki destek BK'nın üst kotu belirlenemedi.") if bk_top.nil?
+    b,tp=[bk_top,bk_top+oh]
   when 'MANUAL'
     return bad.('Elle kot yönteminde referans kotu girilmelidir.') if o['ref_m'].nil?
     b,tp=o['face']=='BOTTOM' ? [o['ref_m'],o['ref_m']+oh] : [o['ref_m']-oh,o['ref_m']]
@@ -13540,14 +13551,48 @@ def mst_pk_seat_find(l,r,y0,y1,pockets_of=nil)
   [p,q,[]]
 end
 
+# K3 P3 SUPPORT: BK'nın PK Y aralığındaki (m, dünya) üst kotu → [kot, nil] ya da [nil, neden]. Kaynak: BK yerel üst yüzeyi
+# (height_m) PK aralığına düşen boy kesiminde (length_m), mst_world_tr × transformation ile dünyaya — mst_bk_pockets kutusunun üstüyle
+# aynı kural (eğik BK'da kesimdeki en üst nokta). Çok eksenli / ölçüsü okunamayan / Y yönünde olmayan BK ya da PK BK boyunun dışına
+# taşıyorsa kot verilmez (tahmin yok).
+def mst_pk_support_top(b,y0,y1)
+  h=mst_attr_hash(b);len=h['length_m'].to_f;wid=h['width_m'].to_f;hei=h['height_m'].to_f;f=->(v){mst_pk_f3c(v)}
+  return [nil,"#{element_visible_id(b)}: BK ölçüsü (boy / genişlik / yükseklik) okunamadı ya da çok eksenli BK; BK üst kotu belirlenemedi"] if h['head_beam_mode'].to_s=='multi_axis' || len<=0 || wid<=0 || hei<=0
+  t=mst_world_tr(b)*b.transformation;ax=t.xaxis
+  return [nil,"#{element_visible_id(b)}: BK Y yönünde değil; BK üst kotu belirlenemedi"] unless ax.y.abs>ax.x.abs
+  ti=t.inverse;o=t.origin
+  xa,xb=[y0,y1].map{|y|Geom::Point3d.new(o.x,m(y),o.z).transform(ti).x.to_f/MST_IN_PER_M}.minmax
+  return [nil,"kanal (Y #{f[y0]}–#{f[y1]} m) #{element_visible_id(b)} BK boyunun dışına taşıyor"] if xa< -MST_KN_TOL || xb>len+MST_KN_TOL
+  pts=[[xa,0.0].max,[xb,len].min].product([0.0,wid]).map{|x,y|Geom::Point3d.new(m(x),m(y),m(hei)).transform(t)}
+  [mst_box_of_pts(pts)['z'][1],nil]
+end
+
+# K3 P3 SUPPORT: iki destek BK'nın PK Y aralığındaki üst kotu → [kot, sol bağ, sağ bağ, uyarılar]. İki BK üstü farkı mst_pk_bk_top
+# kuralıyla (> MST_KN_TOL → belirsiz, nil + uyarı). Bağ: {'bk','side'}; side yalnız PK bir cebin üstündeyse (bilgi; cebe inilmez).
+def mst_pk_support_find(l,r,y0,y1,pockets_of=nil)
+  tops=[l,r].map{|b|mst_pk_support_top(b,y0,y1)}
+  ws=tops.map(&:last).compact
+  return [nil,nil,nil,ws] unless ws.empty?
+  bt=mst_pk_bk_top({'box'=>{'z'=>[nil,tops[0][0]]}},{'box'=>{'z'=>[nil,tops[1][0]]}})
+  return [nil,nil,nil,[bt['bk_ust_uyari']]] if bt['bk_ust_m'].nil?
+  pockets_of||=->(b){mst_bk_pockets(b)}
+  sd=->(b){x=pockets_of.(b).find{|c|c['axis']=='y' && [c['box']['y'][1],y1].min-[c['box']['y'][0],y0].max>0.01};x && x['side']}
+  [bt['bk_ust_m'],{'bk'=>l,'side'=>sd.(l)},{'bk'=>r,'side'=>sd.(r)},[]]
+end
+
 # Öğeye yazılacak kot anahtarları (girdi yoksa boş → eski çıktı).
 def mst_pk_elev_attrs(o,p=nil,q=nil)
   return {} unless o.is_a?(Hash) && o['given']
-  h={'elevation_mode'=>o['mode'],'elevation_ref_face'=>o['face']}
+  h={'elevation_mode'=>o['mode']}
+  h['elevation_ref_face']=o['face'] unless o['mode']=='SUPPORT'   # K3 P3: SUPPORT'ta elevation_ref_* yazılmaz
   h['elevation_ref_m']=o['ref_m'] if o['mode']=='MANUAL'
   if o['mode']=='POCKET' && p && q
     h.merge!('seat_bk_left_uid'=>p['bk'].get_attribute(DICT,'element_uid','').to_s,'seat_bk_left_side'=>p['side'],
              'seat_bk_right_uid'=>q['bk'].get_attribute(DICT,'element_uid','').to_s,'seat_bk_right_side'=>q['side'])
+  end
+  if o['mode']=='SUPPORT' && p && q   # K3 P3: destek BK bağı (POCKET deseni); taraf yalnız PK cep üstündeyse
+    h['seat_bk_left_uid']=p['bk'].get_attribute(DICT,'element_uid','').to_s;h['seat_bk_left_side']=p['side'] if p['side']
+    h['seat_bk_right_uid']=q['bk'].get_attribute(DICT,'element_uid','').to_s;h['seat_bk_right_side']=q['side'] if q['side']
   end
   h
 end
@@ -13584,27 +13629,34 @@ def mst_pk_elevation_preview(model,bk_ref,o,elems=nil,pockets_of=nil)
   warns=[]
   p=pockets_of.(l).find{|x|side.nil? || x['side']==side}
   q=p && pockets_of.(r).find{|x|mst_kn_ov(p['box'],x['box'],p['axis'])>0.01}
-  floor=nil
-  if p.nil? then warns << "#{element_visible_id(l)}'de #{side ? (side=='start' ? 'başlangıç' : 'son') : 'kanal'} cebi yok"
-  elsif q.nil? then warns << "#{element_visible_id(l)} #{mst_kn_side_label(p)} cebinin karşısında #{element_visible_id(r)}'de cep yok"
-  elsif (p['floor_z']-q['floor_z']).abs>MST_KN_TOL then warns << "iki cebin taban kotu farklı (#{f[p['floor_z']]} / #{f[q['floor_z']]} m)"
+  floor=nil;sup=eo['mode']=='SUPPORT';cw=[]   # K3 P3: SUPPORT cep gerektirmez → cep uyarıları yüke girmez
+  if p.nil? then cw << "#{element_visible_id(l)}'de #{side ? (side=='start' ? 'başlangıç' : 'son') : 'kanal'} cebi yok"
+  elsif q.nil? then cw << "#{element_visible_id(l)} #{mst_kn_side_label(p)} cebinin karşısında #{element_visible_id(r)}'de cep yok"
+  elsif (p['floor_z']-q['floor_z']).abs>MST_KN_TOL then cw << "iki cebin taban kotu farklı (#{f[p['floor_z']]} / #{f[q['floor_z']]} m)"
   else floor=p['floor_z']
+  end
+  warns.concat(cw) unless sup
+  bkt=nil;sx={}
+  if sup   # K3 P3: BK üstü — cep çifti varsa cep bölgesinde, yoksa iki BK'nın ortak Y aralığında (dünya)
+    ys=p && q ? p['box']['y'] : [[wb[l]['y'][0],wb[r]['y'][0]].max,[wb[l]['y'][1],wb[r]['y'][1]].min]
+    bkt,_,_,sw=mst_pk_support_find(l,r,ys[0],ys[1],pockets_of);warns.concat(sw)
+    sx={'bk_ust_m'=>bkt,'bk_ust_uyari'=>sw.empty? ? nil : sw.join(' '),'bk_ust_kaynagi'=>p && q ? 'cep bölgesindeki BK üstü (iki BK)' : 'iki BK ortak boyundaki BK üstü'}
   end
   typ=->(e){e.get_attribute(DICT,'element_type','').to_s}
   span_pre=elems.select{|e|e.valid? && MST_PRECAST_TYPES.include?(typ[e]) && typ[e]!='channel_precast' &&
                           [e.get_attribute(DICT,'support_left_pid',0).to_i,e.get_attribute(DICT,'support_right_pid',0).to_i].sort==[l.persistent_id,r.persistent_id].sort}
   rv=o['ref_top_m'];rv=nil if rv.to_s.strip.empty?
   top0=rv ? rv.to_s.tr(',','.').to_f : (span_pre.empty? ? nil : span_pre.map{|e|wb[e]['z'][1]}.max)
-  tg=mst_pk_elev_target(eo,hr,top0,floor)
-  return base.merge('neden'=>tg['errors'].join(' '),'uyarilar'=>warns,'cep_tabani_m'=>floor) unless tg['ok']
+  tg=mst_pk_elev_target(eo,hr,top0,floor,bkt)
+  return base.merge('neden'=>tg['errors'].join(' '),'uyarilar'=>warns,'cep_tabani_m'=>floor).merge(sx) unless tg['ok']
   bot=tg['bottom'];top=hr==full ? tg['top'] : bot+full
-  if floor && eo['mode']!='POCKET'
+  if floor && eo['mode']!='POCKET' && !sup   # SUPPORT bilinçli olarak cebe inmez
     warns << "kanal altı #{f[bot]} m cep tabanının (#{f[floor]} m) altında; BK betonuna gömülür" if bot<floor-MST_KN_TOL
     warns << "kanal cebe oturmuyor (alt #{f[bot]} m, cep tabanı #{f[floor]} m)" if bot>floor+MST_KN_TOL
   end
   base.merge('ok'=>true,'alt_kot_m'=>bot,'ust_kot_m'=>top,'referans_ust_kot_m'=>tg['top'],'ust_yuzey'=>ref,'toplam_yukseklik_m'=>full,
              'referans_yuksekligi_m'=>hr,'cep_tabani_m'=>floor,'karsi_cep_tabani_m'=>q ? q['floor_z'] : nil,'taraf'=>p ? p['side'] : nil,
-             'pd_ust_m'=>top0,'uyarilar'=>warns)
+             'pd_ust_m'=>top0,'uyarilar'=>warns).merge(sx)
 end
 
 def mst_pk_send_elevation(dlg,raw)
@@ -13638,11 +13690,25 @@ def mst_pk_reseat_plan(beams,elems,pockets_of=nil)
   box={};wb=->(e){box[e]||=mst_world_box(e)}
   moves=[];warns=[]
   elems.each do |e|
-    next unless e.valid? && typ[e]=='channel_precast' && mst_pk_elev_mode(e)=='POCKET'
+    md=e.valid? && typ[e]=='channel_precast' ? mst_pk_elev_mode(e) : nil
+    next unless md=='POCKET' || md=='SUPPORT'
     l=by_uid[e.get_attribute(DICT,'seat_bk_left_uid','').to_s] || by_pid[e.get_attribute(DICT,'support_left_pid',0).to_i]
     r=by_uid[e.get_attribute(DICT,'seat_bk_right_uid','').to_s] || by_pid[e.get_attribute(DICT,'support_right_pid',0).to_i]
     next unless l && r && (edited.include?(l) || edited.include?(r))
     cid=element_visible_id(e);eb=wb[e]
+    if md=='SUPPORT'   # K3 P3: BK üstüne yeniden oturtma; BK'dan yatayda ayrıldıysa / BK üstleri farklıysa taşınmaz, uyarı
+      lr=[l,r].find{|b|mst_kn_ov(eb,wb[b],'x')<=0.01}
+      if lr
+        warns << "#{cid}: #{element_visible_id(lr)} BK'sı yatayda kaydı (kanal BK üstüne basmıyor); BK üstüne yeniden oturtulmadı.";next
+      end
+      st,_,_,sw=mst_pk_support_find(l,r,eb['y'][0],eb['y'][1],pockets_of)
+      unless sw.empty?
+        warns << "#{cid}: #{sw.join(' ')}; BK üstüne yeniden oturtulmadı.";next
+      end
+      dz=st-eb['z'][0]
+      moves << {'e'=>e,'dz'=>dz,'bottom'=>st,'top'=>e.get_attribute(DICT,'top_elevation_m',eb['z'][1]).to_f+dz,'mode'=>'SUPPORT'} if dz.abs>0.0005
+      next
+    end
     pick=lambda do |b,key|
       ps=pockets_of.(b).select{|x|x['axis']=='y'};sd=e.get_attribute(DICT,key,'').to_s
       %w[start end].include?(sd) ? ps.find{|x|x['side']==sd} : ps.find{|x|mst_kn_ov(eb,x['box'],'y')>0.01}
@@ -13670,10 +13736,10 @@ def mst_pk_reseat_after_edit(beams,model=Sketchup.active_model,quiet=false,elems
   unless elems
     elems=[];collect_elements(model.entities,elems)
   end
-  # 38 B2: modelde POCKET modlu PK yoksa erken çık (cep kutusu / plan hesaplanmaz)
-  return {'moved'=>[],'warnings'=>[],'errors'=>[]} unless elems.any?{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast' && mst_pk_elev_mode(e)=='POCKET'}
+  # 38 B2: modelde POCKET / SUPPORT (K3 P3) modlu PK yoksa erken çık (cep kutusu / plan hesaplanmaz)
+  return {'moved'=>[],'warnings'=>[],'errors'=>[]} unless elems.any?{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast' && %w[POCKET SUPPORT].include?(mst_pk_elev_mode(e))}
   pl=mst_pk_reseat_plan(beams,elems,pockets_of)
-  done=[];errs=[]
+  done=[];errs=[];sdone=[]
   unless pl['moves'].empty?
     model.start_operation('MST Kanal Prekastı Cebe Oturt',true,false,true)   # önceki adıma bağlı (tek Geri Al)
     begin
@@ -13681,7 +13747,7 @@ def mst_pk_reseat_after_edit(beams,model=Sketchup.active_model,quiet=false,elems
         e=mv['e']
         e.transform!(Geom::Transformation.translation([0,0,m(mv['dz'])]))
         e.set_attribute(DICT,'bottom_elevation_m',mv['bottom']);e.set_attribute(DICT,'top_elevation_m',mv['top'])
-        done << e
+        mv['mode']=='SUPPORT' ? sdone << e : done << e
       end
       commit_with_dependencies(model)
     rescue Exception => ex
@@ -13691,6 +13757,7 @@ def mst_pk_reseat_after_edit(beams,model=Sketchup.active_model,quiet=false,elems
   end
   msg=[]
   msg << "#{done.length} kanal prekastı BK cebine yeniden oturtuldu: #{done.first(12).map{|e|element_visible_id(e)}.join(', ')}" unless quiet || done.empty?
+  msg << "#{sdone.length} kanal prekastı BK üstüne yeniden oturtuldu: #{sdone.first(12).map{|e|element_visible_id(e)}.join(', ')}" unless quiet || sdone.empty?
   msg.concat(pl['warnings'].map{|w|"⚠ #{w}"});msg.concat(errs.map{|w|"⚠ Cebe oturtma hatası: #{w}"})
   # 38 B2: sessiz kipte (BK düzenlemesi sonrası) uyarılar durum satırına; hata ve sessiz olmayan kip uyarı kutusunda (önceki davranış)
   if !msg.empty? && quiet && errs.empty?
@@ -13698,7 +13765,7 @@ def mst_pk_reseat_after_edit(beams,model=Sketchup.active_model,quiet=false,elems
   elsif !msg.empty?
     UI.messagebox("Kanal prekastı cebe oturtma:\n"+msg.join("\n"))
   end
-  {'moved'=>done,'warnings'=>pl['warnings'],'errors'=>errs}
+  {'moved'=>done+sdone,'warnings'=>pl['warnings'],'errors'=>errs}
 end
 
 # Candidates for automatic placement. only_beams: limit to spans touching these BKs.
@@ -13768,6 +13835,10 @@ def mst_kn_place_plan(model=Sketchup.active_model,only_beams=nil,elems=nil,pocke
         tg=mst_pk_elev_target(elev,hr,nil)
         unless tg['ok'];warns << "#{span}: #{tg['errors'].join(' ')}";next;end
         z0=tg['bottom']
+      elsif elev && elev['mode']=='SUPPORT'   # K3 P3: alt = iki BK'nın kanal Y aralığındaki üstü (cebe inmez); belirsizse yerleşim yok
+        st,_,_,sw=mst_pk_support_find(l,r,a0+joint,a0+joint+ow,pockets_of)
+        unless sw.empty?;warns << "#{span}: #{sw.join(' ')}";next;end
+        z0=st
       end
       lb=wb[l];rb=wb[r];clear=rb['x'][0]-lb['x'][1]
       cands << {'l'=>l,'r'=>r,'span'=>span,'pocket'=>p,'type'=>ty,'x0'=>lb['x'][1]-seat,'length'=>clear+2*seat,'y0'=>a0+joint,
@@ -13784,7 +13855,7 @@ def mst_kn_preview_text(kp,title='Ceplere Kanal Prekastı Yerleştir')
   kp['cands'].first(20).each do |c|
     t=c['type']
     lines << "#{c['span']}: #{t['name']} (#{t['source']}) boy #{f3[c['length']]} m, dış #{f3[c['ow']]} × #{f3[c['oh']]} m, #{t['section'] ? "kesit #{mst_ch_summary(t['section'],3)}" : "iç #{f3[t['wi']]} × #{f3[t['di']]} m"}"   # 38 K1
-    lines << "   cep #{mst_kn_side_label(c['pocket'])}: Y #{f3[c['y0']]}–#{f3[c['y0']+c['ow']]} m, alt #{f3[c['z0']]} m, üst #{f3[c['z0']+c['oh']]} m #{c['elev'] && c['elev']['mode']=='MANUAL' ? '(elle kot)' : '(= PD üstü)'}"
+    lines << "   cep #{mst_kn_side_label(c['pocket'])}: Y #{f3[c['y0']]}–#{f3[c['y0']+c['ow']]} m, alt #{f3[c['z0']]} m, üst #{f3[c['z0']+c['oh']]} m #{c['elev'] && c['elev']['mode']=='MANUAL' ? '(elle kot)' : (c['elev'] && c['elev']['mode']=='SUPPORT' ? '(BK üstü)' : '(= PD üstü)')}"
   end
   unless kp['warnings'].empty?
     lines << '' << 'Uyarılar:'
