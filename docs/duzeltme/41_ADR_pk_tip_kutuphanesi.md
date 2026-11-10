@@ -60,3 +60,5 @@ Kullanıcı kararları bu bölümün altına eklenecek.
 7. PK silme: **"PK Sil" komutu** (PK + ilgili döşeme aynı normal işlemde, tek Geri Al); SketchUp Delete ile silmede karar 7 (uyarı + elle güncelle) geçerli kalır.
 8. (ana oturum, mimar önerisi) 3B önizleme: SVG izometrik, WebGL yok.
 9. (10.11.2026, P4 sonrası, kullanıcı) Tip güncellemesinde/seçili PK'ya uygulamada kesit genişlerse komşu prekastla (PD/PDÖ/PV/PK) çakışan örnek **uygun değil** sayılır ("komşu … ile X mm çakışır"), işlem başlamaz; kesit **ortadan** (iki yana eşit) büyür/küçülür; komşular kendiliğinden kaydırılmaz; `layout_width_m` güncellenir.
+10. (10.11.2026, rapor 42/43 sonrası, kullanıcı) Bu pakette düzeltilir: 42 E1, Ö1, Ö2, Ö3, K1–K8 ve 43 önemli 1–4. Kullanıcı notu (kabul ölçütü): **"hatalı veri, çizim, metraj olmayacak şekilde"** — her düzeltmede yanlış kayıt yazan, yanlış geometri çizen veya yanlış metraj üreten yol kalmaz; belirsizlikte işlem yapılmaz, neden bildirilir.
+11. (10.11.2026, kullanıcı) Aynı PK kodunun farklı revizyonları metrajda ayrı satır kalır; Detaylı Metraj satırına revizyon ("rev N") yazılır. Poz ayrımı için dayanak belge yok → sürüm notunda "belge bekliyor".
