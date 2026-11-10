@@ -11128,6 +11128,9 @@ def show_dialog
  @d.add_action_callback('pk_type_update_plan'){|_,j|mst_pk_send_update_plan(@d,j)}   # ADR-0515-K3 P4: Tüm örnekler — salt okuma plan (mstPkTypePlan)
  @d.add_action_callback('pk_type_update_apply'){|_,j|mst_pk_send_update_apply(@d,j)}   # ADR-0515-K3 P4: MST PK Tipini Güncelle (mstPkTypeUpdated)
  @d.add_action_callback('pk_delete'){|_,j|mst_pk_send_delete(@d,j)}   # ADR-0515-K3 P4: PK Sil (mstPkDeleted)
+ @d.add_action_callback('pk_lib_file_list'){|_|mst_pk_send_lib_file_list(@d)}   # ADR-0515-K3 P5: kullanıcı PK kütüphanesi dosyası — salt okuma (mstPkLibFile)
+ @d.add_action_callback('pk_lib_file_export'){|_,j|mst_pk_send_lib_file_export(@d,j)}   # ADR-0515-K3 P5: dosyaya dışa ver, model değişmez (mstPkLibFileExported)
+ @d.add_action_callback('pk_lib_file_import'){|_,j|mst_pk_send_lib_file_import(@d,j)}   # ADR-0515-K3 P5: MST PK Tiplerini İçe Al (mstPkLibFileImported)
  @d.add_action_callback('precast_to_group'){|_|mst_precast_convert(false)}
  @d.add_action_callback('precast_purge_defs'){|_|mst_purge_unused_precast_definitions}
  @d.add_action_callback('universal_formwork_face_tool'){|_|activate_universal_formwork_face_tool}
@@ -11161,6 +11164,7 @@ require_relative 'rockfill_boq_source'
 require_relative 'rockfill_live'
 require_relative 'special_solids'
 require_relative 'channel_section'   # ADR-0515-K2 (37) — kanal prekastı tek parametrik kesit
+require_relative 'pk_library_file'   # ADR-0515-K3 P5 — kullanıcı düzeyi PK kütüphanesi dosyası (dışa ver / içe al)
 
 # v0.36.5 — Selected Pile BIM Detail Batch Update
 # Selection is the scope. KORU leaves the corresponding attributes untouched.
@@ -13534,10 +13538,48 @@ def mst_pk_supports_of(e,ix)
   %w[left right].map{|s|ix[0][e.get_attribute(DICT,"seat_bk_#{s}_uid",'').to_s] || ix[1][e.get_attribute(DICT,"support_#{s}_pid",0).to_i]}
 end
 
-# Yeni kesit genişliğiyle PK'nın dünya Y aralığı (m): yerel y 0..ow (kesit yerel y'de kurulur), dönüşüm zinciri + aynalama dahil.
-def mst_pk_world_y(e,ow)
-  t=mst_world_tr(e)*e.transformation
-  [0.0,ow.to_f].map{|y|Geom::Point3d.new(0,m(y),0).transform(t).y.to_f/MST_IN_PER_M}.minmax
+# Yeni kesit genişliğiyle PK'nın dünya Y aralığı (m): kesit yerel y'de 0..cw kurulu; karar 9: yeni genişlik ow ortadan (merkez cw/2 sabit),
+# dönüşüm zinciri + aynalama dahil. cw verilmezse yerel 0..ow.
+def mst_pk_world_y(e,ow,cw=nil)
+  t=mst_world_tr(e)*e.transformation;lo=cw ? (cw.to_f-ow.to_f)/2.0 : 0.0
+  [lo,lo+ow.to_f].map{|y|Geom::Point3d.new(0,m(y),0).transform(t).y.to_f/MST_IN_PER_M}.minmax
+end
+
+# PK'nın bugünkü kesit genişliği (m): kesitten, yoksa width_m.
+def mst_pk_cur_width(e)
+  s=mst_ch_section(e);s ? s['total_width_m'].to_f : e.get_attribute(DICT,'width_m',0).to_f
+end
+
+# Karar 9 (docs/duzeltme/41): PK yeni genişlik nw ile ortadan büyürse aynı yerleşimdeki (ortak destek BK'sı) Y komşusu prekastla
+# (PD / PDÖ / PV / PK) çakışma → [nedenler, uyarılar]. Salt okuma. Komşunun yerel kutusu PK'nın dünya çerçevesine çevrilir (iç içe dönüşüm,
+# aynalama). tgt = aynı işlemde aynı tipe geçen PK'lar (pid => true; onlar da ortadan büyür). Derz < 0 → çakışma (neden); 0 ≤ derz < kayıtlı
+# joint_m → uyarı. Yalnız aralığı daralan komşu raporlanır; komşular kaydırılmaz.
+def mst_pk_neighbor_check(e,nw,elems,tgt={})
+  nd=[];wn=[];sup=->(x){%w[support_left_pid support_right_pid].map{|k|x.get_attribute(DICT,k,0).to_i}.reject(&:zero?)}
+  sp=sup.(e);return [nd,wn] if sp.empty? || nw.nil?
+  cw=mst_pk_cur_width(e);d=(nw.to_f-cw)/2.0;len=e.get_attribute(DICT,'length_m',0).to_f;jm=e.get_attribute(DICT,'joint_m',nil)
+  tp=(mst_world_tr(e)*e.transformation).inverse
+  elems.each do |n|
+    ty=n.valid? ? n.get_attribute(DICT,'element_type','').to_s : ''
+    next if n.equal?(e) || !%w[flat_precast crane_precast channel_precast].include?(ty) || (sp & sup.(n)).empty?
+    w=ty=='channel_precast' ? mst_pk_cur_width(n) : (n.get_attribute(DICT,'layout_width_m',nil) || n.get_attribute(DICT,'width_m',0)).to_f
+    nl=n.get_attribute(DICT,'length_m',0).to_f;next unless w>0 && nl>0
+    tn=tp*mst_world_tr(n)*n.transformation
+    pts=[[0,0],[nl,0],[0,w],[nl,w]].map{|x,y|Geom::Point3d.new(m(x),m(y),0).transform(tn)}
+    xs=pts.map{|q|q.x.to_f/MST_IN_PER_M}.minmax;yy=pts.map{|q|q.y.to_f/MST_IN_PER_M}.minmax
+    next if xs[1]<=1e-6 || xs[0]>=len-1e-6   # boyca örtüşmez
+    dn=tgt[n.persistent_id] ? (nw.to_f-w)/2.0 : 0.0
+    og,ng=(yy[0]+yy[1])/2.0<cw/2.0 ? [-yy[1],-d-yy[1]-dn] : [yy[0]-cw,yy[0]-dn-cw-d]
+    next unless ng<og-1e-9
+    nid=element_visible_id(n)
+    if ng< -1e-6
+      nd << "komşu #{nid} ile #{[(-ng*1000).round,1].max} mm çakışır"
+    else
+      j=jm.nil? ? n.get_attribute(DICT,'joint_m',nil) : jm
+      wn << "komşu #{nid} ile derz #{(ng*1000).round} mm'ye düşer (kayıtlı derz #{(j.to_f*1000).round} mm)" if !j.nil? && ng<j.to_f-1e-6
+    end
+  end
+  [nd,wn]
 end
 
 def mst_pk_dep_info(e)
@@ -13591,7 +13633,7 @@ def mst_pk_apply_check(e,rec,ix,decks,pockets_of=nil)
     if l.nil? || r.nil?
       nd << "kot yöntemi #{md == 'POCKET' ? 'cebe oturtma' : 'BK üstü'}: destek BK'ları bulunamadı"
     else
-      y0,y1=mst_pk_world_y(e,sec['total_width_m'])
+      y0,y1=mst_pk_world_y(e,sec['total_width_m'],mst_pk_cur_width(e))   # karar 9: ortadan
       if md=='POCKET'
         _,_,ws=mst_pk_seat_find(l,r,y0,y1,pockets_of);nd.concat(ws.map{|w|"cep uyumu: #{w}"})
       else
@@ -13615,7 +13657,7 @@ def mst_pk_apply_rec!(e,rec,model=Sketchup.active_model,ctx={})
   cid=element_visible_id(e)
   g=mst_pk_geom(rec,true);raise "#{cid}: #{g['errors'].join(' ')}" unless g['errors'].empty?
   sec=g['section'];warn=[];kod=rec['name'].to_s.strip
-  old=mst_ch_section(e);otr=old ? mst_pk_top_ref(e,old) : nil
+  old=mst_ch_section(e);otr=old ? mst_pk_top_ref(e,old) : nil;ow0=mst_pk_cur_width(e)
   ob=e.get_attribute(DICT,'bottom_elevation_m',0.0).to_f
   ohr=old ? mst_ch_height(old,otr) : e.get_attribute(DICT,'top_elevation_m',ob).to_f-ob
   sl,sr=mst_pk_rec_seats(rec);osl,osr,kind=mst_pk_elem_seat(e)
@@ -13640,6 +13682,7 @@ def mst_pk_apply_rec!(e,rec,model=Sketchup.active_model,ctx={})
   h={'channel_section_json'=>mst_ch_json(sec),'length_m'=>nl,'width_m'=>sec['total_width_m'],'inner_width_m'=>u[0],'inner_depth_m'=>u[1],'base_thickness_m'=>u[2],'wall_thickness_m'=>u[3],
      'bottom_elevation_m'=>nb,'top_elevation_m'=>nb+mst_ch_height(sec)}
   h['outer_width_m']=sec['total_width_m'] unless e.get_attribute(DICT,'outer_width_m',nil).nil?
+  h['layout_width_m']=sec['total_width_m'] unless e.get_attribute(DICT,'layout_width_m',nil).nil?   # karar 9
   cc=rec['concrete'].to_s.strip;h['concrete_class']=cc unless cc.empty?
   if kind==:lr && sl then h['seat_left_m']=sl;h['seat_right_m']=sr
   elsif kind==:each && sl then h['seat_each_side_m']=sl
@@ -13670,6 +13713,11 @@ def mst_pk_apply_rec!(e,rec,model=Sketchup.active_model,ctx={})
     xa=e.transformation.xaxis;xl=Math.sqrt(xa.x**2+xa.y**2+xa.z**2);k=m(-dl)/xl
     e.transform!(Geom::Transformation.translation([xa.x*k,xa.y*k,xa.z*k]))
   end
+  dw=(sec['total_width_m'].to_f-ow0)/2.0
+  if dw.abs>1e-9   # karar 9: kesit ortadan büyür / küçülür (merkez sabit) → başlangıç yerel −Y yönünde dw kadar
+    ya=e.transformation.yaxis;yl=Math.sqrt(ya.x**2+ya.y**2+ya.z**2);k=m(-dw)/yl
+    e.transform!(Geom::Transformation.translation([ya.x*k,ya.y*k,ya.z*k]))
+  end
   e.transform!(Geom::Transformation.translation([0,0,m(nb-ob)])) if (nb-ob).abs>1e-9   # mst_pk_reseat_after_edit ile aynı öteleme
   mst_precast_canonical_type!(e,ctx)
   mst_pc_after_rebuild!(e) if respond_to?(:mst_pc_after_rebuild!)
@@ -13688,13 +13736,15 @@ def mst_pk_type_save_sel(rq,model=Sketchup.active_model,elems=nil)
   unless elems
     elems=[];collect_elements(model.entities,elems)
   end
-  ix=mst_pk_bk_index(elems)
+  ix=mst_pk_bk_index(elems);tgt=pks.map{|e|[e.persistent_id,true]}.to_h
+  nwf=->(rec){(mst_pk_geom(rec,true)['section']['total_width_m'] rescue nil)}   # karar 9: komşu çakışması
   chk=lambda do |rec|
-    bad=pks.map{|e|n=mst_pk_apply_check(e,rec,ix,mst_pk_decks_of([mst_pk_dep_info(e)],elems));n.empty? ? nil : "#{element_visible_id(e)}: #{n.join('; ')}"}.compact
+    bad=pks.map{|e|n=mst_pk_apply_check(e,rec,ix,mst_pk_decks_of([mst_pk_dep_info(e)],elems))+mst_pk_neighbor_check(e,nwf.(rec),elems,tgt)[0];n.empty? ? nil : "#{element_visible_id(e)}: #{n.join('; ')}"}.compact
     bad.empty? ? nil : "Seçili kanal prekastına tip uygulanamaz; kayıt yapılmadı — #{bad.join(' | ')}"
   end
   run=lambda do |rec|
     ctx={};warn=[];infos=pks.map{|e|mst_pk_dep_info(e)}
+    pks.each{|e|warn.concat(mst_pk_neighbor_check(e,nwf.(rec),elems,tgt)[1].map{|w|"#{element_visible_id(e)}: #{w}"})}   # uygulamadan önce (salt okuma)
     pks.each{|e|warn.concat(mst_pk_apply_rec!(e,rec,model,ctx))}
     _,dw=mst_pk_decks_regen!(mst_pk_decks_of(infos,elems),model);warn.concat(dw)
     {'guncellenen'=>pks.length,'uyarilar'=>warn}
@@ -13777,10 +13827,11 @@ def mst_pk_update_build(rq,model=Sketchup.active_model,elems=nil,pockets_of=nil)
     mst_precast_type_id(e).upcase==kod.upcase && !okey.nil? && (mst_ch_geom_key(mst_pk_geom(e,false)['section']) rescue nil)==okey
   end
   ins,outs=mine.partition{|e|kap=='model' || mst_pk_elem_structure(e)==yapi}
-  ix=mst_pk_bk_index(elems)
+  ix=mst_pk_bk_index(elems);tgt=ins.map{|e|[e.persistent_id,true]}.to_h
   ins.each do |e|
     n=mst_pk_apply_check(e,nr,ix,mst_pk_decks_of([mst_pk_dep_info(e)],elems),pockets_of)
-    out['ornekler'] << {'pid'=>e.persistent_id,'uid'=>e.get_attribute(DICT,'element_uid','').to_s,'kod'=>element_visible_id(e),'yapi'=>mst_pk_elem_structure(e),'uygun'=>n.empty?,'nedenler'=>n}
+    cn,cw=mst_pk_neighbor_check(e,sec['total_width_m'],elems,tgt);n+=cn   # karar 9
+    out['ornekler'] << {'pid'=>e.persistent_id,'uid'=>e.get_attribute(DICT,'element_uid','').to_s,'kod'=>element_visible_id(e),'yapi'=>mst_pk_elem_structure(e),'uygun'=>n.empty?,'nedenler'=>n,'uyarilar'=>cw}
   end
   lab={}
   out['yapi_ozet']=out['ornekler'].group_by{|x|x['yapi']}.sort_by{|y,_|[y.empty? ? 1 : 0,y]}.map do |y,a|
@@ -13816,7 +13867,7 @@ def mst_pk_type_update_apply(rq,model=Sketchup.active_model,elems=nil,pockets_of
        'onceki'=>{'rev'=>pl['tip']['rev'],'section'=>osec,'seat_left_m'=>cx['osl'],'seat_right_m'=>cx['osr'],'geom_sig'=>(cx['osec'] ? mst_pk_geom_sig(cx['osec'],cx['osl'],cx['osr']) : nil)}}
   nr=cx['nr'].merge('pk_rev'=>nrev,'rev_log'=>(rec['rev_log'].is_a?(Array) ? rec['rev_log'] : [])+[ent])
   txt=JSON.generate(cx['lib'].map{|t|t.equal?(rec) ? nr : t})
-  warn=[]
+  warn=pl['ornekler'].flat_map{|o|o['uyarilar'].to_a.map{|w|"#{o['kod']}: #{w}"}}   # karar 9: derz uyarıları (plandan)
   model.start_operation('MST PK Tipini Güncelle',true)
   begin
     model.set_attribute(DICT,'precast_type_library_json',txt)

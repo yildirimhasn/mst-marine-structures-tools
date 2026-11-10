@@ -161,7 +161,7 @@ end
 RQS = ->(kod, sec, h = {}) { { 'kod' => kod, 'ad' => "#{kod} adı", 'section' => secj(sec), 'seat_left_m' => 0.15, 'seat_right_m' => 0.15, 'uygula' => 'secim' }.merge(h) }
 
 # ---------------------------------------------------------------- 1. "Yalnız bu eleman(lar)" — Group
-ok, ps, = place(2)
+ok, ps, = place(2, 'pd_joint_m' => '0.12')   # karar 9: derz 0,12 → 1,30'a genişleme (iki yana 0,05) komşuyla çakışmaz
 a, b = ps
 t('1.0 fikstür: 2 Group PK, tipe bağlı, beton 0,36 × 3,30 = 1,188', [ok, ps.length, ps.map { |e| e.is_a?(Sketchup::Group) }, ps.map { |e| e.get_attribute(D, 'precast_type_uid') }, ps.map { |e| near(vol(e), 1.188, 1e-9) }],
   [true, 2, [true, true], %w[pt_pk_1_1 pt_pk_1_1], [true, true]])
@@ -204,7 +204,7 @@ $transform_fail = false
 t('1.11 hata → abort (tek işlem, commit yok), ok false, guncellenen 0', [r['ok'], ops, r['guncellenen'], r['neden'].to_s.include?('geri alındı')], [false, %i[start abort], 0, true])
 
 # ---------------------------------------------------------------- 2. "Yalnız bu eleman" — Component (çok kopyalı tanım değişmez)
-ok, ps, = place(2, 'pd_body_mode' => 'COMPONENT')
+ok, ps, = place(2, 'pd_body_mode' => 'COMPONENT', 'pd_joint_m' => '0.12')
 a, b = ps
 cmp = ps.length == 2 && ps.all? { |e| e.is_a?(Sketchup::ComponentInstance) } && a.definition == b.definition
 t('2.0 fikstür: 2 Component PK aynı tanımı paylaşır', [ok, cmp], [true, true])
@@ -218,8 +218,8 @@ if cmp
 end
 
 # ---------------------------------------------------------------- 3. "Tüm örnekler" — plan
-def three(lib = [REC_PD, REC_L, REC_L13])
-  ok, ps, = place(3, {}, lib)
+def three(lib = [REC_PD, REC_L, REC_L13], joint = '0.12')
+  ok, ps, = place(3, { 'pd_joint_m' => joint }, lib)
   ps[0].set_attribute(D, 'structure', 'ANO-01'); ps[1].set_attribute(D, 'structure', 'ANO-01'); ps[2].set_attribute(D, 'structure', 'RIHTIM-01')
   $model.set_attribute(D, 'active_ano', 'ANO-01'); ops_clear
   ps
@@ -233,7 +233,7 @@ t('3.1 plan (yapi gönderilmedi → etkin yapı ANO-01 + yapi_ad): 2 örnek kaps
   [pl['ok'], pl['kapsam'], pl['yapi'], pl['yapi_ad'].is_a?(String) && !pl['yapi_ad'].empty?, pl['ornekler'].length, pl['yapi_ozet'].map { |y| [y['yapi'], y['adet'], y['uygun_degil']] }, pl['kapsam_disi'], pl['baslatilabilir'], pl['yeni_rev'], pl['tip'] && pl['tip']['kod'], pl['geom_degisti']],
   [true, 'yapi', 'ANO-01', true, 2, [['ANO-01', 2, 0]], [{ 'yapi' => 'RIHTIM-01', 'adet' => 1 }], true, 2, 'PK-L', true])
 t('3.2 plan salt okuma: yazım yok, işlem yok, kütüphane bayt aynı', [$writes, ops, libtxt == l0], [[], [], true])
-t('3.2b örnek satırı alanları', pl['ornekler'][0].keys.sort, %w[kod nedenler pid uid uygun yapi])
+t('3.2b örnek satırı alanları', pl['ornekler'][0].keys.sort, %w[kod nedenler pid uid uyarilar uygun yapi])
 M.send(:mst_plan_readonly) { pl = M.mst_pk_update_build(RQ.merge('kapsam' => 'model'), $model)[0] }
 t('3.3 kapsam model: 3 örnek, kapsam dışı yok, yapı özeti iki yapı', [pl['ornekler'].length, pl['kapsam_disi'], pl['yapi_ozet'].map { |y| y['yapi'] }, pl['yapi']], [3, [], %w[ANO-01 RIHTIM-01], nil])
 M.send(:mst_plan_readonly) { pl = M.mst_pk_update_build(RQ.merge('section' => secj(SEC_L13)), $model)[0] }
@@ -248,7 +248,7 @@ t('3.7 POCKET örnek cebe sığmaz → uygun false, nedenler, başlatılamaz', [
 r = M.mst_pk_type_update_apply(RQ.merge('section' => secj(SEC_L13), 'onay' => true), $model)
 t('3.8 apply uymayan örnekle: işlem açılmaz', [r['ok'], ops], [false, []])
 M.send(:mst_plan_readonly) { pl = M.mst_pk_update_build(RQ, $model)[0] }
-t('3.9 1,22 cebe (Y 2,02–3,24 ≤ cep 3,24) sığar → uygun', [pl['ornekler'].map { |o| o['uygun'] }, pl['baslatilabilir']], [[true], true])
+t('3.9 1,22 ortadan (Y 2,01–3,23, cep 2,00–3,24) sığar → uygun', [pl['ornekler'].map { |o| o['uygun'] }, pl['baslatilabilir']], [[true], true])
 
 # ---------------------------------------------------------------- 4. "Tüm örnekler" — apply
 ps = three([REC_PD, REC_L]); uids = ps.map { |e| e.get_attribute(D, 'element_uid') }; l0 = libtxt
@@ -321,6 +321,36 @@ t('5.5 secim + döşeme: tek işlem (start 1), döşeme aynı işlemde yenilendi
 M.singleton_class.send(:alias_method, :mst_deck_regenerate!, :kq4_regen_orig)
 t('5.6 P4 yolları transparent mst_deck_after_edit çağırmaz',
   %w[mst_pk_type_save_sel mst_pk_type_update_apply mst_pk_delete mst_pk_decks_regen!].map { |f| src[/^def #{Regexp.escape(f)}.*?^end\n/m].to_s.include?('mst_deck_after_edit') }, [false, false, false, false])
+
+# ---------------------------------------------------------------- 6. karar 9: ortadan büyüme / küçülme, komşu çakışması, derz uyarısı, layout_width_m
+SEC_L10 = M.mst_ch_parse(SEC_L.merge('total_width_m' => 1.0))
+ys = ->(e) { e.transformation.to_a[13] / IN }
+ok, ps, = place(2, 'pd_joint_m' => '0.12'); a, b = ps; ya = ys.(a); yb = ys.(b); sel(a)
+r = M.mst_pk_type_save(RQS.('PK-L2', SEC_L13), $model)
+t('6.1 genişleme 1,20 → 1,30 ortadan: başlangıç y −0,05 (merkez sabit), komşu kaydırılmaz, width / layout_width_m 1,30',
+  [r['ok'], near(ys.(a), ya - 0.05, 1e-9), near(ys.(b), yb, 1e-12), near(a.get_attribute(D, 'width_m'), 1.3), near(a.get_attribute(D, 'layout_width_m'), 1.3)], [true, true, true, true, true])
+pid_b = M.element_visible_id(b)
+t('6.2 derz azalması (0,12 → 0,07): uygun, uyarı "komşu … ile derz 70 mm (kayıtlı derz 120 mm)"',
+  r['uyarilar'].to_a.any? { |w| w.include?("komşu #{pid_b} ile derz 70 mm") && w.include?('kayıtlı derz 120 mm') }, true)
+ok, ps, = place(2); a, b = ps; ya = ys.(a); sel(a); l1 = libtxt
+r = M.mst_pk_type_save(RQS.('PK-L2', SEC_L13), $model)
+t('6.3 derz 0,02 + iki yana 0,05 → komşuyla 30 mm çakışır: ok false, metin, işlem / kayıt yok, konum aynı',
+  [r['ok'], r['neden'].to_s.include?("komşu #{M.element_visible_id(b)} ile 30 mm çakışır"), ops, libtxt == l1, near(ys.(a), ya, 1e-12)], [false, true, [], true, true])
+ok, ps, = place(2); a, b = ps; ya = ys.(a); sel(a)
+r = M.mst_pk_type_save(RQS.('PK-L10', SEC_L10), $model)
+t('6.4 küçülme 1,20 → 1,00: çakışma / derz uyarısı yok, ortadan (y +0,10), layout_width_m 1,00',
+  [r['ok'], r['uyarilar'].to_a.grep(/komşu/), near(ys.(a), ya + 0.1, 1e-9), near(a.get_attribute(D, 'layout_width_m'), 1.0)], [true, [], true, true])
+ps = three([REC_PD, REC_L], '0.02')
+M.send(:mst_plan_readonly) { pl = M.mst_pk_update_build(RQ.merge('section' => secj(SEC_L13)), $model)[0] }
+o0 = pl['ornekler'].find { |o| o['pid'] == ps[0].persistent_id } || {}; o1 = pl['ornekler'].find { |o| o['pid'] == ps[1].persistent_id } || {}
+t('6.5 tüm örnekler (iki komşu birlikte genişler): 0,02 − 2 × 0,05 → 80 mm, kapsam dışı komşuyla 30 mm; uygun değil, başlatılamaz',
+  [o0['uygun'], o0['nedenler'].to_a.join.include?("komşu #{M.element_visible_id(ps[1])} ile 80 mm çakışır"), o1['nedenler'].to_a.join.include?("komşu #{M.element_visible_id(ps[2])} ile 30 mm çakışır"), pl['baslatilabilir']],
+  [false, true, true, false])
+ps = three([REC_PD, REC_L])
+M.send(:mst_plan_readonly) { pl = M.mst_pk_update_build(RQ.merge('section' => secj(SEC_L13)), $model)[0] }
+o0 = pl['ornekler'].find { |o| o['pid'] == ps[0].persistent_id } || {}
+t('6.6 plan derz 0,12: uygun, örnek uyarısı (0,12 − 2 × 0,05 = 20 mm), başlatılabilir',
+  [o0['uygun'], o0['uyarilar'].to_a.join.include?("komşu #{M.element_visible_id(ps[1])} ile derz 20 mm"), pl['baslatilabilir']], [true, true, true])
 
 puts "\nKQ4: #{$ok} geçti, #{$bad} kaldı"
 exit($bad.zero? ? 0 : 1)
