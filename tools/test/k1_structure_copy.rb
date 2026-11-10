@@ -683,6 +683,25 @@ k1_build(extra: ->(roots) { pk_pocket.(roots, 'MST-1901-1') })
 p9b = plan_of('count' => '1')
 t('9 (E1) seat_bk_left_uid başka yapıdaki BK → ön kontrol reddi', p9b['errors'].any? { |e| e.to_s.include?('seat_bk_left_uid') }, true)
 
+# ================================================================ 10) ADR-0515-K3 P2: PK tip bağı (precast_type_uid / precast_type_rev) paylaşılan TİP kimliği — aynen kopyalanır
+k1_build(extra: lambda { |roots|
+  roots << g(1351, own('ANO-01').merge('element_type' => 'channel_precast', 'precast_family' => 'PK', 'precast_id' => 'PK-001', 'element_uid' => 'MST-1351-1',
+                                       'precast_type_id' => 'PK-L1', 'precast_type' => 'PK-L1', 'precast_type_uid' => 'pt_pk_1_1', 'precast_type_rev' => 2,
+                                       'support_left_pid' => 1201, 'support_right_pid' => 1202, 'support_left_uid' => 'MST-1201-1', 'support_right_uid' => 'MST-1202-1',
+                                       'concrete_volume_m3' => 0.9, 'concrete_class' => 'C30/37'))
+})
+p10 = plan_of('count' => '1')
+r10 = M.mst_structure_copy_apply!(p10, $model)
+pk10 = $model.entities.find { |e| a(e, 'element_uid') == 'MST-1351-1' }
+c10 = root_copies(pk10)
+t('10 (K3) PK\'lı yapı kopyası başarılı, tek PK kopyası', [p10['errors'], r10['ok'], c10.length], [[], true, 1])
+t('10 (K3) kopya PK precast_type_uid / precast_type_rev / precast_type_id kaynakla aynı (yeniden eşlenmez)',
+  c10[0] && [a(c10[0], 'precast_type_uid'), a(c10[0], 'precast_type_rev'), a(c10[0], 'precast_type_id')], ['pt_pk_1_1', 2, 'PK-L1'])
+t('10 (K3) kopya PK element_uid farklı, copied_from_uid = kaynak, mesnet UID kopya BK',
+  c10[0] && [a(c10[0], 'element_uid') != 'MST-1351-1', a(c10[0], 'copied_from_uid'), a(c10[0], 'support_left_uid') == a(root_copies(f = $model.entities.find { |e| a(e, 'element_uid') == 'MST-1201-1' })[0], 'element_uid')],
+  [true, 'MST-1351-1', true])
+t('10 (K3) kaynak PK değişmedi', [a(pk10, 'element_uid'), a(pk10, 'precast_type_uid'), a(pk10, 'precast_type_rev')], ['MST-1351-1', 'pt_pk_1_1', 2])
+
 # ================================================================ 8) performans: 50 kopya × ≈200 eleman (sahte model; ölçüm, eşik yok)
 k1_build(extra: lambda { |roots|
   piles = (1..150).map do |i|
