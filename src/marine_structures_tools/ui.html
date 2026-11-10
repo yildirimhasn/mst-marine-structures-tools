@@ -817,12 +817,13 @@ label{font-size:11px;color:#4c687f;font-weight:500}
     </section>
     <!-- ADR-0515-K2 P3: PK kot yöntemi (create_flat_precast pk_elevation_* / kn_place JSON) + salt okuma kot önizlemesi -->
     <section class="pd-panel pd-span2" id="pkElevPanel"><h3>2c. Kanal Prekastı (PK) Kot Yöntemi</h3>
-      <div class="channel-layout-note">Seçim <b>PD Yerleşimini Oluştur</b> ve <b>Ceplere Kanal Prekastı Yerleştir</b> komutlarına gider. <b>Üst kot</b> önceki davranıştır: yerleşimde PK üstü en kalın PD/PDÖ/PV üstüne hizalanır; ceplere yerleştirmede kanal cep tabanına oturur. <b>Kotu Önizle</b> salt okumadır, modeli değiştirmez; önizleme için modelde iki BK seçin, yerleşimdeki ilk PK satırının tipi kullanılır.</div>
+      <div class="channel-layout-note">Seçim <b>PD Yerleşimini Oluştur</b> ve <b>Ceplere Kanal Prekastı Yerleştir</b> komutlarına gider. <b>Üst kottan yerleştir</b> önceki davranıştır: yerleşimde PK üstü en kalın PD/PDÖ/PV üstüne hizalanır; ceplere yerleştirmede kanal cep tabanına oturur. <b>Kotu Önizle</b> salt okumadır, modeli değiştirmez; önizleme için modelde iki BK seçin, yerleşimdeki ilk PK satırının tipi kullanılır.</div>
       <div class="grid2" style="margin-top:7px">
-        <label>Kot yöntemi<select id="pk_elev_mode" onchange="mstPkElevChanged()"><option value="TOP" selected>Üst kot (varsayılan)</option><option value="POCKET">BK kanal cebine oturt</option><option value="MANUAL">Manuel kot</option></select></label>
+        <label>Kot yöntemi<select id="pk_elev_mode" onchange="mstPkElevChanged()"><option value="TOP" selected>Üst kottan yerleştir (PD üstüne hizalı)</option><option value="SUPPORT">Alt kottan yerleştir — BK üstüne otur (BK kotu değişince izler)</option><option value="POCKET">BK kanal cebine oturt</option><option value="MANUAL">Manuel kot</option></select></label>
         <label id="pkElevRefRow" style="opacity:.45">Referans kotu (m)<input id="pk_elev_ref_m" inputmode="decimal" placeholder="ör. 2,450" disabled onchange="mstPkElevChanged()"></label>
         <label id="pkElevFaceRow" style="opacity:.45">Referans yüzey<select id="pk_elev_ref_face" disabled onchange="mstPkElevChanged()"><option value="TOP" selected>Üst yüzey</option><option value="BOTTOM">Alt yüzey</option></select></label>
       </div>
+      <div id="pkElevHelp" class="hint" style="margin-top:6px"></div>
       <div style="margin-top:7px"><button type="button" class="secondary" onclick="mstPkElevPreview()">⊥ Kotu Önizle</button></div>
       <div id="pkElevStatus" class="pk-status" role="status" aria-live="polite"></div>
       <div id="pkElevInfo" class="pk-pocket-info"></div>
@@ -944,6 +945,7 @@ label{font-size:11px;color:#4c687f;font-weight:500}
   <div class="channel-card"><h3>⌄ Kot Bilgileri</h3>
    <div class="ch-form">
     <label>Referans<span><select><option>BK Üst Kotundan</option></select></span></label>
+    <div id="channelElevMethodNote" class="hint" style="grid-column:1 / -1">Kot yöntemleri (BK üstüne otur / cebe oturt / manuel) Prekast Yerleşimi 2c'de.</div>
     <label>BK Üst Kot<span><b id="channelBKTop">—</b></span></label>
     <label>Kanal Taban Kotu (Otomatik)<span><b id="channelBottomElev">—</b></span></label>
     <label>Eleman Alt Kotu<span><b id="channelElementBottom">—</b></span></label>
@@ -2484,10 +2486,15 @@ document.addEventListener('DOMContentLoaded',function(){setTimeout(mstPkRefresh,
 /* ADR-0515-K2 P3 — PK kot yöntemi (K5): TOP (varsayılan, önceki kural) | POCKET | MANUAL. TOP seçiliyken create_flat_precast ve
    kn_place girdisi eskisiyle birebir aynıdır (anahtar eklenmez). Önizleme salt okuma: sketchup.pk_elevation_preview(json) →
    mstPkElevation (main.rb mst_pk_send_elevation); kot burada hesaplanmaz, Ruby'den gelir. */
-var PK_ELEV_LABELS={TOP:'Üst kot (PD üstüne hizalı)',POCKET:'BK kanal cebine oturtma',MANUAL:'Manuel kot'};
+// K3: SUPPORT = alt kottan, BK üstüne otur (BK kotu değişince izler); gönderim POCKET gibi yalnız elevation_mode (ref/yüz yok)
+var PK_ELEV_LABELS={TOP:'Üst kottan yerleştirme (PD üstüne hizalı)',SUPPORT:'Alt kottan yerleştirme (BK üstüne otur)',POCKET:'BK kanal cebine oturtma',MANUAL:'Manuel kot'};
+var PK_ELEV_HELP={TOP:'PK üst yüzü açıklıktaki en kalın PD/PDÖ/PV üstüne hizalanır (önceki davranış). BK düzenlenince PK kendiliğinden yeniden oturtulmaz.',
+ SUPPORT:'PK alt yüzü iki BK üstüne oturur. BK kotu değişince PK alt kotu BK üstünü izler. İki BK üstü farklıysa kot belirlenmez, uyarı verilir.',
+ POCKET:'PK alt yüzü BK kanal cebi tabanına oturur. BK cebi değişince cep tabanını izler.',
+ MANUAL:'Seçilen yüzey (üst veya alt) girilen kota oturur. BK değişince izlemez.'};
 function mstPkElevOpts(){
  var g=function(id){var e=document.getElementById(id);return e?e.value:''};
- var md=g('pk_elev_mode');if(md!=='POCKET'&&md!=='MANUAL')md='TOP';
+ var md=g('pk_elev_mode');if(md!=='SUPPORT'&&md!=='POCKET'&&md!=='MANUAL')md='TOP';
  var o={mode:md};
  if(md==='MANUAL'){
   var raw=String(g('pk_elev_ref_m')||'').trim(),v=raw===''?NaN:parseEngineeringNumber(raw);
@@ -2508,7 +2515,9 @@ function mstPkElevSync(){
  var md=mstPkElevOpts().mode,man=md==='MANUAL',ids=['pk_elev_ref_m','pk_elev_ref_face'];
  ids.forEach(function(id){var e=document.getElementById(id);if(e)e.disabled=!man});
  ['pkElevRefRow','pkElevFaceRow'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.opacity=man?'1':'.45'});
+ var h=document.getElementById('pkElevHelp');if(h)h.textContent=PK_ELEV_HELP[md]||'';
 }
+document.addEventListener('DOMContentLoaded',function(){mstPkElevSync()});
 function mstPkElevChanged(){mstPkElevSync();mstPkElevPreview()}
 // Yerleşimdeki ilk PK satırının tipi; kesitli kayıtta kesit + seçilen üst yüzey, eski kayıtta tip adı (Ruby katalogdan okur)
 function mstPkElevPreview(){
@@ -2530,7 +2539,8 @@ function mstPkElevRender(){
  var st=document.getElementById('pkElevStatus'),box=document.getElementById('pkElevInfo');if(!box)return;
  if(st)st.textContent=mstPk.elevMsg||'';
  var p=mstPk.elev;if(!p){box.innerHTML='';return}
- var F=mstPkF3,num=function(v){return typeof v==='number'&&isFinite(v)},md=PK_ELEV_LABELS[p.mod]?p.mod:'TOP',ws=Array.isArray(p.uyarilar)?p.uyarilar:[];
+ var F=mstPkF3,num=function(v){return typeof v==='number'&&isFinite(v)},md=PK_ELEV_LABELS[p.mod]?p.mod:'TOP',ws=Array.isArray(p.uyarilar)?p.uyarilar.slice():[];
+ if(md==='SUPPORT'&&p.bk_ust_uyari&&ws.indexOf(String(p.bk_ust_uyari))<0)ws.push(String(p.bk_ust_uyari));   // ör. iki BK üstü farklı
  var cep=num(p.cep_tabani_m)?'Cep tabanı '+F(p.cep_tabani_m)+' m'+(num(p.karsi_cep_tabani_m)?' / karşı cep '+F(p.karsi_cep_tabani_m)+' m':'')+(p.taraf==='start'?' (başlangıç cebi)':p.taraf==='end'?' (son cebi)':'')+' — model geometrisi':'Cep tabanı: bulunamadı';
  var wl=ws.length?'<ul class="pk-why">'+ws.map(function(w){return '<li>'+esc(w)+'</li>'}).join('')+'</ul>':'';
  var head='<b>'+esc(mstPk.elevType||'PK')+' · '+esc(PK_ELEV_LABELS[md])+'</b> <span class="pk-tag est">ÖNİZLEME — MODEL DEĞİŞMEZ</span> ';
@@ -2538,6 +2548,9 @@ function mstPkElevRender(){
  var r=mstPk.elevRef,src;
  if(md==='MANUAL')src='Kullanıcı girdisi: '+F(p.referans_m)+' m ('+(p.yuz==='BOTTOM'?'alt yüzey':'üst yüzey')+')';
  else if(md==='POCKET')src='Alt kot = cep tabanı (model geometrisi)';
+ else if(md==='SUPPORT')src=num(p.bk_ust_m)?'Alt kot = BK üstü '+F(p.bk_ust_m)+' m (model geometrisi; BK kotu değişince izler)':
+  r&&num(r.bk)?'Alt kot = BK üstü '+F(r.bk)+' m '+(r.derived?'(cep tabanı + cep derinliği) <span class="pk-tag est">TÜRETİLDİ</span>':'(BK üst kotu)')+' — BK kotu değişince izler':
+  'Alt kot = BK üstü (model geometrisi; BK kotu değişince izler)';
  else src='Üst kot '+F(p.pd_ust_m)+' m = '+(r?'BK üstü '+F(r.bk)+' m '+(r.derived?'(cep tabanı + cep derinliği) <span class="pk-tag est">TÜRETİLDİ</span>'+(r.warn?' ('+esc(r.warn)+')':''):'(BK üst kotu)')+' + '+esc(r.rh.src)+(r.rh.est?' <span class="pk-tag est">VARSAYILAN</span>':''):'açıklıktaki PD üstü (model geometrisi)');
  var top=p.ust_yuzey&&window.mstChSection.LABELS[p.ust_yuzey]?window.mstChSection.LABELS[p.ust_yuzey]+' çıkıntı üstü (tipte seçildi)':'en yüksek açık çıkıntı üstü (varsayılan)';
  box.innerHTML='<div class="pk-pair">'+head+(ws.length?'<span class="pk-tag bad">UYARI</span>':'<span class="pk-tag ok">KOT HESAPLANDI</span>')+
