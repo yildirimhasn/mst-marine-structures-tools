@@ -882,6 +882,13 @@ label{font-size:11px;color:#4c687f;font-weight:500}
 <section class="pd-panel channel-precast-panel channel-pro" id="channelPrecastForm">
  <div class="channel-tabs"><button type="button" class="ghost">Normal Prekast (PD)</button><button type="button" class="active">Kanal Prekastı</button><button type="button" class="ghost">Vinç Prekastı</button></div>
  <div class="channel-pro-grid">
+  <!-- ADR-0515-K3 P2: Kayıtlı PK tipinden başla — tip kütüphanesindeki (precastTypes) kesitli PK kaydı formu doldurur; callback yok -->
+  <div class="channel-card ch-wide" id="pkFormTypeCard"><h3>⌄ Kayıtlı PK tipinden başla</h3>
+   <div class="ch-form">
+    <label>PK tipi<span><select id="pk_form_type" style="width:340px" onchange="mstPkFormPick(this.value)" aria-describedby="pkFormTypeNote"><option value="" selected>Yeni / kayıtsız tasarım</option></select></span></label>
+   </div>
+   <div id="pkFormTypeNote" class="ch-preset-note" role="status" aria-live="polite" style="padding:0 10px"></div>
+  </div>
   <div class="channel-card ch-wide"><h3>⌄ Kanal Geometrisi</h3>
    <div class="ch-form ch-base-row">
     <label>Toplam genişlik<span><input id="channel_total_width_m" type="number" step="0.01" value="1.20" oninput="updateChannelPrecastUI()"> m</span></label>
@@ -943,8 +950,10 @@ label{font-size:11px;color:#4c687f;font-weight:500}
     <label>Eleman Üst Kotu = PD Üst Kotu<span><b id="channelTopElev">—</b></span></label>
    </div>
   </div>
-  <div class="channel-card"><h3>⌄ Önizleme (Kesit)</h3>
+  <div class="channel-card"><h3>⌄ Önizleme (Kesit / 3B)</h3>
+   <div class="ch-presets" role="group" aria-label="Önizleme görünümü"><button type="button" id="chViewSec" aria-pressed="true" onclick="chSetView('sec')">Kesit</button><button type="button" id="chViewIso" aria-pressed="false" onclick="chSetView('iso')">3B</button></div>
    <svg id="channelSectionSvg" class="ch-section-svg" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kanal Prekastı enine kesit önizlemesi"></svg>
+   <svg id="channelIsoSvg" class="ch-section-svg" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kanal Prekastı 3B izometrik önizlemesi" style="display:none"></svg>
    <div class="u-caption">Kanal Prekastı Kesiti — Ön ayar: <span id="channelPresetLabel">U kesit</span></div>
    <div class="ch-section-info">
     <div><span>Kesit alanı (m²)</span><b id="channelSectionArea">—</b></div>
@@ -1514,13 +1523,14 @@ function renderPrecastTypes(){
   if(t.family==='PDO'||t.family==='PV')geo+='<label>Diş Derinliği<input type="number" step=".01" value="'+t.extra+'" onchange="setPT(\''+t.uid+'\',\'extra\',this.value)"></label><label>Sol Diş<input type="number" step=".01" value="'+t.left+'" onchange="setPT(\''+t.uid+'\',\'left\',this.value)"></label><label>Sağ Diş<input type="number" step=".01" value="'+t.right+'" onchange="setPT(\''+t.uid+'\',\'right\',this.value)"></label>';
   return '<div style="border:1px solid #d8e3ea;border-radius:8px;padding:8px;margin:7px 0"><div style="display:grid;grid-template-columns:repeat(3,minmax(110px,1fr));gap:6px">'+common+geo+'<label>Beton<select onchange="setPT(\''+t.uid+'\',\'concrete\',this.value)"><option'+(t.concrete==='C30/37'?' selected':'')+'>C30/37</option><option'+(t.concrete==='C35/45'?' selected':'')+'>C35/45</option><option'+(t.concrete==='C40/50'?' selected':'')+'>C40/50</option></select></label></div><div style="text-align:right;margin-top:5px"><button type="button" class="secondary" onclick="deletePrecastType(\''+t.uid+'\')">Tipi Sil</button></div></div>';
  }).join('');
+ if(typeof mstPkFormTypesSync==='function')mstPkFormTypesSync();   // K3 P2: Kanal Prekastı formundaki "Kayıtlı PK tipinden başla" listesi
 }
 function rowTypeOptions(f,selected){var arr=typesOfFamily(f);return arr.map(function(t){return '<option value="'+t.uid+'"'+(t.uid===selected?' selected':'')+'>'+esc(t.name)+'</option>'}).join('')}
 function pdRows(){return Array.prototype.slice.call(document.querySelectorAll('.pd-layout-row')).map(function(r){var f=r.querySelector('.pd-family').value,uid=r.querySelector('.pd-type').value,t=typeByUid(uid);return t?{family:f,type_uid:uid,type_name:t.name,width:typeWidth(t),count:Math.max(1,parseInt(r.querySelector('.pd-count').value)||1)}:null}).filter(Boolean)}
 function refreshPDSummary(){var rows=pdRows(),joint=parseEngineeringNumber(document.getElementById('pd_joint_m').value)||0,count=rows.reduce(function(a,r){return a+r.count},0),width=rows.reduce(function(a,r){return a+r.width*r.count},0)+Math.max(0,count-1)*joint;var counts={PD:0,PDO:0,PV:0,PK:0};rows.forEach(function(r){counts[r.family]+=r.count});document.getElementById('pdLayoutSummary').innerHTML='<b>Toplam:</b> '+count+' eleman &nbsp;•&nbsp; PD: <b>'+counts.PD+'</b> &nbsp;•&nbsp; PDÖ: <b>'+counts.PDO+'</b> &nbsp;•&nbsp; PV: <b>'+counts.PV+'</b> &nbsp;•&nbsp; PK: <b>'+counts.PK+'</b> &nbsp;•&nbsp; Eleman + derz: <b>'+width.toFixed(3)+' m</b>'}
 function pdFamilyChanged(sel){var row=sel.closest('.pd-layout-row'),ts=row.querySelector('.pd-type'),arr=typesOfFamily(sel.value);ts.innerHTML=rowTypeOptions(sel.value,arr.length?arr[0].uid:'');pdRowTypeChanged(ts)}
 function pdRowTypeChanged(sel){var row=sel.closest('.pd-layout-row'),t=typeByUid(sel.value),inp=row.querySelector('.pd-width');inp.value=t?typeWidth(t).toFixed(3):'0.000';inp.readOnly=true;refreshPDSummary()}
-function refreshAllPDRowOptions(){Array.prototype.slice.call(document.querySelectorAll('.pd-layout-row')).forEach(function(row){var f=row.querySelector('.pd-family').value,sel=row.querySelector('.pd-type'),old=sel.value,arr=typesOfFamily(f);sel.innerHTML=rowTypeOptions(f,arr.some(function(t){return t.uid===old})?old:(arr[0]&&arr[0].uid));pdRowTypeChanged(sel)})}
+function refreshAllPDRowOptions(){Array.prototype.slice.call(document.querySelectorAll('.pd-layout-row')).forEach(function(row){var f=row.querySelector('.pd-family').value,sel=row.querySelector('.pd-type'),old=sel.value,arr=typesOfFamily(f);sel.innerHTML=rowTypeOptions(f,arr.some(function(t){return t.uid===old})?old:(arr[0]&&arr[0].uid));pdRowTypeChanged(sel)});if(typeof mstPkFormTypesSync==='function')mstPkFormTypesSync()}
 function addPDRow(family){family=family||'PD';var arr=typesOfFamily(family);if(!arr.length){addPrecastType(family);arr=typesOfFamily(family)}var box=document.getElementById('pdLayoutRows'),row=document.createElement('div');row.className='pd-layout-row';row.style.cssText='display:grid;grid-template-columns:1.1fr 1.15fr .8fr .65fr auto auto auto;gap:6px;align-items:end;margin:7px 0;padding:8px;border:1px solid #ddd;border-radius:8px';row.innerHTML='<label>Sınıf<select class="pd-family" onchange="pdFamilyChanged(this)"><option value="PD">PD</option><option value="PDO">PDÖ</option><option value="PV">PV</option><option value="PK">PK</option></select></label><label>Tip<select class="pd-type" onchange="pdRowTypeChanged(this)"></select></label><label>Genişlik (m)<input class="pd-width" readonly></label><label>Adet<input class="pd-count" type="number" step="1" min="1" value="1"></label><button type="button" class="secondary" title="Yukarı taşı" onclick="movePDRow(this,-1)">↑</button><button type="button" class="secondary" title="Aşağı taşı" onclick="movePDRow(this,1)">↓</button><button type="button" class="secondary pd-del" title="Satırı sil" onclick="this.closest(\'.pd-layout-row\').remove();refreshPDSummary()">✕</button>';box.appendChild(row);row.querySelector('.pd-family').value=family;row.querySelector('.pd-type').innerHTML=rowTypeOptions(family,arr[0].uid);row.querySelector('.pd-count').addEventListener('input',refreshPDSummary);pdRowTypeChanged(row.querySelector('.pd-type'))}
 function movePDRow(btn,dir){const row=btn.closest('.pd-layout-row'),box=row.parentNode;if(dir<0&&row.previousElementSibling)box.insertBefore(row,row.previousElementSibling);if(dir>0&&row.nextElementSibling)box.insertBefore(row.nextElementSibling,row)}
 function clearPDRows(){document.getElementById('pdLayoutRows').innerHTML='';refreshPDSummary()}
@@ -2278,6 +2288,56 @@ function chDrawSection(sec,ok,svgEl,mini){
   chSvgEl(svg,'text',{x:+xd+5,y:((oy-(b+top.h/2)*sc)+3).toFixed(1),'class':'ch-svg-dim'},chFmt(top.h,3)+' m');
  }
 }
+/* ADR-0515-K3 P2 — 3B önizleme (ADR 41 karar 8: SVG izometrik, WebGL yok). Kesit önizlemesiyle aynı profil (mstChSection.profile)
+   boy yönünde uzatılır; yeni formül yok, callback yok, model değişmez. Yalnız polygon / line / text (Chromium 64). */
+var chView='sec';
+function chSetView(v){
+ chView=v==='iso'?'iso':'sec';var g=function(id){return document.getElementById(id)},s=g('channelSectionSvg'),i=g('channelIsoSvg'),a=g('chViewSec'),b=g('chViewIso');
+ if(s)s.style.display=chView==='sec'?'':'none';if(i)i.style.display=chView==='iso'?'':'none';
+ if(a)a.setAttribute('aria-pressed',chView==='sec'?'true':'false');if(b)b.setAttribute('aria-pressed',chView==='iso'?'true':'false');
+}
+// Gösterim boyu: Manuel → formdaki boy; Otomatik → 2,00 m gösterim boyu (gerçek boy modellemede BK arasından belirlenir).
+function chIsoLength(){
+ var md=document.getElementById('channel_length_mode'),ml=chNum('channel_manual_length_m',NaN);
+ if(md&&md.value==='MANUAL'&&isFinite(ml)&&ml>0)return {L:ml,txt:'Boy '+chFmt(ml,3)+' m (manuel boy)'};
+ return {L:2,txt:'Boy 2,000 m — gösterim boyu'+(md&&md.value==='MANUAL'?' (manuel boy geçersiz)':' (otomatik: BK arası)')};
+}
+function chDrawIso(sec,ok,svgEl){
+ var svg=svgEl||document.getElementById('channelIsoSvg');if(!svg)return;
+ while(svg.firstChild)svg.removeChild(svg.firstChild);
+ var W=320,H=170;
+ if(!ok){chSvgEl(svg,'text',{x:W/2,y:H/2,'text-anchor':'middle','class':'ch-svg-msg'},'Kesit geçersiz: aşağıdaki hataları düzeltin.');return}
+ var S=window.mstChSection,pts=S.profile(sec),t=S.num(sec.total_width_m),bl=chIsoLength(),i,j,n=pts.length;
+ var Lmax=6*Math.max(t,S.height(sec)),L=Math.min(bl.L,Lmax),cut=bl.L>Lmax+1e-9;
+ // dünya (x boy, y genişlik, z yükseklik) → ekran: y sağ-aşağı, x sağ-yukarı (30°), z yukarı. Bakış yönü (-1,1,1): ön, sağ, üst görünür.
+ var c=Math.cos(Math.PI/6),P=function(x,y,z){return [(x+y)*c,(y-x)*0.5-z]};
+ var all=[];for(i=0;i<n;i++){all.push(P(0,pts[i][0],pts[i][1]),P(L,pts[i][0],pts[i][1]))}
+ var x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+ for(i=0;i<all.length;i++){x0=Math.min(x0,all[i][0]);x1=Math.max(x1,all[i][0]);y0=Math.min(y0,all[i][1]);y1=Math.max(y1,all[i][1])}
+ var pT=28,pB=8,pX=10,sc=Math.min((W-2*pX)/Math.max(x1-x0,1e-9),(H-pT-pB)/Math.max(y1-y0,1e-9));
+ var ox=pX+((W-2*pX)-(x1-x0)*sc)/2-x0*sc,oy=pT+((H-pT-pB)-(y1-y0)*sc)/2-y0*sc;
+ var Q=function(p){return (ox+p[0]*sc).toFixed(1)+','+(oy+p[1]*sc).toFixed(1)};
+ // Yan yüzler: profil saat yönü tersine; kenarın dış normali (dz,-dy). Görünür yalnız +y / +z yönlüler (dz-dy>0); arka yüz görünmez.
+ var fs=[];
+ for(i=0;i<n;i++){var a=pts[i],b=pts[(i+1)%n],dy=b[0]-a[0],dz=b[1]-a[1];if(dz-dy<=S.EPS)continue;
+  fs.push({top:Math.abs(dz)<=S.EPS,ya:Math.min(a[0],b[0]),yb:Math.max(a[0],b[0]),za:Math.min(a[1],b[1]),zb:Math.max(a[1],b[1]),d:(a[0]+b[0]+a[1]+b[1])/2,p:[P(0,a[0],a[1]),P(0,b[0],b[1]),P(L,b[0],b[1]),P(L,a[0],a[1])]})}
+ // B, A'nın önüne düşebilir mi: B noktası = A noktası + k(-1,1,1), 0<k≤L (eksene paralel yüzlerde kesin aralık sınaması)
+ var occ=function(B,A){var lo=Math.max(B.ya-A.yb,B.za-A.zb,1e-9),hi=Math.min(B.yb-A.ya,B.zb-A.za,L);return hi-lo>1e-9};
+ var left=fs.slice(),ord=[];
+ while(left.length){var pick=-1;
+  for(i=0;i<left.length;i++){var free=true;for(j=0;j<left.length;j++)if(j!==i&&occ(left[i],left[j])){free=false;break}if(free&&(pick<0||left[i].d<left[pick].d))pick=i}
+  if(pick<0){pick=0;for(i=1;i<left.length;i++)if(left[i].d<left[pick].d)pick=i}
+  ord.push(left.splice(pick,1)[0])}
+ for(i=0;i<ord.length;i++)chSvgEl(svg,'polygon',{points:ord[i].p.map(Q).join(' '),fill:ord[i].top?'#d9dee1':'#8f999f',stroke:'#4e5960','stroke-width':'0.8'});
+ // arka yüz konturu (gizli kenarlar, kesikli)
+ var bk=[];for(i=0;i<n;i++)bk.push(Q(P(L,pts[i][0],pts[i][1])));
+ chSvgEl(svg,'polygon',{points:bk.join(' '),fill:'none',stroke:'#7d8f9c','stroke-width':'0.6','stroke-dasharray':'3,2','stroke-opacity':'0.7'});
+ // ön yüz = kesit (en önde)
+ var fr=[];for(i=0;i<n;i++)fr.push(Q(P(0,pts[i][0],pts[i][1])));
+ chSvgEl(svg,'polygon',{points:fr.join(' '),fill:'#aeb5ba',stroke:'#4e5960','stroke-width':'1'});
+ chSvgEl(svg,'text',{x:pX,y:11,'class':'ch-svg-dim'},bl.txt);
+ chSvgEl(svg,'text',{x:pX,y:22,'class':'ch-svg-dim'},'3B önizleme — model değişmez'+(cut?' · boy kısaltılarak çizildi':''));
+}
 function updateChannelPrecastUI(){
  var S=window.mstChSection;chSyncPartState();
  var sec=chReadSection(),errs=S.valid(sec),ok=!errs.length,i;
@@ -2295,6 +2355,7 @@ function updateChannelPrecastUI(){
  chText('channelPresetLabel',CH_PRESET_LABELS[chSectionPreset]||chSectionPreset);
  var bs=document.querySelectorAll('[data-ch-preset]');for(i=0;i<bs.length;i++)bs[i].setAttribute('aria-pressed',bs[i].getAttribute('data-ch-preset')===chSectionPreset?'true':'false');
  chDrawSection(sec,ok);
+ chDrawIso(sec,ok);   // K3 P2: 3B izometrik (ayrı SVG; kesit önizlemesi aynen)
  chSyncDeckLedge(sec,ok);
  chSyncFwLedge(sec,ok);
  var ul=document.getElementById('channelSectionErrors');
@@ -2302,6 +2363,7 @@ function updateChannelPrecastUI(){
  var btn=document.getElementById('channelModelBtn');
  if(btn){btn.disabled=!ok;btn.title=ok?'':'Kesit geçersiz: önizleme altındaki hataları düzeltin.'}
  var mr=document.getElementById('channelManualRow');if(mr)mr.style.opacity=mode==='AUTO'?'.45':'1';
+ if(typeof mstPkFormSync==='function')mstPkFormSync(sec,ok);   // K3 P2: yüklenen tiple aynı mı (önce: kod/ad önerisi serbest kalabilir)
  if(typeof mstPkSaveSync==='function')mstPkSaveSync(sec,ok,errs);   // K3 P1: PK Tip Kaydı düğmesi / öneriler
 }
 function readChannelFromBK(){if(window.sketchup&&sketchup.read_channel_bk)sketchup.read_channel_bk()}
@@ -2313,6 +2375,7 @@ function createChannelPrecast(){
  var u=S.uEquiv(sec)?S.uDims(sec):[0,0,0,0];
  var d={section:sec,inner_width_m:u[0],inner_depth_m:u[1],base_thickness_m:u[2],wall_thickness_m:u[3],seat_left_m:chNum('channel_seat_left_m',.15),seat_right_m:chNum('channel_seat_right_m',.15),length_mode:document.getElementById('channel_length_mode').value,manual_length_m:chNum('channel_manual_length_m',3.3),concrete_class:document.getElementById('channel_concrete_class').value,fw_bottom:document.getElementById('channel_fw_bottom').checked,fw_sides:document.getElementById('channel_fw_sides').checked,fw_inner:document.getElementById('channel_fw_inner').checked,fw_ends:document.getElementById('channel_fw_ends').checked,fw_top:document.getElementById('channel_fw_top').checked};
  if(!document.getElementById('channel_fw_ledge').checked)d.fw_ledge=false;   // K3: işaretliyken anahtar yok (main.rb create_channel_precast: yoksa kalıplı)
+ var tu=mstPkFormTipUid(sec,d.seat_left_m,d.seat_right_m);if(tu)d.tip_uid=tu;   // K3 P2: yalnız geometri yüklenen tiple aynıysa (Ruby yeniden denetler)
  if(window.sketchup&&sketchup.create_channel_precast)sketchup.create_channel_precast(JSON.stringify(d));
 }
 document.addEventListener('DOMContentLoaded',function(){setTimeout(updateChannelPrecastUI,120);});
@@ -2327,6 +2390,7 @@ function mstPkRefresh(){if(window.sketchup&&sketchup.pk_type_catalog){mstPk.msg=
 window.mstPkCatalog=function(pl){
  pl=pl||{};mstPk.cat=pl.ok?(Array.isArray(pl.tipler)?pl.tipler:[]):[];mstPk.catErr=pl.ok?null:(pl.neden||'Kanal prekastı tip listesi okunamadı.');
  if(mstPk.msg==='PK listesi okunuyor…')mstPk.msg='';mstPkRender();
+ if(typeof mstPkUseFill==='function')mstPkUseFill();   // K3 P2: tip kartlarında "Kullanıldığı yapılar"
 };
 // Yerleşimdeki en kalın PD / PDÖ / PV ana kalınlığı (create_flat_precast: PK dışı parçaların height en büyüğü, yoksa 0,30)
 function mstPkLayoutRefH(){
@@ -2516,7 +2580,7 @@ function mstPkDeckField(t,sec){
 }
 // K3 (karar 4, 18): tip kaydında taban üstü (ledge) kalıbı, tipin kendisinde fw_ledge. İşaretli = varsayılan (anahtar yazılmaz / silinir),
 // kaldırılınca fw_ledge=false. Okuma Ruby doğruluk kuralıyla: anahtar yoksa kalıplı; false / null kalıpsız.
-function mstPkFwLedgeOn(t){return !(t&&Object.prototype.hasOwnProperty.call(t,'fw_ledge')&&(t.fw_ledge===false||t.fw_ledge===null))}
+function mstPkFwLedgeOn(t){var v=t&&Object.prototype.hasOwnProperty.call(t,'fw_ledge')?t.fw_ledge:undefined;if(v===false)return false;v=(v===null||v===undefined)?'':String(v).trim().toLowerCase();return !(v==='0'||v==='false')}   // channel_section.rb:154 mst_ch_ledge_off? ile aynı: yalnız false / '0' / 'false' kalıpsız; null / yok kalıplı
 function mstPkSetFwLedge(uid,on){var t=typeByUid(uid);if(!t||t.family!=='PK')return;if(on){if(Object.prototype.hasOwnProperty.call(t,'fw_ledge'))delete t.fw_ledge}else t.fw_ledge=false}
 function mstPkFwLedgeField(t,sec){
  return '<label class="check" style="grid-column:1 / -1"><input type="checkbox"'+(mstPkFwLedgeOn(t)?' checked':'')+' onchange="mstPkSetFwLedge(\''+t.uid+'\',this.checked)"> Taban üstü (ledge) kalıbı</label>'+
@@ -2642,7 +2706,7 @@ function mstPkCardSummary(t,sec){
  if(typeof t.pk_rev==='number'&&isFinite(t.pk_rev)&&t.pk_rev>0)meta.push('revizyon '+t.pk_rev);
  if(t.created_at)meta.push('oluşturma '+esc(mstPkDate(t.created_at)));
  return '<div class="hint" style="grid-column:1 / -1"><b>'+esc(CH_PRESET_LABELS[pr]||pr)+'</b> · toplam genişlik '+S.f3(S.num(sec.total_width_m))+' m × yükseklik '+S.f3(S.height(sec))+' m · taban '+S.f3(S.num(sec.base_m))+' m'+
-  (meta.length?'<br>'+meta.join(' · '):'')+'<br>Kesit Kanal Prekastı formundan tasarlanır; kayıtlı kesit bu kartta değiştirilmez (yalnız aşağıdaki seçimler).</div>';
+  (meta.length?'<br>'+meta.join(' · '):'')+'<br><span data-pk-use="'+esc(t.uid)+'">'+mstPkUseCardText(t.uid)+'</span>'+'<br>Kesit Kanal Prekastı formundan tasarlanır; kayıtlı kesit bu kartta değiştirilmez (yalnız aşağıdaki seçimler).</div>';
 }
 // 2b satırı: tip adı, revizyon, oluşturma, yapı bazlı kullanım (katalog kullanim: [{yapi, adet}], öğelerden)
 function mstPkMeta(en){
@@ -2650,7 +2714,7 @@ function mstPkMeta(en){
  if(en.title)a.push('Tip adı: '+esc(en.title));
  if(typeof en.pk_rev==='number'&&isFinite(en.pk_rev)&&en.pk_rev>0)a.push('revizyon '+en.pk_rev);   // 0 = kayıtsız (modeldeki PK)
  if(en.created_at)a.push('oluşturma '+esc(mstPkDate(en.created_at)));
- if(Array.isArray(en.kullanim))a.push(en.kullanim.length?'kullanım (modeldeki PK\'lar): '+en.kullanim.map(function(u){u=u||{};return esc(u.yapi_ad||u.yapi||'Yapı belirtilmemiş')+' '+(typeof u.adet==='number'?u.adet:'?')+' adet'}).join('; '):'modelde kullanılmıyor');
+ if(Array.isArray(en.kullanim))a.push(en.kullanim.length?'Kullanıldığı yapılar: '+mstPkUseList(en.kullanim):'modelde kullanılmıyor');
  return a.join(' · ');
 }
 // 2b "Yalnız modelde var" satırı: Tip kütüphanesine ekle (kaynak_pid ile aynı callback)
@@ -2678,6 +2742,126 @@ function mstPkAddSend(){
  if(!kod||!ad){mstPk.msg='Tip kütüphanesine eklemek için PK kodu ve tip adı girin.';mstPkRender();return}
  mstPkSaveSend({kod:kod,ad:ad,section:en.section,concrete:en.beton||'C30/37',kaynak_pid:en.kaynak_pid,karar:null},'2b');
 }
+
+/* ADR-0515-K3 P2 — Tip kartı / 2b "Kullanıldığı yapılar": katalog (pk_type_catalog → mstPk.cat) kütüphane satırının kullanim
+   listesi [{yapi, yapi_ad, adet}] (main.rb öğelerden hesaplar); uid ile eşlenir. yapi_turu katalogda varsa gösterilir. */
+function mstPkUseList(arr){return arr.map(function(u){u=u||{};return esc(u.yapi_ad||u.yapi||'Yapı belirtilmemiş')+(u.yapi_turu?' ('+esc(u.yapi_turu)+')':'')+' '+(typeof u.adet==='number'?u.adet:'?')+' adet'}).join('; ')}
+function mstPkUseCardText(uid){
+ var c=mstPk.cat,en=null,i;
+ if(mstPk.catErr)return 'Kullanıldığı yapılar: PK listesi okunamadı.';
+ if(!c)return 'Kullanıldığı yapılar: PK listesi henüz okunmadı (Prekast Yerleşimi → PK Listesini Yenile).';
+ for(i=0;i<c.length;i++)if(c[i]&&c[i].kaynak==='kütüphane'&&c[i].uid===uid){en=c[i];break}
+ if(!en||!Array.isArray(en.kullanim))return 'Kullanıldığı yapılar: bilgi yok (bu tip PK listesinde değil; PK Listesini Yenile).';
+ return 'Kullanıldığı yapılar (modeldeki PK\'lar): '+(en.kullanim.length?mstPkUseList(en.kullanim):'modelde kullanılmıyor');
+}
+function mstPkUseFill(){var a=document.querySelectorAll('[data-pk-use]'),i;for(i=0;i<a.length;i++)a[i].innerHTML=mstPkUseCardText(a[i].getAttribute('data-pk-use'))}
+
+/* ADR-0515-K3 P2 — Kanal Prekastı formu ↔ tip kütüphanesi: "Kayıtlı PK tipinden başla". Kesitli PK kaydı (precastTypes) formu
+   doldurur. create_channel_precast isteğine tip_uid YALNIZ formdaki geometri (kesit + oturma) yüklenen tiple aynıysa eklenir;
+   main.rb yeniden denetler, eşit değilse bağ yazmaz. Kayıtlı tipin kendisini değiştirme P4'te (bu partide yok): formdaki
+   değişiklik kaydı değiştirmez. Callback yok. */
+var mstPkForm={uid:'',kod:'',ad:'',rev:null,notes:[],diverged:false};
+// Geometri imzası — main.rb mst_pk_n4 (:13282), mst_pk_section_sig (:13284-13286), mst_pk_geom_sig (:13289-13291) ve
+// channel_section.rb mst_ch_active (:144-151) kuralının kopyası: "pk1|W<t>|B<b>|<y0>-<y1>:<h>…|oturma:<sol>/<sağ>", açık çıkıntılar
+// soldan sağa, 4 ondalık (yarım sıfırdan uzağa), -0 → 0; oturma yoksa '-'. Ön ayar etiketi, pasif çıkıntı, deck_ledge_*,
+// channel_top_ref, beton ve kalıp imzaya girmez.
+function mstPkN4(v){var x=typeof v==='number'?v:(parseFloat(String(v===null||v===undefined?'':v))||0);if(!isFinite(x))return String(x);var r=(x<0?-1:1)*Math.round(Math.abs(x)*1e4)/1e4;if(r===0)r=0;return r.toFixed(4)}
+function mstPkSectionSig(sec){var a=window.mstChSection.active(sec),o=['W'+mstPkN4(sec.total_width_m),'B'+mstPkN4(sec.base_m)],i;for(i=0;i<a.length;i++)o.push(mstPkN4(a[i].y0)+'-'+mstPkN4(a[i].y1)+':'+mstPkN4(a[i].h));return o.join('|')}
+function mstPkGeomSig(sec,sl,sr){var f=function(v){return v===null||v===undefined?'-':mstPkN4(v)};return 'pk1|'+mstPkSectionSig(sec)+'|oturma:'+f(sl)+'/'+f(sr)}
+// Kayıt imzası: kaydın kesiti (mstPkSectionOf) + kayıttaki oturma; kesit yok / geçersizse null
+function mstPkRecSig(t){var sec=t?mstPkSectionOf(t):null;if(!sec||window.mstChSection.valid(sec).length)return null;return mstPkGeomSig(sec,t.seat_left_m,t.seat_right_m)}
+function mstPkFormLabel(t){var r=t.pk_rev;return String(t.name||'')+(t.title?' — '+t.title:'')+(typeof r==='number'&&isFinite(r)&&r>0?', rev '+r:'')}
+function mstPkFormTypesSync(){
+ var sel=document.getElementById('pk_form_type');if(!sel)return;
+ var cur=mstPkForm.uid,h='<option value="">Yeni / kayıtsız tasarım</option>',hit=false,n=0;
+ precastTypes.forEach(function(t){if(!t||t.family!=='PK'||!mstPkRecSig(t))return;n++;if(t.uid===cur)hit=true;h+='<option value="'+esc(t.uid)+'"'+(t.uid===cur?' selected':'')+'>'+esc(mstPkFormLabel(t))+'</option>'});
+ sel.innerHTML=h;sel.value=hit?cur:'';mstPkForm.count=n;
+ if(cur&&!hit)mstPkFormClear('Yüklenen PK tipi ('+mstPkForm.kod+') kütüphanede artık yok veya kesiti okunamıyor; form kayıtsız tasarım olarak kaldı.');
+ else mstPkFormNote();
+}
+// Yüklenen tipten ayrılınca kod / ad alanları kullanıcı değiştirmediyse yeniden öneriye bırakılır (yeni tip olarak kaydedilebilsin)
+function mstPkFormReleaseNames(){var kd=document.getElementById('pk_save_kod'),ad=document.getElementById('pk_save_ad');if(kd&&kd.value===mstPkForm.kod)mstPkSave.edited.kod=false;if(ad&&ad.value===mstPkForm.ad)mstPkSave.edited.ad=false}
+function mstPkFormClear(msg){
+ if(mstPkForm.uid)mstPkFormReleaseNames();
+ mstPkForm={uid:'',kod:'',ad:'',rev:null,notes:msg?[msg]:[],diverged:false,count:mstPkForm.count};
+ var sel=document.getElementById('pk_form_type');if(sel)sel.value='';
+ mstPkFormNote();if(typeof mstPkSaveSync==='function')mstPkSaveSync();
+}
+function mstPkFormSetNum(id,v){var e=document.getElementById(id);if(e&&typeof v==='number'&&isFinite(v))e.value=String(v)}
+function mstPkFormPick(uid){
+ var S=window.mstChSection,t=uid?typeByUid(uid):null,sec=t&&mstPkRecSig(t)?mstPkSectionOf(t):null,g=function(id){return document.getElementById(id)},notes=[],i,k;
+ if(!sec){mstPkFormClear(uid?'Seçilen PK tipi kütüphanede bulunamadı veya kesiti okunamadı; form değiştirilmedi.':'');updateChannelPrecastUI();return}
+ if(mstPkForm.uid)mstPkFormReleaseNames();
+ // kesit: ön ayar, toplam genişlik, taban, Sol / Orta / Sağ çıkıntı (pasif çıkıntının ölçüleri de)
+ chSectionPreset=sec.preset;mstPkFormSetNum('channel_total_width_m',sec.total_width_m);mstPkFormSetNum('channel_base_m',sec.base_m);
+ for(i=0;i<S.PARTS.length;i++){k=S.PARTS[i];var cb=g('channel_'+k+'_on');if(cb)cb.checked=!!sec[k].on;mstPkFormSetNum('channel_'+k+'_width_m',sec[k].width_m);mstPkFormSetNum('channel_'+k+'_height_m',sec[k].height_m);mstPkFormSetNum('channel_'+k+'_offset_m',sec[k].offset_m)}
+ // döşeme ledge Açık / Dolu (kayıtta yoksa Varsayılan)
+ var ds=mstPkDeckSrc(t),dob=ds?ds.obj:{};
+ for(i=0;i<CH_DECK_KEYS.length;i++){var de=g('channel_'+CH_DECK_KEYS[i]);if(de)de.value=chDeckFlag(dob[CH_DECK_KEYS[i]])}
+ // oturma payları
+ var seatMiss=[];
+ if(typeof t.seat_left_m==='number'&&isFinite(t.seat_left_m))mstPkFormSetNum('channel_seat_left_m',t.seat_left_m);else seatMiss.push('sol');
+ if(typeof t.seat_right_m==='number'&&isFinite(t.seat_right_m))mstPkFormSetNum('channel_seat_right_m',t.seat_right_m);else seatMiss.push('sağ');
+ if(seatMiss.length)notes.push('Kayıtta '+seatMiss.join(' / ')+' oturma payı yok (eski kayıt): formdaki değer korundu; bu kayda tip bağı kurulamaz.');
+ // beton sınıfı (listede yoksa seçenek eklenir)
+ var cc=String(t.concrete||'').trim(),cs=g('channel_concrete_class');
+ if(cc&&cs){var has=false;for(i=0;i<cs.options.length;i++)if(cs.options[i].value===cc)has=true;if(!has){var op=document.createElement('option');op.textContent=cc;cs.appendChild(op)}cs.value=cc}
+ else if(!cc)notes.push('Kayıtta beton sınıfı yok: formdaki seçim korundu.');
+ // kalıp seçimleri (kayıttaki fw_* varsa; fw_ledge kuralı channel_section.rb mst_ch_ledge_off? :154)
+ var FW={bottom:'taban',sides:'dış yan',inner:'iç',ends:'uç'},miss=[];
+ for(k in FW)if(FW.hasOwnProperty(k)){var fv=t['fw_'+k],fe=g('channel_fw_'+k);if(fv===null||fv===undefined)miss.push(FW[k]);else if(fe)fe.checked=S.bool(fv)}
+ var fl=t.fw_ledge,fle=g('channel_fw_ledge');
+ if(fl===null||fl===undefined)miss.push('taban üstü');else if(fle)fle.checked=!(fl===false||['0','false'].indexOf(String(fl).trim().toLowerCase())>=0);
+ if(miss.length)notes.push('Kayıtta kalıp seçimi yok ('+miss.join(', ')+'): formdaki işaretler korundu.');
+ // PK Tip Kaydı alanlarında kayıtlı kod / ad
+ mstPkForm={uid:t.uid,kod:String(t.name||''),ad:String(t.title||''),rev:t.pk_rev,notes:notes,diverged:false,noSeat:seatMiss.length>0,count:mstPkForm.count};
+ var kd=g('pk_save_kod'),ad=g('pk_save_ad');if(kd){kd.value=mstPkForm.kod;kd.removeAttribute('aria-invalid');kd.style.borderColor=''}if(ad&&mstPkForm.ad)ad.value=mstPkForm.ad;
+ mstPkSave.edited={kod:true,ad:!!mstPkForm.ad};
+ var sel=g('pk_form_type');if(sel)sel.value=t.uid;
+ updateChannelPrecastUI();
+ // üst yüzey (kot referansı): seçenekler güncel kesitle kurulduktan sonra
+ var tr=g('pk_save_top_ref'),rf=String(t.channel_top_ref||'').toLowerCase();
+ if(tr&&!tr.disabled){var hit=false;for(i=0;i<tr.options.length;i++)if(tr.options[i].value===rf)hit=true;tr.value=hit?rf:''}
+}
+// Formdaki geometri yüklenen tiple aynı mı (main.rb mst_pk_geom_sig kuralı; kayıtta oturma yoksa yalnız kesit karşılaştırılır)
+function mstPkFormSame(sec,sl,sr){
+ var t=mstPkForm.uid?typeByUid(mstPkForm.uid):null,rs=t?mstPkRecSig(t):null;
+ if(!rs||window.mstChSection.valid(sec).length)return false;
+ if((t.seat_left_m===null||t.seat_left_m===undefined)&&(t.seat_right_m===null||t.seat_right_m===undefined))return mstPkSectionSig(sec)===mstPkSectionSig(mstPkSectionOf(t));   // eski kayıt (oturma yok): yalnız kesit (main.rb mst_pk_rec_same_geom? / mst_pk_form_type_link ile aynı)
+ return mstPkGeomSig(sec,sl,sr)===rs;
+}
+// create_channel_precast isteğine eklenecek tip_uid ('' = gönderilmez)
+function mstPkFormTipUid(sec,sl,sr){return mstPkFormSame(sec,sl,sr)?mstPkForm.uid:''}
+function mstPkFormSync(sec,ok){
+ if(!mstPkForm.uid){mstPkFormNote();return}
+ if(!typeByUid(mstPkForm.uid)){mstPkFormClear('Yüklenen PK tipi ('+mstPkForm.kod+') kütüphanede artık yok; form kayıtsız tasarım olarak kaldı.');return}
+ var same=!!ok&&mstPkFormSame(sec,chNum('channel_seat_left_m',.15),chNum('channel_seat_right_m',.15));
+ if(!same&&!mstPkForm.diverged)mstPkFormReleaseNames();
+ mstPkForm.diverged=!same;mstPkFormNote();
+}
+function mstPkFormNote(){
+ var box=document.getElementById('pkFormTypeNote');if(!box)return;
+ var f=mstPkForm,h='',ex=f.notes&&f.notes.length?'<br>'+f.notes.map(esc).join('<br>'):'';
+ var p4='<br>Kayıtlı tipin kendisini değiştirme sonraki partide (P4) gelecek; bu formdaki değişiklik kayıtlı tipi değiştirmez.';
+ if(!f.uid){
+  h=f.count===0?'Tip kütüphanesinde kesitli PK tipi yok. Kesiti tasarlayıp "PK Tipi Olarak Kaydet" ile kaydedebilirsiniz.':'Kayıtlı bir PK tipi seçilince kesit, döşeme ledge seçimi, oturma payları, beton, kalıp seçimleri ve üst yüzey o kayıttan doldurulur. "Yeni / kayıtsız tasarım" seçiliyken form değişmez ve modellenen PK bir tipe bağlanmaz.';
+  box.innerHTML=esc(h)+ex;return;
+ }
+ var nm=esc(f.kod)+(f.ad?' — '+esc(f.ad):'')+(typeof f.rev==='number'&&f.rev>0?' (rev '+f.rev+')':'');
+ if(f.diverged)h='<span class="pk-tag est">KAYITSIZ TASARIM</span> Yüklenen tipten ('+nm+') farklı — kayıtsız tasarım (yeni tip olarak kaydedebilirsiniz). Modellenen PK bu tipe bağlanmaz.';
+ else h='<span class="pk-tag ok">KAYITLI TİP</span> '+nm+' formda. '+(f.noSeat?'Kayıtta oturma payı yok (eski kayıt): yalnız kesit karşılaştırılır; kesit kayıtla aynı':'Kesit ve oturma kayıtla aynı')+': modellenen PK bu tipe bağlanır (bağ modellemede yeniden denetlenir).'+mstPkFormDiffNote();
+ box.innerHTML=h+ex+p4;
+}
+// Geometri dışı farklar (beton / kalıp): tip bağı geometriye göredir, fark yalnız bilgi olarak gösterilir
+function mstPkFormDiffNote(){
+ var t=typeByUid(mstPkForm.uid),g=function(id){return document.getElementById(id)},d=[],k;if(!t)return '';
+ var cs=g('channel_concrete_class');if(t.concrete&&cs&&cs.value!==String(t.concrete).trim())d.push('beton sınıfı');
+ var FW=['bottom','sides','inner','ends'];for(k=0;k<FW.length;k++){var v=t['fw_'+FW[k]],e=g('channel_fw_'+FW[k]);if(v!==null&&v!==undefined&&e&&e.checked!==window.mstChSection.bool(v)){d.push('kalıp seçimi');break}}
+ var fl=t.fw_ledge,le=g('channel_fw_ledge');if(d.indexOf('kalıp seçimi')<0&&fl!==null&&fl!==undefined&&le&&le.checked!==!(fl===false||['0','false'].indexOf(String(fl).trim().toLowerCase())>=0))d.push('kalıp seçimi');
+ return d.length?' <span class="pk-tag est">KAYITTAN FARKLI</span> '+d.join(', ')+' (tip bağı yalnız kesit ve oturmaya bakar; modellenen PK formdaki seçimle oluşturulur).':'';
+}
+// Beton / kalıp alanları updateChannelPrecastUI'yi çağırmaz; yalnız durum notu yenilenir
+document.addEventListener('DOMContentLoaded',function(){['channel_concrete_class','channel_fw_bottom','channel_fw_sides','channel_fw_inner','channel_fw_ledge','channel_fw_ends'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',mstPkFormNote)})});
 
 
 

@@ -125,7 +125,7 @@ const cat = { ok: true, tipler: [
 js('mstPkCatalog(' + JSON.stringify(cat) + ')');
 const item = (i) => "document.querySelectorAll('#pkPickList .pk-item')[" + i + ']';
 const it0 = js(item(0) + '.textContent');
-ok(/Tip adı: L Kanal 1000 · revizyon 2 · oluşturma 10\.11\.2026 · kullanım \(modeldeki PK'lar\): ANO-01 2 adet; RIHTIM-01 1 adet/.test(it0), '2b satırı: tip adı, revizyon, tarih, yapı bazlı kullanım');
+ok(/Tip adı: L Kanal 1000 · revizyon 2 · oluşturma 10\.11\.2026 · Kullanıldığı yapılar: ANO-01 2 adet; RIHTIM-01 1 adet/.test(it0), '2b satırı: tip adı, revizyon, tarih, yapı bazlı kullanım');
 ok(!/Tip kütüphanesine ekle/.test(it0) && /Yerleşimde kullan/.test(it0), 'kütüphane satırında yalnız "Yerleşimde kullan"');
 ok(/Yalnız modelde var/.test(js(item(1) + '.textContent')) && click(item(1), 'Tip kütüphanesine ekle') === 'tik', 'modeldeki satırda "Tip kütüphanesine ekle"');
 ok(js("document.getElementById('pkAddKod').value") === 'PK-009' && js("document.getElementById('pkAddAd').value") === 'L Kanal 1000', 'kod / ad önerildi (PK-009, L Kanal 1000)');

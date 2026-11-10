@@ -68,7 +68,7 @@ js('renderPrecastTypes()');
 ok(/<input type="checkbox" onchange="mstPkSetFwLedge\('pt_pk_l'/.test(fieldL()), 'yeniden çizimde işaretsiz');
 js("mstPkSetFwLedge('pt_pk_l',true)");
 ok(js("JSON.stringify(typeByUid('pt_pk_l'))") === before, 'yeniden işaretli: anahtar silindi, kayıt ilk haliyle aynı');
-ok(js("mstPkFwLedgeOn({fw_ledge:null})") === false && js("mstPkFwLedgeOn({fw_ledge:true})") === true && js("mstPkFwLedgeOn({})") === true, 'okuma: yok/true kalıplı, false/null kalıpsız');
+ok(js("mstPkFwLedgeOn({fw_ledge:null})") === true && js("mstPkFwLedgeOn({fw_ledge:false})") === false && js("mstPkFwLedgeOn({fw_ledge:true})") === true && js("mstPkFwLedgeOn({})") === true, 'okuma (tip kaydı, channel_section.rb:154 mst_ch_ledge_off?): yok/true/null kalıplı, false kalıpsız');
 
 // 5. Tip kartı U (channel_section_json metni): genişlik 0 → etkisiz
 const secU = { v: 1, preset: 'U', total_width_m: 1.2, base_m: 0.2, left: { on: true, width_m: 0.2, height_m: 0.6, offset_m: 0 }, mid: { on: false, width_m: 0.15, height_m: 0.3, offset_m: 0.525 }, right: { on: true, width_m: 0.2, height_m: 0.6, offset_m: 0 } };
