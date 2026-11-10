@@ -127,7 +127,8 @@ D.calls.splice(0);
 ok(clickId('pkUpdApplyBtn') === 'tik', 'Onayla ve güncelle tıklandı');
 c = take('pk_type_update_apply');
 const aq = c.length === 1 ? JSON.parse(c[0][1]) : null;
-ok(aq && pq && aq.onay === true && JSON.stringify(Object.assign({}, aq, { onay: undefined })) === JSON.stringify(Object.assign({}, pq, { onay: undefined })), 'apply isteği = plan isteği + onay:true');
+ok(aq && pq && aq.onay === true && JSON.stringify(Object.assign({}, aq, { onay: undefined, plan_pids: undefined })) === JSON.stringify(Object.assign({}, pq, { onay: undefined })), 'apply isteği = plan isteği + onay:true (+ plan_pids, 42 Ö3)');
+ok(aq && JSON.stringify(aq.plan_pids) === '[11]', 'apply isteği plan_pids = plandaki ornekler[].pid');
 ok(dis('pkUpdApplyBtn') && dis('pkApplySelBtn'), 'güncelleme beklenirken onay ve (b) pasif');
 const lib2 = JSON.stringify([Object.assign({}, recL, { pk_rev: 3, concrete: 'C35/45', section: Object.assign({}, secL, { right: { on: true, width_m: 0.2, height_m: 0.65, offset_m: 0 } }) })]);
 D.calls.splice(0);
@@ -142,12 +143,17 @@ ok(txt('pkUpdPlan') === '', 'istenmemiş plan yanıtı gösterilmez');
 
 // 9. PK Sil: confirm + gönderim + sonuç
 ok(/Seçili PK'yı Sil \(döşeme boşluğu da güncellenir\)/.test(txt('pkDeleteBtn')) && /SketchUp'ın Sil tuşuyla silinirse döşeme kendiliğinden güncellenmez; Model Kontrolü uyarır/.test(txt('pkPickPanel')), 'PK Sil düğmesi ve Sil tuşu notu');
+// 42 K6: önce pk_delete_preview, onay iletisi önizlemeden (adet / kodlar / döşeme)
+const prev = "mstPkDeletePreview({ok:true,neden:null,adet:2,kodlar:['PK-005','PK-006'],dosemeler:1})";
 js('window.__cf=[];window.confirm=function(m){__cf.push(m);return false}');
 D.calls.splice(0);
 clickId('pkDeleteBtn');
+ok(take('pk_delete_preview').length === 1 && js('__cf.length') === 0, 'PK Sil: önce önizleme istenir, onay sorulmaz');
+js(prev);
 ok(take('pk_delete').length === 0 && js('__cf.length') === 1 && /seçili kanal prekastları/.test(js('__cf[0]')) && /Ctrl\+Z/.test(js('__cf[0]')), 'confirm "hayır": pk_delete gönderilmez');
 js('window.confirm=function(m){__cf.push(m);return true}');
-clickId('pkDeleteBtn');
+clickId('pkDeleteBtn'); take('pk_delete_preview');
+js(prev);
 c = take('pk_delete');
 ok(c.length === 1 && c[0].length === 1, 'confirm "evet": sketchup.pk_delete() bağımsız değişkensiz');
 ok(dis('pkDeleteBtn') && /Siliniyor/.test(txt('pkDeleteResult')), 'yanıt beklenirken düğme pasif');

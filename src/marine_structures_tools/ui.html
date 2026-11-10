@@ -1526,7 +1526,35 @@ var precastTypes=[
  {uid:'pt_pv_1',family:'PV',name:'PV-01',width:1.20,height:.30,extra:.05,left:.20,right:.20,concrete:'C30/37'},
  {uid:'pt_pk_1',family:'PK',name:'PK-01',inner_width:.80,inner_depth:.60,base:.20,wall:.20,concrete:'C30/37'}
 ];
-function loadPrecastTypeLibrary(raw){try{var a=JSON.parse(raw);if(Array.isArray(a)&&a.length){precastTypes=a;renderPrecastTypes();refreshAllPDRowOptions();}}catch(e){}}
+/* ADR-0515-K3 E1: modelin tip kütüphanesi (precast_type_library_json) esastır. Gelen liste yereldekiyle birleştirilir: aynı uid'de
+   model kazanır; modelde olmayan yerel kayıt kaydedilmemişse (PD / PDÖ / PV, eski U PK) korunur, bir kez kaydedilmiş PK (pk_rev /
+   geom_sig taşır) düşer; sayfanın dokunulmamış varsayılan kayıtları model listesi boş değilse düşer (önceki ilk yükleme davranışı).
+   '' = modelde kütüphane yok (boş liste); okunamayan metin listeyi değiştirmez. Ruby Geri Al / Yinele sonrası da bunu çağırır. */
+var mstPtBuiltin={};precastTypes.forEach(function(t){mstPtBuiltin[t.uid]=JSON.stringify(t)});
+function mstPtHas(v){return v!==null&&v!==undefined&&v!==''}
+function mstPkSavedRec(t){return !!t&&t.family==='PK'&&(mstPtHas(t.pk_rev)||mstPtHas(t.geom_sig))}
+function mstPtMerge(model,local){
+ var own=Object.prototype.hasOwnProperty,m=model.filter(function(t){return t&&typeof t==='object'}),by={},used={},out=[],i,t,u;
+ for(i=0;i<m.length;i++)if(mstPtHas(m[i].uid))by[m[i].uid]=m[i];
+ for(i=0;i<local.length;i++){
+  t=local[i];if(!t||typeof t!=='object')continue;u=t.uid;
+  if(mstPtHas(u)&&own.call(by,u)){if(!used[u]){out.push(by[u]);used[u]=1}continue}
+  if(mstPkSavedRec(t))continue;
+  if(m.length&&mstPtHas(u)&&own.call(mstPtBuiltin,u)&&JSON.stringify(t)===mstPtBuiltin[u])continue;
+  out.push(t);
+ }
+ for(i=0;i<m.length;i++){t=m[i];u=t.uid;if(!mstPtHas(u))out.push(t);else if(!used[u]){out.push(by[u]);used[u]=1}}
+ return out;
+}
+function loadPrecastTypeLibrary(raw){
+ var a;if(raw===null||raw===undefined)return false;
+ if(raw==='')a=[];else if(typeof raw==='string'){try{a=JSON.parse(raw)}catch(e){return false}}else a=raw;
+ if(!Array.isArray(a))return false;
+ precastTypes=mstPtMerge(a,precastTypes);renderPrecastTypes();refreshAllPDRowOptions();return true;
+}
+// Yanıttaki kutuphane_json (metin ya da dizi) → loadPrecastTypeLibrary; alan yok / null ise liste değişmez
+function mstPkLoadLibJson(p){var kj=p&&typeof p==='object'?p.kutuphane_json:null;if(kj===null||kj===undefined)return false;if(typeof kj!=='string')kj=JSON.stringify(kj);return loadPrecastTypeLibrary(kj)}
+var MST_PK_BAYAT='Tip listesi modeldeki kütüphaneden yenilendi; kaydedilmemiş satırlar korundu. Listeyi kontrol edip işlemi yeniden başlatın (kendiliğinden yeniden denenmedi).';
 function familyLabel(f){return {PD:'PD — Normal',PDO:'PDÖ — Dişli/Değişken',PV:'PV — Vinç',PK:'PK — Kanal'}[f]||f}
 function familyPrefix(f){return {PD:'PD',PDO:'PDÖ',PV:'PV',PK:'PK'}[f]||'PD'}
 function typeWidth(t){var lg=t.family==='PK'?mstPkLegacyOf(t):null;if(lg)return Number(lg.sec.total_width_m)||0;return t.family==='PK'?(Number(t.inner_width||0)+2*Number(t.wall||0)):Number(t.width||0)}
@@ -2588,7 +2616,7 @@ function mstPkLibResHtml(r,exp){
  var n=function(v){return (typeof v==='number'&&isFinite(v))?v:0},at=Array.isArray(r.atlanan)?r.atlanan:[];
  var li=at.map(function(a){a=a||{};return '<li>'+esc(a.kod||'(kodsuz)')+': '+esc(a.neden||'neden bildirilmedi')+'</li>'}).join('');
  var h=r.ok?'<span class="pk-tag ok">'+(exp?'DOSYAYA VERİLDİ':'MODELE ALINDI')+'</span> '+(exp?'Eklenen '+n(r.eklenen)+' tip · güncellenen '+n(r.guncellenen)+' tip · atlanan '+at.length+' tip. Model değişmedi.':'Eklenen '+n(r.eklenen)+' tip · atlanan '+at.length+' tip. Tipler modelin tip kütüphanesine eklendi; modele PK konmadı.')
-  :'<span class="pk-tag bad">'+(exp?'DIŞA VERİLMEDİ':'İÇE ALINMADI')+'</span> '+esc(r.neden||'İşlem yapılamadı.');
+  :'<span class="pk-tag bad">'+(exp?'DIŞA VERİLMEDİ':'İÇE ALINMADI')+'</span> '+esc(r.neden||'İşlem yapılamadı.')+(r.durum==='liste_bayat'?'<div class="pk-dims">'+MST_PK_BAYAT+'</div>':'');
  return '<div class="pk-pair">'+h+(li?'<div class="pk-dims">Atlananlar:</div><ul class="pk-why">'+li+'</ul>':'')+(exp&&r.yol?'<div class="pk-dims">Dosya: '+esc(r.yol)+'</div>':'')+'</div>';
 }
 function mstPkLibResRender(){
@@ -2617,7 +2645,7 @@ function mstPkLibImport(){
 }
 window.mstPkLibFileImported=function(pl){
  pl=pl||{};if(mstPkLib.busy==='imp')mstPkLib.busy='';mstPkLib.imp=pl;
- if(pl.ok){var kj=pl.kutuphane_json;if(kj&&typeof kj!=='string')kj=JSON.stringify(kj);if(kj)loadPrecastTypeLibrary(kj);mstPkRefresh()}
+ if(pl.ok||pl.durum==='liste_bayat'){mstPkLoadLibJson(pl);mstPkRefresh()}   // E1: liste bayatsa da model gerçeğiyle yenilenir
  mstPkLibResRender();
  mstPkLibRefresh();   // modelde durumu değişti
 };
@@ -2811,14 +2839,11 @@ function mstPkSaveDecide(k){
 window.mstPkTypeSaved=function(p){
  p=(p&&typeof p==='object')?p:{ok:false,neden:'Kayıt yanıtı okunamadı.'};
  mstPkSave.busy=false;mstPkSave.res=p;
- var d=String(p.durum||''),done=!!p.ok&&(d==='kaydedildi'||d==='mevcut_secildi');
- if(done){
-  var kj=p.kutuphane_json;if(kj!==null&&kj!==undefined&&typeof kj!=='string')kj=JSON.stringify(kj);
-  if(kj)loadPrecastTypeLibrary(kj);
-  mstPkSave.edited={kod:false,ad:false};mstPkSave.add=null;
- }
+ var d=String(p.durum||''),done=!!p.ok&&(d==='kaydedildi'||d==='mevcut_secildi'),stale=d==='liste_bayat';
+ if(done||stale)mstPkLoadLibJson(p);   // E1: liste bayatsa model gerçeğiyle yenilenir, yeniden gönderilmez
+ if(done){mstPkSave.edited={kod:false,ad:false};mstPkSave.add=null}
  mstPkSaveRender();mstPkSaveSync();
- if(done)mstPkRefresh();else if(mstPkSave.origin==='2b')mstPkRender();
+ if(done||stale)mstPkRefresh();else if(mstPkSave.origin==='2b')mstPkRender();
  if(d==='kod_cakisma'){var f=document.getElementById(mstPkSave.origin==='2b'?'pkAddKod':'pk_save_kod');if(f){f.setAttribute('aria-invalid','true');f.style.borderColor='#c0392b';f.focus()}}
 };
 function mstPkSaveRender(){
@@ -2839,7 +2864,7 @@ function mstPkSaveRender(){
    (uid?'<div class="pk-pick-actions" style="margin-top:4px"><button type="button" class="secondary" onclick="mstPkGoUse(mstPkSave.useUid)">Prekast Yerleşimi\'nde kullan</button></div>':'<div class="pk-dims">Tip kimliği yanıtta yok; PK listesinden seçin.</div>')+'</div>';
   return;
  }
- box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">KAYDEDİLMEDİ</span> '+esc(p.neden||'PK tipi kaydedilemedi.')+wl+'</div>';
+ box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">KAYDEDİLMEDİ</span> '+esc(p.neden||'PK tipi kaydedilemedi.')+(d==='liste_bayat'?'<div class="pk-dims">'+MST_PK_BAYAT+'</div>':'')+wl+'</div>';
 }
 function mstPkWarnList(a){return Array.isArray(a)&&a.length?'<ul class="pk-why">'+a.map(function(w){return '<li>'+esc(w)+'</li>'}).join('')+'</ul>':''}
 // Kayıtlı tipi ilk PK yerleşim satırına atar (mstPkUseType) ve Prekast sayfasında yerleşim satırlarına götürür
@@ -2923,9 +2948,12 @@ var mstPkForm={uid:'',kod:'',ad:'',rev:null,notes:[],diverged:false};
 // channel_section.rb mst_ch_active (:144-151) kuralının kopyası: "pk1|W<t>|B<b>|<y0>-<y1>:<h>…|oturma:<sol>/<sağ>", açık çıkıntılar
 // soldan sağa, 4 ondalık (yarım sıfırdan uzağa), -0 → 0; oturma yoksa '-'. Ön ayar etiketi, pasif çıkıntı, deck_ledge_*,
 // channel_top_ref, beton ve kalıp imzaya girmez.
-function mstPkN4(v){var x=typeof v==='number'?v:(parseFloat(String(v===null||v===undefined?'':v))||0);if(!isFinite(x))return String(x);var r=(x<0?-1:1)*Math.round(Math.abs(x)*1e4)/1e4;if(r===0)r=0;return r.toFixed(4)}
+// K1: yarım değer sıfırdan uzağa (Ruby Float#round(4) gibi); +1e-9 kayan nokta hatasını karşılar (1.00005 → "1.0001")
+function mstPkN4(v){var x=typeof v==='number'?v:(parseFloat(String(v===null||v===undefined?'':v))||0);if(!isFinite(x))return String(x);var r=(x<0?-1:1)*Math.round(Math.abs(x)*1e4+1e-9)/1e4;if(r===0)r=0;return r.toFixed(4)}
 function mstPkSectionSig(sec){var a=window.mstChSection.active(sec),o=['W'+mstPkN4(sec.total_width_m),'B'+mstPkN4(sec.base_m)],i;for(i=0;i<a.length;i++)o.push(mstPkN4(a[i].y0)+'-'+mstPkN4(a[i].y1)+':'+mstPkN4(a[i].h));return o.join('|')}
-function mstPkGeomSig(sec,sl,sr){var f=function(v){return v===null||v===undefined?'-':mstPkN4(v)};return 'pk1|'+mstPkSectionSig(sec)+'|oturma:'+f(sl)+'/'+f(sr)}
+// K3: oturma yok = null / undefined / boş (ya da yalnız boşluk) dize; imza, kayıt imzası ve form karşılaştırması bu tek kuralı kullanır
+function mstPkSeatNil(v){return v===null||v===undefined||(typeof v==='string'&&!v.trim())}
+function mstPkGeomSig(sec,sl,sr){var f=function(v){return mstPkSeatNil(v)?'-':mstPkN4(v)};return 'pk1|'+mstPkSectionSig(sec)+'|oturma:'+f(sl)+'/'+f(sr)}
 // Kayıt imzası: kaydın kesiti (mstPkSectionOf) + kayıttaki oturma; kesit yok / geçersizse null
 function mstPkRecSig(t){var sec=t?mstPkSectionOf(t):null;if(!sec||window.mstChSection.valid(sec).length)return null;return mstPkGeomSig(sec,t.seat_left_m,t.seat_right_m)}
 function mstPkFormLabel(t){var r=t.pk_rev;return String(t.name||'')+(t.title?' — '+t.title:'')+(typeof r==='number'&&isFinite(r)&&r>0?', rev '+r:'')}
@@ -2960,7 +2988,7 @@ function mstPkFormPick(uid){
  var seatMiss=[];
  if(typeof t.seat_left_m==='number'&&isFinite(t.seat_left_m))mstPkFormSetNum('channel_seat_left_m',t.seat_left_m);else seatMiss.push('sol');
  if(typeof t.seat_right_m==='number'&&isFinite(t.seat_right_m))mstPkFormSetNum('channel_seat_right_m',t.seat_right_m);else seatMiss.push('sağ');
- if(seatMiss.length)notes.push('Kayıtta '+seatMiss.join(' / ')+' oturma payı yok (eski kayıt): formdaki değer korundu; bu kayda tip bağı kurulamaz.');
+ if(seatMiss.length)notes.push('Kayıtta '+seatMiss.join(' / ')+' oturma payı yok (eski kayıt): formdaki değer korundu.');   // K2: bağ kuralı yalnız durum notunda (mstPkFormNote)
  // beton sınıfı (listede yoksa seçenek eklenir)
  var cc=String(t.concrete||'').trim(),cs=g('channel_concrete_class');
  if(cc&&cs){var has=false;for(i=0;i<cs.options.length;i++)if(cs.options[i].value===cc)has=true;if(!has){var op=document.createElement('option');op.textContent=cc;cs.appendChild(op)}cs.value=cc}
@@ -2972,7 +3000,7 @@ function mstPkFormPick(uid){
  if(fl===null||fl===undefined)miss.push('taban üstü');else if(fle)fle.checked=!(fl===false||['0','false'].indexOf(String(fl).trim().toLowerCase())>=0);
  if(miss.length)notes.push('Kayıtta kalıp seçimi yok ('+miss.join(', ')+'): formdaki işaretler korundu.');
  // PK Tip Kaydı alanlarında kayıtlı kod / ad
- mstPkForm={uid:t.uid,kod:String(t.name||''),ad:String(t.title||''),rev:t.pk_rev,notes:notes,diverged:false,noSeat:seatMiss.length>0,count:mstPkForm.count};
+ mstPkForm={uid:t.uid,kod:String(t.name||''),ad:String(t.title||''),rev:t.pk_rev,notes:notes,diverged:false,noSeat:mstPkSeatNil(t.seat_left_m)&&mstPkSeatNil(t.seat_right_m),count:mstPkForm.count};
  var kd=g('pk_save_kod'),ad=g('pk_save_ad');if(kd){kd.value=mstPkForm.kod;kd.removeAttribute('aria-invalid');kd.style.borderColor=''}if(ad&&mstPkForm.ad)ad.value=mstPkForm.ad;
  mstPkSave.edited={kod:true,ad:!!mstPkForm.ad};
  var sel=g('pk_form_type');if(sel)sel.value=t.uid;
@@ -2985,7 +3013,7 @@ function mstPkFormPick(uid){
 function mstPkFormSame(sec,sl,sr){
  var t=mstPkForm.uid?typeByUid(mstPkForm.uid):null,rs=t?mstPkRecSig(t):null;
  if(!rs||window.mstChSection.valid(sec).length)return false;
- if((t.seat_left_m===null||t.seat_left_m===undefined)&&(t.seat_right_m===null||t.seat_right_m===undefined))return mstPkSectionSig(sec)===mstPkSectionSig(mstPkSectionOf(t));   // eski kayıt (oturma yok): yalnız kesit (main.rb mst_pk_rec_same_geom? / mst_pk_form_type_link ile aynı)
+ if(mstPkSeatNil(t.seat_left_m)&&mstPkSeatNil(t.seat_right_m))return mstPkSectionSig(sec)===mstPkSectionSig(mstPkSectionOf(t));   // eski kayıt (oturma yok): yalnız kesit (main.rb mst_pk_rec_same_geom? / mst_pk_form_type_link ile aynı)
  return mstPkGeomSig(sec,sl,sr)===rs;
 }
 // create_channel_precast isteğine eklenecek tip_uid ('' = gönderilmez)
@@ -3032,8 +3060,9 @@ document.addEventListener('DOMContentLoaded',function(){['channel_concrete_class
        fw:{bottom,sides,inner,ends,ledge}, channel_top_ref (boşsa null), kapsam:"yapi"|"model"}; yapi gönderilmez (etkin yapıyı Ruby
        belirler). Uygunluk, kapsam, revizyon ve onay denetimi Ruby'dedir; burada yalnız istek ve gösterim. Plan alındıktan sonra form
        veya kapsam değişirse onay pasif olur (plan yenilenmeli).
-   PK Sil: sketchup.pk_delete() (seçili PK'lar) → window.mstPkDeleted(p). */
-var mstPkUpd={kapsam:'yapi',busy:'',plan:null,planKey:'',planReq:null,res:null,html:null};
+   PK Sil: sketchup.pk_delete_preview() → window.mstPkDeletePreview(p) → onay → sketchup.pk_delete() (seçili PK'lar) → window.mstPkDeleted(p). */
+// Ö3: apply isteği plan_pids (plandaki ornekler[].pid) taşır; yanıt durum:"plan_degisti" → planStale (onay pasif, plan yeniden alınır)
+var mstPkUpd={kapsam:'yapi',busy:'',plan:null,planKey:'',planReq:null,planStale:false,res:null,html:null};
 function mstPkEditOn(){return !!(mstPkForm.uid&&mstPkForm.diverged&&typeByUid(mstPkForm.uid))}
 function mstPkUpdRequest(){
  var f=mstPkFormRequest();
@@ -3080,14 +3109,14 @@ function mstPkUpdPlanHtml(key){
  if(wr.length)h+='<div class="pk-dims"><b>Uyarılar (güncellemeyi engellemez):</b></div><ul class="pk-why">'+wr.map(function(o){return '<li>'+esc(o.kod||'PK')+(o.yapi?' · '+esc(o.yapi):'')+': '+esc(o.uyarilar.join('; '))+'</li>'}).join('')+'</ul>';
  if(ex.length)h+='<div class="pk-dims"><b>Kapsam dışında kalan yapılar (eski revizyonda kalır):</b> '+ex.map(function(x){x=x||{};return yn(x.yapi,'')+' '+(num(x.adet)?x.adet:'?')+' adet'}).join('; ')+'</div>';
  h+='<div class="pk-dims"><span class="pk-tag est">METRAJ DEĞİŞİR</span> '+(p.geom_degisti?'Kesit / oturma değişiyor: güncellenen PK\'ların beton ve kalıp metrajı ile bağlı döşemelerin PK boşluğu yeniden kurulur.':'Kesit ve oturma aynı; beton sınıfı / kalıp seçimi değişikliği metrajı değiştirebilir.')+'</div>';
- var why=U.busy==='apply'?'Güncelleniyor… yanıt bekleniyor.':stale?'Form veya kapsam plan alındıktan sonra değişti; "Planı göster" ile planı yenileyin.':!p.baslatilabilir?(p.neden||(bad.length?'Uymayan örnek var; güncelleme başlatılmaz.':'Güncelleme başlatılamaz.')):'';
+ var why=U.busy==='apply'?'Güncelleniyor… yanıt bekleniyor.':U.planStale?'Model değişti; planı yeniden alın ("Planı göster").':stale?'Form veya kapsam plan alındıktan sonra değişti; "Planı göster" ile planı yenileyin.':!p.baslatilabilir?(p.neden||(bad.length?'Uymayan örnek var; güncelleme başlatılmaz.':'Güncelleme başlatılamaz.')):'';
  h+='<div class="pk-pick-actions" style="margin-top:4px"><button type="button" id="pkUpdApplyBtn" class="channel-model" onclick="mstPkUpdApply()"'+(why?' disabled title="'+esc(why)+'"':'')+'>Onayla ve güncelle (tek Ctrl+Z ile geri alınır)</button></div>'+(why?'<div class="pk-dims"><span class="pk-tag bad">BAŞLATILAMAZ</span> '+esc(why)+'</div>':'');
  return h+'</div>';
 }
 function mstPkUpdPlan(){
  if(!(window.sketchup&&sketchup.pk_type_update_plan)||!mstPkEditOn()||mstPkUpd.busy||mstPkSave.busy)return;
  if(window.mstChSection.valid(chReadSection()).length){updateChannelPrecastUI();return}
- var q=mstPkUpdRequest();mstPkUpd.planReq=q;mstPkUpd.planKey=JSON.stringify(q);mstPkUpd.plan=null;mstPkUpd.res=null;mstPkUpd.busy='plan';
+ var q=mstPkUpdRequest();mstPkUpd.planReq=q;mstPkUpd.planKey=JSON.stringify(q);mstPkUpd.plan=null;mstPkUpd.planStale=false;mstPkUpd.res=null;mstPkUpd.busy='plan';
  mstPkUpdResultRender();mstPkEditRender();
  sketchup.pk_type_update_plan(JSON.stringify(q));
 }
@@ -3098,23 +3127,24 @@ window.mstPkTypePlan=function(p){
 };
 function mstPkUpdApply(){
  var U=mstPkUpd,p=U.plan,q={},k;
- if(!(window.sketchup&&sketchup.pk_type_update_apply)||U.busy||!p||!p.ok||!p.baslatilabilir||!U.planReq||!mstPkEditOn())return;
+ if(!(window.sketchup&&sketchup.pk_type_update_apply)||U.busy||!p||!p.ok||!p.baslatilabilir||!U.planReq||U.planStale||!mstPkEditOn())return;
  if(JSON.stringify(mstPkUpdRequest())!==U.planKey){mstPkEditRender();return}   // plan eskidi: gönderilmez
  for(k in U.planReq)if(Object.prototype.hasOwnProperty.call(U.planReq,k))q[k]=U.planReq[k];
+ q.plan_pids=(Array.isArray(p.ornekler)?p.ornekler:[]).map(function(o){return o&&typeof o==='object'?o.pid:null}).filter(mstPtHas);   // Ö3: onaylanan örnekler
  q.onay=true;U.busy='apply';mstPkEditRender();
  sketchup.pk_type_update_apply(JSON.stringify(q));
 }
 window.mstPkTypeUpdated=function(p){
  p=(p&&typeof p==='object')?p:{ok:false,neden:'Güncelleme yanıtı okunamadı.'};
- var U=mstPkUpd,uid=(p.tip&&p.tip.uid)||(U.planReq&&U.planReq.tip_uid)||mstPkForm.uid;
+ var U=mstPkUpd,uid=(p.tip&&p.tip.uid)||(U.planReq&&U.planReq.tip_uid)||mstPkForm.uid,d=String(p.durum||'');
  U.busy='';U.res=p;
  if(p.ok){
   U.plan=null;U.planReq=null;U.planKey='';
-  var kj=p.kutuphane_json;if(kj!==null&&kj!==undefined&&typeof kj!=='string')kj=JSON.stringify(kj);
-  if(kj){loadPrecastTypeLibrary(kj);if(typeByUid(uid))mstPkFormPick(uid);else updateChannelPrecastUI()}   // form güncellenmiş kayıttan yeniden yüklenir
-  else updateChannelPrecastUI();
+  if(mstPkLoadLibJson(p)&&typeByUid(uid))mstPkFormPick(uid);else updateChannelPrecastUI();   // form güncellenmiş kayıttan yeniden yüklenir
   mstPkRefresh();
  }
+ else if(d==='plan_degisti')U.planStale=true;
+ else if(d==='liste_bayat'){U.planStale=true;mstPkLoadLibJson(p);updateChannelPrecastUI();mstPkRefresh()}   // E1: form korunur, liste model gerçeği
  mstPkUpdResultRender();mstPkEditRender();
 };
 function mstPkUpdResultRender(){
@@ -3122,7 +3152,10 @@ function mstPkUpdResultRender(){
  if(!p){box.innerHTML='';return}
  var t=(p.tip&&typeof p.tip==='object')?p.tip:{},wl=mstPkWarnList(p.uyarilar);
  if(p.ok)box.innerHTML='<div class="pk-pair"><span class="pk-tag ok">TİP GÜNCELLENDİ</span> '+esc(t.kod||'PK tipi')+(typeof t.rev==='number'?' revizyon '+t.rev:'')+': '+(typeof p.guncellenen==='number'?p.guncellenen+' adet PK güncellendi':'güncellenen PK sayısı yanıtta yok')+' (tek Ctrl+Z ile geri alınır). Kapsam dışındaki örnekler eski revizyonda kaldı.'+wl+'</div>';
- else box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">TİP GÜNCELLENMEDİ</span> '+esc(p.neden||'PK tipi güncellenemedi.')+wl+'</div>';
+ else{
+  var d=String(p.durum||''),ex=d==='plan_degisti'?'Model değişti; planı yeniden alın ("Planı göster"). Model değiştirilmedi.':d==='liste_bayat'?MST_PK_BAYAT:'';
+  box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">TİP GÜNCELLENMEDİ</span> '+esc(p.neden||(d==='plan_degisti'?'Plan alındıktan sonra kapsamdaki PK\'lar değişti.':'PK tipi güncellenemedi.'))+(ex?'<div class="pk-dims">'+esc(ex)+'</div>':'')+wl+'</div>';
+ }
 }
 // (b) Yalnız seçili PK'lar: PK Tipi Olarak Kaydet isteği + uygula:"secim" (aynı geometri / kod çakışması kararı aynı akışta, uygula korunur)
 function mstPkApplySel(){
@@ -3132,13 +3165,26 @@ function mstPkApplySel(){
  q.uygula='secim';mstPkSaveSend(q,'form');
 }
 // PK Sil (karar 7): seçili PK'lar + bağlı döşemelerin PK boşluğu aynı normal işlemde (Ruby); burada onay ve sonuç gösterimi
+// K6: önce salt okuma önizlemesi sketchup.pk_delete_preview() → window.mstPkDeletePreview({ok, neden, adet, kodlar, dosemeler});
+// onay iletisinde adet / kodlar / döşeme sayısı; ok=false ya da adet okunamazsa silme yok. busy: false | 'onizleme' | 'sil'
 var mstPkDel={busy:false,res:null};
 function mstPkDelete(){
- if(!(window.sketchup&&sketchup.pk_delete)||mstPkDel.busy)return;
- if(!confirm('SketchUp\'ta seçili kanal prekastları (PK) silinecek.\n\nBağlı döşemelerin PK boşluğu aynı işlemde yeniden kurulur; beton ve kalıp metrajı değişir.\nTek Ctrl+Z ile geri alınır.\n\nSilinsin mi?'))return;
- mstPkDel.busy=true;mstPkDel.res=null;mstPkDelRender();
- sketchup.pk_delete();
+ if(!(window.sketchup&&sketchup.pk_delete&&sketchup.pk_delete_preview)||mstPkDel.busy)return;
+ mstPkDel.busy='onizleme';mstPkDel.res=null;mstPkDelRender();
+ sketchup.pk_delete_preview();
 }
+window.mstPkDeletePreview=function(p){
+ if(mstPkDel.busy!=='onizleme')return;   // istenmemiş / geç gelen önizleme yok sayılır
+ p=(p&&typeof p==='object')?p:{ok:false,neden:'Silme önizlemesi okunamadı.'};
+ mstPkDel.busy=false;
+ var cnt=function(v){return typeof v==='number'&&isFinite(v)?v:(Array.isArray(v)?v.length:null)},n=cnt(p.adet),d=cnt(p.dosemeler);
+ if(!p.ok||n===null||n<=0){mstPkDel.res={ok:false,neden:p.neden||(n===0?'Seçimde kanal prekastı (PK) yok; modelde PK seçin.':'Silinecek PK sayısı okunamadı.')+' Silme yapılmadı.'};mstPkDelRender();return}
+ var kl=(Array.isArray(p.kodlar)?p.kodlar:[]).filter(mstPtHas).map(String),ks=kl.slice(0,12).join(', ')+(kl.length>12?' … (+'+(kl.length-12)+')':'');
+ var msg=n+' adet PK'+(ks?' ('+ks+')':'')+' silinecek, '+(d===null?'bağlı döşeme sayısı okunamadı':d+' döşeme yeniden kurulacak')+'.\n\nSilinecekler SketchUp\'ta seçili kanal prekastlarıdır. Bağlı döşemelerin PK boşluğu aynı işlemde yeniden kurulur; beton ve kalıp metrajı değişir.\nTek Ctrl+Z ile geri alınır.\n\nSilinsin mi?';
+ if(!confirm(msg)){mstPkDelRender();return}
+ mstPkDel.busy='sil';mstPkDelRender();
+ sketchup.pk_delete();
+};
 window.mstPkDeleted=function(p){
  p=(p&&typeof p==='object')?p:{ok:false,neden:'Silme yanıtı okunamadı.'};
  mstPkDel.busy=false;mstPkDel.res=p;mstPkDelRender();
@@ -3146,9 +3192,9 @@ window.mstPkDeleted=function(p){
 };
 function mstPkDelRender(){
  var b=document.getElementById('pkDeleteBtn'),box=document.getElementById('pkDeleteResult'),p=mstPkDel.res;
- if(b)b.disabled=mstPkDel.busy;
+ if(b)b.disabled=!!mstPkDel.busy;
  if(!box)return;
- if(mstPkDel.busy){box.innerHTML='<div class="pk-pair">Siliniyor… bağlı döşemelerin PK boşluğu güncelleniyor.</div>';return}
+ if(mstPkDel.busy){box.innerHTML='<div class="pk-pair">'+(mstPkDel.busy==='onizleme'?'Silinecek PK\'lar denetleniyor… (model değişmez)':'Siliniyor… bağlı döşemelerin PK boşluğu güncelleniyor.')+'</div>';return}
  if(!p){box.innerHTML='';return}
  var cnt=function(v){return typeof v==='number'&&isFinite(v)?v:(Array.isArray(v)?v.length:null)},n=cnt(p.silinen),d=cnt(p.dosemeler),wl=mstPkWarnList(p.uyarilar);
  if(p.ok)box.innerHTML='<div class="pk-pair"><span class="pk-tag ok">SİLİNDİ</span> '+(n===null?'Seçili PK\'lar':n+' adet PK')+' silindi'+(d===null?'':'; '+d+' döşemenin PK boşluğu güncellendi')+' (tek Ctrl+Z ile geri alınır).'+wl+'</div>';
