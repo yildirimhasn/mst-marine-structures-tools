@@ -10,6 +10,7 @@
 require 'json'
 require 'fileutils'
 require 'securerandom'
+require 'digest'
 module MAG
 module MarineStructuresTools
 
@@ -54,6 +55,35 @@ def mst_pkf_read(path=mst_pkf_path)
   {'durum'=>tl.empty? ? 'bos' : 'tamam','neden'=>nil,'data'=>data,'tipler'=>tl,'salt'=>false}
 end
 
+# K7 (42): dosyanın okunduğu andaki damgası (değişiklik zamanı + boy + içerik özeti; yoksa nil). Yazmadan hemen önce (kilit altında)
+# yeniden alınır; farklıysa dosya okunduktan sonra başka yerde (ör. ikinci SketchUp) değişmiştir → yazılmaz.
+def mst_pkf_stamp(path)
+  return nil unless File.exist?(path)
+  [File.mtime(path).to_f,File.size(path),Digest::SHA256.hexdigest(File.binread(path))]
+end
+
+# K7: kütüphane dosyası yazım kilidi (<dosya>.lock, File::EXCL ile atomik oluşturma). MST_PKF_LOCK_S saniyeden eski kilit terk edilmiş sayılır
+# (kaldırılır, bir kez yeniden denenir). Kilit alınamazsa nil döner, blok çalışmaz (çağıran yazmaz, neden bildirir). Blok sonunda kilit silinir.
+MST_PKF_LOCK_S=120
+def mst_pkf_with_lock(path)
+  lk=path+'.lock';FileUtils.mkdir_p(File.dirname(path));got=false
+  2.times do
+    begin
+      File.open(lk,File::WRONLY|File::CREAT|File::EXCL){|f|f.write("#{Process.pid} #{Time.now.strftime('%Y-%m-%dT%H:%M:%S')}")}
+      got=true;break
+    rescue Errno::EEXIST
+      break unless (Time.now-File.mtime(lk) rescue 0)>MST_PKF_LOCK_S
+      File.delete(lk) rescue nil
+    end
+  end
+  return nil unless got
+  begin
+    yield
+  ensure
+    File.delete(lk) if File.exist?(lk)
+  end
+end
+
 # Kaydın geometri imzası: kesit + oturmadan yeniden hesaplanır (bayat saklı imzaya güvenilmez); hesaplanamazsa saklı geom_sig; yoksa nil.
 def mst_pkf_sig(t)
   s=begin
@@ -70,7 +100,7 @@ def mst_pkf_sig(t)
 end
 
 def mst_pkf_kod(t);t['name'].to_s.strip;end
-def mst_pkf_same_kod?(a,b);!mst_pkf_kod(a).empty? && mst_pkf_kod(a).downcase==mst_pkf_kod(b).downcase;end
+def mst_pkf_same_kod?(a,b);mst_pk_same_code?(mst_pkf_kod(a),mst_pkf_kod(b));end   # K5: tek kod kuralı (main.rb mst_pk_code_key)
 def mst_pkf_same_sig?(a,b);sa=mst_pkf_sig(a);!sa.nil? && sa==mst_pkf_sig(b);end
 def mst_pkf_rev(t);t['pk_rev'].to_i;end
 
@@ -136,6 +166,7 @@ def mst_pk_lib_file_export(rq,model=Sketchup.active_model)
   return fail.('Dışa verilecek PK tipi seçilmedi.') if uids.empty?
   mlib=mst_pkf_model_lib(model)
   return fail.('Modeldeki prekast tip kütüphanesi okunamadı; dışa verme yapılmadı.') unless mlib
+  st0=mst_pkf_stamp(path)   # K7: okunan sürüm (damga okumadan önce alınır; arada değişirse yazımda fark edilir)
   f=mst_pkf_read(path)
   return fail.(f['neden']) if f['durum']=='bozuk' || f['salt']
   data=f['data'] || {'format'=>MST_PKF_FORMAT,'v'=>MST_PKF_V,'tipler'=>[]}
@@ -165,11 +196,21 @@ def mst_pk_lib_file_export(rq,model=Sketchup.active_model)
   end
   return out if out['eklenen']+out['guncellenen']==0
   raw=JSON.pretty_generate(data.merge('tipler'=>list))
+  res=nil
   begin
-    mst_pkf_atomic_write(path,raw)
+    lk=mst_pkf_with_lock(path) do   # K7: kilit altında damga denetimi + atomik yazım
+      if mst_pkf_stamp(path)!=st0
+        res=fail.('PK kütüphanesi dosyası okunduktan sonra başka yerde değişti; dosyaya yazılmadı. Listeyi yenileyip yeniden deneyin.')
+      else
+        mst_pkf_atomic_write(path,raw)
+      end
+      true
+    end
+    res||=fail.('PK kütüphanesi dosyası başka bir işlem tarafından kullanılıyor (kilit alınamadı); dosyaya yazılmadı. Biraz sonra yeniden deneyin.') unless lk
   rescue => e
     return fail.("PK kütüphanesi dosyası yazılamadı; önceki dosya korundu: #{e.message}").merge('eklenen'=>0,'guncellenen'=>0)
   end
+  return res.merge('eklenen'=>0,'guncellenen'=>0) if res
   out
 end
 
@@ -187,9 +228,11 @@ def mst_pk_lib_file_import(rq,model=Sketchup.active_model,elems=nil)
   return fail.('PK kütüphanesi dosyası boş.') if f['durum']=='bos'
   mlib=mst_pkf_model_lib(model)
   return fail.('Modeldeki prekast tip kütüphanesi okunamadı; üzerine yazılmadı.') unless mlib
-  lib=rq.key?('kutuphane') && !rq['kutuphane'].nil? ? rq['kutuphane'] : mlib
-  return fail.('Arayüzden gelen tip listesi okunamadı; içe alma yapılmadı.') unless lib.is_a?(Array) && lib.all?{|t|t.is_a?(Hash)}
-  lib=lib.dup
+  # E1 (42): kaynak modeldeki liste; istekteki liste yalnız bayatlık denetimi (main.rb mst_pk_lib_stale?)
+  st=mst_pk_lib_stale?(rq,mlib)
+  return fail.('Arayüzden gelen tip listesi okunamadı; içe alma yapılmadı.').merge('kutuphane_json'=>lj.()) if st==:bad
+  return fail.(MST_PK_STALE_MSG).merge('durum'=>'liste_bayat','kutuphane_json'=>lj.()) if st
+  lib=mlib.dup
   skip=->(kod,why){out['atlanan'] << {'kod'=>kod,'neden'=>why}}
   added=[]
   uids.each do |u|
@@ -224,11 +267,13 @@ def mst_pk_lib_file_import(rq,model=Sketchup.active_model,elems=nil)
     end
     ssig=(mst_pk_section_sig(g['section']) rescue nil)
     clash=elems.find do |e|
-      next false unless e.valid? && MST_PRECAST_TYPES.include?(e.get_attribute(DICT,'element_type','').to_s) && mst_precast_type_id(e).downcase==kod.downcase
+      next false unless e.valid? && MST_PRECAST_TYPES.include?(e.get_attribute(DICT,'element_type','').to_s) && mst_pk_same_code?(mst_precast_type_id(e),kod)   # K5
       e.get_attribute(DICT,'element_type','').to_s!='channel_precast' || (mst_pk_section_sig(mst_pk_geom(e,false)['section']) rescue nil)!=ssig
     end
     next skip.(kod,"'#{kod}' kodu modelde farklı ölçülü/sınıflı bir prekastta kullanılıyor; içe alınmadı.") if clash
     rc=JSON.parse(JSON.generate(mst_pk_json_safe(t)))
+    # K4 (42): doğrulanmış kod ve kesit + oturmadan yeniden hesaplanan geom_sig yazılır (dosyadaki bayat imza / ham kod modele girmez)
+    rc['name']=k2;rc['geom_sig']=mst_pk_geom_sig(g['section'],t['seat_left_m'],t['seat_right_m'])
     lib << rc;added << rc
   end
   return out.merge('kutuphane_json'=>lj.()) if added.empty?
@@ -242,6 +287,38 @@ def mst_pk_lib_file_import(rq,model=Sketchup.active_model,elems=nil)
     return fail.("PK tipleri içe alınamadı; işlem geri alındı: #{ex.message}").merge('kutuphane_json'=>lj.())
   end
   out.merge('eklenen'=>added.size,'kutuphane_json'=>lj.())
+end
+
+# E1 ek (42): Geri Al / Yinele sonrası açık penceredeki PK tip listesi model gerçeğiyle yenilenir (loadPrecastTypeLibrary + mstPkRefresh).
+# Gözlemci modeli DEĞİŞTİRMEZ (yalnız öznitelik okur, betik çalıştırır); hata yutulmaz, Ruby konsoluna yazılır. Pencere açılınca bağlanır
+# (show_dialog), kapanınca çözülür.
+class MstPkUndoObserver < Sketchup::ModelObserver
+  def onTransactionUndo(model);MarineStructuresTools.mst_pk_lib_notify(model);end
+  def onTransactionRedo(model);MarineStructuresTools.mst_pk_lib_notify(model);end
+end
+
+def mst_pk_lib_notify(model)
+  d=@d
+  return unless d && d.visible? && model
+  raw=model.get_attribute(DICT,'precast_type_library_json','').to_s
+  d.execute_script("window.loadPrecastTypeLibrary && loadPrecastTypeLibrary(#{JSON.generate(raw)});window.mstPkRefresh && mstPkRefresh()")
+rescue => e
+  puts "MST: Geri Al sonrası PK tip listesi arayüze bildirilemedi: #{e.message}"
+end
+
+def mst_pk_undo_attach(model)
+  return unless model && model.respond_to?(:add_observer)
+  return if @mst_pk_undo_obs && @mst_pk_undo_model.equal?(model)
+  mst_pk_undo_detach
+  @mst_pk_undo_obs=MstPkUndoObserver.new;model.add_observer(@mst_pk_undo_obs);@mst_pk_undo_model=model
+end
+
+def mst_pk_undo_detach
+  @mst_pk_undo_model.remove_observer(@mst_pk_undo_obs) if @mst_pk_undo_model && @mst_pk_undo_obs && @mst_pk_undo_model.respond_to?(:remove_observer)
+rescue => e
+  puts "MST: PK Geri Al gözlemcisi çözülemedi: #{e.message}"
+ensure
+  @mst_pk_undo_obs=nil;@mst_pk_undo_model=nil
 end
 
 # HtmlDialog callback'leri → window.mstPkLibFile / mstPkLibFileExported / mstPkLibFileImported; her durumda yanıt verilir.

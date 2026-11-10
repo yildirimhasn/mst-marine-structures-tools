@@ -4315,9 +4315,9 @@ def takeoff(mode='all',want=nil)
  pd_html=pd.empty? ? "" : "<h3 style='margin-top:24px'>Prekast (PD)</h3><table><tr><th>PD Tipi</th><th>Beton Sınıfı</th><th>Genişlik</th><th>Yükseklik</th><th>Adet</th><th>Beton</th><th>Kalıp</th><th>Donatı</th></tr>#{pd_rows}<tr class='total'><td>TOPLAM</td><td>-</td><td>-</td><td>-</td><td>#{pd.length}</td><td>#{format('%.3f',pd_vol)} m³</td><td>#{format('%.2f',pd_fw)} m²</td><td>#{format('%.3f',mst_rebar_sum(pd)['kg']/1000.0)} t</td></tr></table>"
  ch=a.select{|e|e.get_attribute(DICT,'element_type')=='channel_precast'};ch_rows=String.new
  # 38 K1 / 39: U dışı PK iç ölçüleri 0 — gruplama ön ayar + kesit imzasıyla, satırda kesit özeti (toplamlar değişmez)
- ch.group_by{|g|cs=mst_ch_custom_section(g);[g.get_attribute(DICT,'precast_type_id',g.get_attribute(DICT,'precast_id','PK')).to_s,g.get_attribute(DICT,'concrete_class','-')]+(cs ? [cs['preset'],mst_ch_geom_sig(cs)] : [g.get_attribute(DICT,'inner_width_m',0).to_f,g.get_attribute(DICT,'inner_depth_m',0).to_f,g.get_attribute(DICT,'base_thickness_m',0).to_f,g.get_attribute(DICT,'wall_thickness_m',0).to_f])}.each do |k,arr|
-  dims=k.length==4 ? "<td colspan='4'>kesit #{html_escape(mst_ch_summary(mst_ch_custom_section(arr[0])))}</td>" : "<td>#{format('%.2f',k[2])}</td><td>#{format('%.2f',k[3])}</td><td>#{format('%.2f',k[4])}</td><td>#{format('%.2f',k[5])}</td>"
-  vv=arr.sum{|g|g.get_attribute(DICT,'concrete_volume_m3',0).to_f};ff=arr.sum{|g|g.get_attribute(DICT,'formwork_area_m2',0).to_f};ll=arr.sum{|g|g.get_attribute(DICT,'length_m',0).to_f};ch_rows<<"<tr><td>#{html_escape(k[0])}</td><td>#{k[1]}</td>#{dims}<td>#{arr.length}</td><td>#{format('%.2f',ll)} m</td><td>#{format('%.3f',vv)} m³</td><td>#{format('%.2f',ff)} m²</td><td>#{format('%.3f',mst_rebar_sum(arr)['kg']/1000.0)} t</td></tr>"
+ ch.group_by{|g|cs=mst_ch_custom_section(g);[g.get_attribute(DICT,'precast_type_id',g.get_attribute(DICT,'precast_id','PK')).to_s,g.get_attribute(DICT,'concrete_class','-')]+(cs ? [cs['preset'],mst_ch_geom_sig(cs)] : [g.get_attribute(DICT,'inner_width_m',0).to_f,g.get_attribute(DICT,'inner_depth_m',0).to_f,g.get_attribute(DICT,'base_thickness_m',0).to_f,g.get_attribute(DICT,'wall_thickness_m',0).to_f])+[(rv=g.get_attribute(DICT,'precast_type_rev',nil);mst_pk_seat_blank?(rv) ? '' : rv.to_i)]}.each do |k,arr|   # karar 11: revizyon ayrı satır (yoksa '' → eski satırlar aynı)
+  dims=k.length==5 ? "<td colspan='4'>kesit #{html_escape(mst_ch_summary(mst_ch_custom_section(arr[0])))}</td>" : "<td>#{format('%.2f',k[2])}</td><td>#{format('%.2f',k[3])}</td><td>#{format('%.2f',k[4])}</td><td>#{format('%.2f',k[5])}</td>"
+  vv=arr.sum{|g|g.get_attribute(DICT,'concrete_volume_m3',0).to_f};ff=arr.sum{|g|g.get_attribute(DICT,'formwork_area_m2',0).to_f};ll=arr.sum{|g|g.get_attribute(DICT,'length_m',0).to_f};ch_rows<<"<tr><td>#{html_escape(k[0]+mst_pk_rev_label(arr))}</td><td>#{k[1]}</td>#{dims}<td>#{arr.length}</td><td>#{format('%.2f',ll)} m</td><td>#{format('%.3f',vv)} m³</td><td>#{format('%.2f',ff)} m²</td><td>#{format('%.3f',mst_rebar_sum(arr)['kg']/1000.0)} t</td></tr>"
  end
  ch_vol=ch.sum{|g|g.get_attribute(DICT,'concrete_volume_m3',0).to_f};ch_fw=ch.sum{|g|g.get_attribute(DICT,'formwork_area_m2',0).to_f};ch_len=ch.sum{|g|g.get_attribute(DICT,'length_m',0).to_f}
  ch_html=ch.empty? ? "" : "<h3 style='margin-top:24px'>PK — Kanal Prekastı</h3><table><tr><th>Tip</th><th>Beton</th><th>İç Genişlik</th><th>İç Derinlik</th><th>Taban</th><th>Duvar</th><th>Adet</th><th>Toplam Boy</th><th>Beton</th><th>Kalıp</th><th>Donatı</th></tr>#{ch_rows}<tr class='total'><td>TOPLAM</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>#{ch.length}</td><td>#{format('%.2f',ch_len)} m</td><td>#{format('%.3f',ch_vol)} m³</td><td>#{format('%.2f',ch_fw)} m²</td><td>#{format('%.3f',mst_rebar_sum(ch)['kg']/1000.0)} t</td></tr></table>"
@@ -4576,7 +4576,8 @@ def create_flat_precast(data=nil)
   [r['count'].to_i,1].max.times{pieces<<t}
  end
  if seat<0||joint<0||pieces.empty?;UI.messagebox('Prekast tip kütüphanesi / yerleşim bilgileri geçersiz.');return;end
- names=lib.map{|t|t['name'].to_s.strip};if names.any?(&:empty?)||names.map(&:downcase).uniq.length!=names.length;UI.messagebox('Prekast tip adları boş olamaz ve benzersiz olmalıdır.');return;end
+ names=lib.map{|t|t['name'].to_s.strip};if names.any?(&:empty?)||lib.map{|t|t['family'].to_s=='PK' ? mst_pk_code_key(t['name']) : t['name'].to_s.strip.downcase}.uniq.length!=names.length;   # K5: PK kodu mst_pk_code_key (PD / PV aynı kural)
+ UI.messagebox('Prekast tip adları boş olamaz ve benzersiz olmalıdır.');return;end
  plen=clear+2*m(seat);lm=plen.to_f/39.37007874015748;x0=lb.bounds.max.x-m(seat);support_y0=[lb.bounds.min.y,rb.bounds.min.y].max;y=support_y0+m(yoff)
  fl=%w[pd_fw_bottom pd_fw_long1 pd_fw_long2 pd_fw_end1 pd_fw_end2 pd_fw_top].map{|k|data[k]=='1'}
  pd_form_hex=data['pd_formwork_color'].to_s.strip;pd_form_hex='#66A9E8' if pd_form_hex.empty?;pd_form_mat=material_for(model,"MAG PD Kalıp #{pd_form_hex}",pd_form_hex)
@@ -4599,6 +4600,21 @@ def create_flat_precast(data=nil)
   # 38 Ö1 (Z): POCKET / SUPPORT alt kotu dünya (cep tabanı / BK üstü); yerleşim kapsayıcının uzayında → kapsayıcının z ötelemesi düşülür (öznitelik dünya kotu kalır)
   pk_lz=%w[POCKET SUPPORT].include?(pk_elev['mode']) ? Geom::Point3d.new(x0,y,0).transform(mst_world_tr(lb)).z.to_f/MST_IN_PER_M : 0.0
   [tg['bottom'],tg['top'],mst_pk_elev_attrs(pk_elev,p,q)]
+ end
+ # 43/1 (metraj kontrolü): döşeme prekast cebi açıklık başına tek dikdörtgen (mst_deck_plan DS1.3) → açıklıktaki tüm prekastların oturması
+ # (boyu) aynı olmalı. PK tip kaydının oturması form / PD oturmasından ya da açıklıkta zaten yerleşik prekastların boyundan farklıysa yerleşim
+ # yapılmaz (işlem açılmadan, Türkçe neden). Okunamayan kayıt oturması burada atlanır; aşağıda (PK satırı) aynı hatayla durur.
+ sts=pieces.map{|t|[t['name'].to_s.strip,(t['family'].to_s=='PK' ? ((mst_pk_rec_seat(t)[0] rescue nil) || seat) : seat)]}
+ if sts.map{|_,s|mst_pk_n4(s)}.uniq.length>1
+  dif=sts.find{|_,s|mst_pk_n4(s)!=mst_pk_n4(seat)} || sts.first
+  UI.messagebox("Prekast yerleşimi yapılmadı: #{dif[0]} tipinin oturması (#{mst_pk_f3c(dif[1])} m) yerleşimdeki diğer prekastların oturmasından (#{mst_pk_f3c(seat)} m) farklı. Döşeme cebi açıklıkta tek dikdörtgen kesildiği için döşeme betonu yanlış hesaplanır. PK tipini aynı oturmayla kaydedin ya da yalnız aynı oturmalı tipleri yerleştirin.")
+  return
+ end
+ ex=[];collect_elements(model.entities,ex);spair=[lb.persistent_id,rb.persistent_id].sort;nlen=(clear+2*m(sts.first[1])).to_f/39.37007874015748
+ bad=ex.find{|g|g.valid? && MST_PRECAST_TYPES.include?(g.get_attribute(DICT,'element_type','').to_s) && %w[support_left_pid support_right_pid].map{|k|g.get_attribute(DICT,k,0).to_i}.sort==spair && (g.get_attribute(DICT,'length_m',0).to_f-nlen).abs>1e-3}
+ if bad
+  UI.messagebox("Prekast yerleşimi yapılmadı: açıklıkta yerleşik #{element_visible_id(bad)} boyu (#{mst_pk_f3c(bad.get_attribute(DICT,'length_m',0).to_f)} m) yeni prekastların boyundan (#{mst_pk_f3c(nlen)} m) farklı (oturma farkı). Döşeme cebi açıklıkta tek dikdörtgen kesildiği için döşeme betonu yanlış hesaplanır.")
+  return
  end
  model.start_operation('Prekast Yerleşimi - Çoklu Tip',true) unless @precast_batch_mode   # K15: toplu yerleşimde çağıranın işlemi
  begin
@@ -10757,7 +10773,8 @@ def show_dialog
  @d.add_action_callback('relationship_audit'){|_|relationship_audit_show}
  @d.add_action_callback('project_workspace_refresh'){|_|project_workspace_refresh(@d)}
  @d.add_action_callback('project_workspace_action'){|_,raw|project_workspace_action(raw,@d)}
- @d.set_on_closed{project_workspace_detach;@mst_ui_page=nil}   # G1: açık sayfa kaydı pencereyle biter
+ @d.set_on_closed{project_workspace_detach;mst_pk_undo_detach;@mst_ui_page=nil}   # G1: açık sayfa kaydı pencereyle biter; 42 E1: Geri Al bildirimi çözülür
+ mst_pk_undo_attach(Sketchup.active_model)   # 42 E1: Geri Al / Yinele sonrası PK tip listesi model gerçeğiyle yenilenir (pk_library_file.rb)
  @d.add_action_callback('generatePileLayout'){|_,j|generate_layout(JSON.parse(j))}
  @d.add_action_callback('pile_load_central_grid'){|_|begin
    model=Sketchup.active_model
@@ -11128,6 +11145,7 @@ def show_dialog
  @d.add_action_callback('pk_type_update_plan'){|_,j|mst_pk_send_update_plan(@d,j)}   # ADR-0515-K3 P4: Tüm örnekler — salt okuma plan (mstPkTypePlan)
  @d.add_action_callback('pk_type_update_apply'){|_,j|mst_pk_send_update_apply(@d,j)}   # ADR-0515-K3 P4: MST PK Tipini Güncelle (mstPkTypeUpdated)
  @d.add_action_callback('pk_delete'){|_,j|mst_pk_send_delete(@d,j)}   # ADR-0515-K3 P4: PK Sil (mstPkDeleted)
+ @d.add_action_callback('pk_delete_preview'){|_,j|mst_pk_send_delete_preview(@d,j)}   # 42 K6: PK Sil onayı öncesi salt okuma (mstPkDeletePreview)
  @d.add_action_callback('pk_lib_file_list'){|_|mst_pk_send_lib_file_list(@d)}   # ADR-0515-K3 P5: kullanıcı PK kütüphanesi dosyası — salt okuma (mstPkLibFile)
  @d.add_action_callback('pk_lib_file_export'){|_,j|mst_pk_send_lib_file_export(@d,j)}   # ADR-0515-K3 P5: dosyaya dışa ver, model değişmez (mstPkLibFileExported)
  @d.add_action_callback('pk_lib_file_import'){|_,j|mst_pk_send_lib_file_import(@d,j)}   # ADR-0515-K3 P5: MST PK Tiplerini İçe Al (mstPkLibFileImported)
@@ -12641,6 +12659,7 @@ end
 def mst_apply_precast_resize!(rs,ctx={})
   e=rs['element'];return false unless e && e.valid?
   e.transform!(Geom::Transformation.translation([m(rs['dx']),m(rs['dy']),0]))
+  mst_make_unique_keep_data!(e) if e.is_a?(Sketchup::Group) && e.definition.count_instances>1   # Ö1 (42) aynı desen: kopya Group tanımı paylaşıyorsa yeniden kurulumdan önce ayrılır
   case (e.is_a?(Sketchup::ComponentInstance) ? 'component' : e.get_attribute(DICT,'element_type','').to_s)
   when 'component' then mst_precast_component_set_length!(e,rs['new_len'])   # v0.38 PC1: switch definition, never edit it
   when 'flat_precast' then mst_rebuild_flat_precast_length(e,rs['new_len'])
@@ -13148,7 +13167,7 @@ def mst_pk_type_catalog(model=Sketchup.active_model,elems=nil)
     elems=[];collect_elements(model.entities,elems)
   end
   existing=elems.select{|e|e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast'}
-  key=->(code,g){[code.to_s.upcase,(mst_ch_geom_key(g['section']) rescue g['section'].inspect)]}   # okunamayan (NaN) değerde JSON üretilemez
+  key=->(code,g){[mst_pk_code_key(code),(mst_ch_geom_key(g['section']) rescue g['section'].inspect)]}   # okunamayan (NaN) değerde JSON üretilemez
   out=[];seen={};by_uid={};use={};sysu={};old={}
   mst_pk_library_types(model).each do |t|
     g=mst_pk_geom(t,true);code=t['name'].to_s.strip
@@ -13310,7 +13329,28 @@ end
 # ---------------------------------------------------------------------------
 MST_PK_FW_DEFAULT={'bottom'=>false,'sides'=>false,'inner'=>true,'ends'=>false,'ledge'=>true}.freeze   # mst_kn_find_pk_type varsayılanı '00101'
 
-def mst_pk_n4(v);x=v.to_f.round(4);x=0.0 if x.zero?;format('%.4f',x);end
+# K1 (42): 4 ondalık metin — yarım değer sıfırdan uzağa: işaret(x) · ⌊|x| · 10⁴ + 0,5 + 10⁻⁷⌋ / 10⁴ (10⁻⁷: 1,00005 gibi ondalık yazılmış
+# yarımlar ikili gösterimde 0,49999… kalsa da yukarı); −0 → 0,0000. ui.html aynı kuralı uygular (Math.floor(Math.abs(x)*1e4+0.5+1e-7)).
+def mst_pk_n4(v)
+  x=v.to_f;return format('%.4f',x) unless x.finite?
+  q=(x.abs*10000.0+0.5+1e-7).floor
+  return '0.0000' if q.zero?
+  "#{x<0 ? '-' : ''}#{q/10000}.#{format('%04d',q%10000)}"
+end
+
+# K3 (42): oturma değeri yok sayılır mı — nil ya da boş / boşluk dize (tek kural: geom_sig, pkf_sig, rec_seat, rec_seats, same_geom).
+def mst_pk_seat_blank?(v);v.nil? || v.to_s.strip.empty?;end
+
+# K5 (42): PK tip kodu karşılaştırması tek kural — büyük / küçük harf duyarsız; Türkçe I / ı / İ / i aynı harf sayılır (tutucu: yalnız bu
+# harflerle ayrışan kodlar çakışma sayılır, ayrı tip açılmaz). İ önce tr ile 'i' (Ruby downcase 'i̇' üretir); Ruby 2.5 Unicode downcase'li.
+def mst_pk_code_key(s);s.to_s.strip.tr('İIı','iii').downcase;end
+def mst_pk_same_code?(a,b);ka=mst_pk_code_key(a);!ka.empty? && ka==mst_pk_code_key(b);end
+
+# Karar 11 (41): Detaylı Metraj PK satırı etiketi — satırdaki öğelerin precast_type_rev değerleri (yoksa yazılmaz; karışıksa virgülle).
+def mst_pk_rev_label(arr)
+  rv=arr.map{|g|v=g.get_attribute(DICT,'precast_type_rev',nil);mst_pk_seat_blank?(v) ? nil : v.to_i}.compact.uniq.sort
+  rv.empty? ? '' : " rev #{rv.join(', ')}"
+end
 
 def mst_pk_section_sig(sec)
   (["W#{mst_pk_n4(sec['total_width_m'])}","B#{mst_pk_n4(sec['base_m'])}"]+mst_ch_active(sec).map{|a|"#{mst_pk_n4(a['y0'])}-#{mst_pk_n4(a['y1'])}:#{mst_pk_n4(a['h'])}"}).join('|')
@@ -13318,7 +13358,7 @@ end
 
 # Kararlı metin imzası; oturma bilinmiyorsa (eski kayıt) '-'.
 def mst_pk_geom_sig(sec,sl,sr)
-  "pk1|#{mst_pk_section_sig(sec)}|oturma:#{sl.nil? ? '-' : mst_pk_n4(sl)}/#{sr.nil? ? '-' : mst_pk_n4(sr)}"
+  "pk1|#{mst_pk_section_sig(sec)}|oturma:#{mst_pk_seat_blank?(sl) ? '-' : mst_pk_n4(sl)}/#{mst_pk_seat_blank?(sr) ? '-' : mst_pk_n4(sr)}"
 end
 
 # Tip kaydının kalıp seçimleri (yoksa varsayılan; fw_ledge eski kural: açıkça kapatan kazanır).
@@ -13374,11 +13414,32 @@ end
 def mst_pk_rec_same_geom?(t,ssig,sl,sr)
   return false unless t.is_a?(Hash) && t['family'].to_s=='PK'
   g=(mst_pk_geom(t,true) rescue nil);return false unless g && g['errors'].empty? && (mst_pk_section_sig(g['section']) rescue nil)==ssig
-  return true if t['seat_left_m'].nil? && t['seat_right_m'].nil?
-  mst_pk_n4(t['seat_left_m'])==mst_pk_n4(sl) && mst_pk_n4(t['seat_right_m'])==mst_pk_n4(sr)
+  return true if mst_pk_seat_blank?(t['seat_left_m']) && mst_pk_seat_blank?(t['seat_right_m'])
+  s4=->(v){mst_pk_seat_blank?(v) ? '-' : mst_pk_n4(v)}   # K3: boş dize = oturma yok
+  s4.(t['seat_left_m'])==s4.(sl) && s4.(t['seat_right_m'])==s4.(sr)
 end
 
 def mst_pk_rec_brief(t);{'uid'=>t['uid'],'kod'=>t['name'].to_s.strip,'ad'=>t['title'].to_s};end
+
+# E1 (42, sözleşme): pk_type_save / pk_type_update_apply / pk_lib_file_import kütüphane kaynağı olarak modeldeki listeyi kullanır; istekteki
+# 'kutuphane' (arayüz listesi) yalnız bayatlık denetimi içindir. İstekteki her PK kaydı (uid ile; uid yoksa kod + uid'siz model kaydı)
+# modelde aynı pk_rev ve aynı geometri imzasıyla (mst_pkf_sig, kesit + oturmadan) bulunmalı; değilse bayat (Geri Al / Yinele sonrası eski
+# liste) → işlem açılmaz. PK dışı (PD / PDÖ / PV) kayıtlar ve hiç kaydedilmemiş yerel PK satırları (modelde yok, pk_rev / geom_sig yok)
+# denetime girmez ve bu yollarda modele yazılmaz. → false | true | :bad (okunamadı).
+MST_PK_STALE_MSG='Tip listesi modelle uyuşmuyor (Geri Al sonrası olabilir); liste yenilendi, işlemi yeniden deneyin.'
+def mst_pk_lib_stale?(rq,mlib)
+  return false unless rq.is_a?(Hash) && rq.key?('kutuphane') && !rq['kutuphane'].nil?
+  ul=rq['kutuphane']
+  return :bad unless ul.is_a?(Array) && ul.all?{|t|t.is_a?(Hash)}
+  mpk=mlib.select{|t|t.is_a?(Hash) && t['family'].to_s=='PK'}
+  ul.select{|t|t['family'].to_s=='PK'}.any? do |t|
+    u=t['uid'].to_s.strip
+    m=u.empty? ? mpk.find{|x|x['uid'].to_s.strip.empty? && mst_pk_same_code?(x['name'],t['name'])} : mpk.find{|x|x['uid'].to_s.strip==u}
+    # hiç kaydedilmemiş yerel satır (modelde yok, pk_rev ve geom_sig taşımıyor) denetime girmez ve modele yazılmaz (arayüz birleştirmesiyle aynı kural)
+    next false if m.nil? && mst_pk_seat_blank?(t['pk_rev']) && mst_pk_seat_blank?(t['geom_sig'])
+    m.nil? || m['pk_rev'].to_i!=t['pk_rev'].to_i || mst_pkf_sig(m)!=mst_pkf_sig(t)
+  end
+end
 
 # İstek (sözleşme: kod, ad, section, concrete, fw, seat_left_m, seat_right_m, channel_top_ref, kaynak_pid, karar, kutuphane) → yanıt yükü.
 # Doğrulama işlem açmadan; kayıt normal işlem "MST PK Tipini Kaydet" (başarıda commit, hatada abort — kütüphane değişmez).
@@ -13428,14 +13489,16 @@ def mst_pk_type_save(rq,model=Sketchup.active_model,elems=nil,apply=nil)
           end
   end
   tref=mst_pk_top_ref({'channel_top_ref'=>(given.('channel_top_ref') ? rq['channel_top_ref'] : sattr.('channel_top_ref'))},sec)
-  # kütüphane: modeldeki okunamıyorsa üzerine yazılmaz; istekteki liste (JS'teki tam liste) esas, yoksa modeldeki
+  # E1 (42): kütüphane kaynağı modeldeki liste (okunamıyorsa üzerine yazılmaz); istekteki liste yalnız bayatlık denetimi
   mlib=cur.strip.empty? ? [] : (JSON.parse(cur) rescue nil)
-  return fail.('Modeldeki prekast tip kütüphanesi okunamadı; üzerine yazılmadı.') unless mlib.is_a?(Array)
-  lib=rq.key?('kutuphane') && !rq['kutuphane'].nil? ? rq['kutuphane'] : mlib
-  return fail.('Arayüzden gelen tip listesi okunamadı; kayıt yapılmadı.') unless lib.is_a?(Array) && lib.all?{|t|t.is_a?(Hash)}
+  return fail.('Modeldeki prekast tip kütüphanesi okunamadı; üzerine yazılmadı.') unless mlib.is_a?(Array) && mlib.all?{|t|t.is_a?(Hash)}
+  st=mst_pk_lib_stale?(rq,mlib)
+  return fail.('Arayüzden gelen tip listesi okunamadı; kayıt yapılmadı.') if st==:bad
+  return out.('ok'=>false,'durum'=>'liste_bayat','neden'=>MST_PK_STALE_MSG) if st
+  lib=mlib
   ssig=mst_pk_section_sig(sec);karar=rq['karar'].to_s.strip
   # kod benzersizliği (create_flat_precast :4579 kütüphane adları büyük / küçük harf duyarsız; :12649 modelde farklı ölçülü aynı ad)
-  same=lib.find{|t|t['name'].to_s.strip.downcase==kod.downcase}
+  same=lib.find{|t|mst_pk_same_code?(t['name'],kod)}   # K5
   if same
     if mst_pk_rec_same_geom?(same,ssig,sl,sr) && karar!='yeni'
       return out.('durum'=>karar=='mevcut' ? 'mevcut_secildi' : 'ayni_geometri','mevcut'=>mst_pk_rec_brief(same))
@@ -13446,7 +13509,7 @@ def mst_pk_type_save(rq,model=Sketchup.active_model,elems=nil,apply=nil)
     elems=[];collect_elements(model.entities,elems)
   end
   clash=elems.find do |e|
-    next false unless e.valid? && MST_PRECAST_TYPES.include?(e.get_attribute(DICT,'element_type','').to_s) && mst_precast_type_id(e).downcase==kod.downcase
+    next false unless e.valid? && MST_PRECAST_TYPES.include?(e.get_attribute(DICT,'element_type','').to_s) && mst_pk_same_code?(mst_precast_type_id(e),kod)   # K5
     e.get_attribute(DICT,'element_type','').to_s!='channel_precast' || (mst_pk_section_sig(mst_pk_geom(e,false)['section']) rescue nil)!=ssig
   end
   if clash
@@ -13556,7 +13619,11 @@ end
 # joint_m → uyarı. Yalnız aralığı daralan komşu raporlanır; komşular kaydırılmaz.
 def mst_pk_neighbor_check(e,nw,elems,tgt={})
   nd=[];wn=[];sup=->(x){%w[support_left_pid support_right_pid].map{|k|x.get_attribute(DICT,k,0).to_i}.reject(&:zero?)}
-  sp=sup.(e);return [nd,wn] if sp.empty? || nw.nil?
+  sp=sup.(e);return [nd,wn] if nw.nil?
+  if sp.empty?   # Ö2 (42): genişlik değişiyorsa komşu bulunamaz → tahmin yok, uygun değil
+    nd << 'komşu denetimi yapılamadı: destek BK bağı yok' if (nw.to_f-mst_pk_cur_width(e)).abs>1e-9
+    return [nd,wn]
+  end
   cw=mst_pk_cur_width(e);d=(nw.to_f-cw)/2.0;len=e.get_attribute(DICT,'length_m',0).to_f;jm=e.get_attribute(DICT,'joint_m',nil)
   tp=(mst_world_tr(e)*e.transformation).inverse
   elems.each do |n|
@@ -13570,6 +13637,11 @@ def mst_pk_neighbor_check(e,nw,elems,tgt={})
     next if xs[1]<=1e-6 || xs[0]>=len-1e-6   # boyca örtüşmez
     dn=tgt[n.persistent_id] ? (nw.to_f-w)/2.0 : 0.0
     og,ng=(yy[0]+yy[1])/2.0<cw/2.0 ? [-yy[1],-d-yy[1]-dn] : [yy[0]-cw,yy[0]-dn-cw-d]
+    # 43/3: daralmada derz MST_DECK_JOINT_MAX'ı aşarsa mst_deck_plan şeridi "PD yok" sayar (tam kalınlık + alt kalıp) → uygun değil
+    if ng>og+1e-9 && og>=-1e-6 && og<=MST_DECK_JOINT_MAX+MST_DECK_TOL && ng>MST_DECK_JOINT_MAX+MST_DECK_TOL
+      nd << "komşu #{element_visible_id(n)} ile derz #{(ng*1000).round} mm'ye çıkar (en çok #{(MST_DECK_JOINT_MAX*1000).round} mm); döşeme şeridi tam kalınlığa döner"
+      next
+    end
     next unless ng<og-1e-9
     nid=element_visible_id(n)
     if ng< -1e-6
@@ -13580,6 +13652,34 @@ def mst_pk_neighbor_check(e,nw,elems,tgt={})
     end
   end
   [nd,wn]
+end
+
+# Tip kaydı rec uygulanınca öğenin yeni boyu (m): oturma farkı kadar (mst_pk_apply_rec! ile aynı kural).
+def mst_pk_new_len(e,rec)
+  len=e.get_attribute(DICT,'length_m',0).to_f
+  sl,sr=mst_pk_rec_seats(rec);osl,osr,kind=mst_pk_elem_seat(e)
+  kind && sl ? len+(sl-osl)+(sr-osr) : len
+end
+
+# 43/1 (metraj kontrolü): döşeme prekast cebi açıklık başına TEK dikdörtgen (mst_deck_plan DS1.3: açıklıktaki prekastların en küçük u0 –
+# en büyük u1'i, BK üzerinde derz dişi kalmasın diye). Aynı açıklıktaki (aynı iki destek BK'sı) prekast boyları farklıysa kısa parçanın
+# ucunda BK üstü döşeme betonu eksik kesilir. Cep kuralı değiştirilmez (BK cep / döşeme geometrisi, dayanak yok); bu işlemle boy farkı
+# oluşacak ya da değişecekse örnek uygun değil. tgt = aynı işlemde aynı kayda geçen PK'lar (pid => true). Salt okuma → nedenler.
+def mst_pk_span_len_check(e,rec,elems,tgt={})
+  len=e.get_attribute(DICT,'length_m',0).to_f;nl=mst_pk_new_len(e,rec)
+  ps=%w[support_left_pid support_right_pid].map{|k|e.get_attribute(DICT,k,0).to_i}
+  if ps.include?(0)
+    return (nl-len).abs>1e-6 ? ['komşu denetimi yapılamadı: destek BK bağı yok (oturma / boy değişiyor)'] : []
+  end
+  return [] if ps[0]==ps[1]   # tek BK üstü (Kanal Prekastı formu): açıklıkta değil
+  elems.each do |n|
+    next if n.equal?(e) || !n.valid? || !MST_PRECAST_TYPES.include?(n.get_attribute(DICT,'element_type','').to_s)
+    next unless %w[support_left_pid support_right_pid].map{|k|n.get_attribute(DICT,k,0).to_i}.sort==ps.sort
+    ol=n.get_attribute(DICT,'length_m',0).to_f;nn=tgt[n.persistent_id] ? mst_pk_new_len(n,rec) : ol
+    next unless (nn-nl).abs>1e-3 && ((nl-len).abs>1e-6 || (nn-ol).abs>1e-6)
+    return ["oturma farkı: aynı açıklıktaki komşu #{element_visible_id(n)} boyu #{mst_pk_f3c(nn)} m, bu PK #{mst_pk_f3c(nl)} m olur; döşeme cebi açıklıkta tek dikdörtgen kesildiği için döşeme betonu yanlış hesaplanır (oturma komşu prekastlarla aynı olmalı)"]
+  end
+  []
 end
 
 def mst_pk_dep_info(e)
@@ -13627,6 +13727,22 @@ def mst_pk_apply_check(e,rec,ix,decks,pockets_of=nil)
   len=e.get_attribute(DICT,'length_m',0).to_f
   nl=kind && sl ? len+(sl-osl)+(sr-osr) : len
   nd << "yeni boy sıfırdan büyük değil (#{mst_pk_f3c(nl)} m)" if nl<=0
+  # K8 (42): ortadan kaydırma yerel birimle yapılır; eşit olmayan ölçekte yerel ↔ model ölçüsü belirsiz → uygun değil
+  sc=mst_pk_axis_scales(e)
+  nd << "örnek eşit olmayan ölçekli (X / Y / Z ölçek #{sc.map{|v|format('%.3f',v).tr('.',',')}.join(' / ')}); yerel ↔ model ölçüsü belirsiz, tip uygulanmaz" if sc.max-sc.min>1e-6*[sc.max,1.0].max
+  # 43/2: ayrıntılı donatı (rebar_t) yeni kesit / boyda yeniden hesaplanabilmeli; yalnız parametrik prekast donatısı (pc_rebar_json, U kesit)
+  # aynı işlemde yeniden çizilir (mst_pc_after_rebuild!). Diğerlerinde eski tonaj metrajda kalacağı için uygun değil.
+  rm=e.get_attribute(DICT,'rebar_mode','').to_s
+  if %w[bim_detail drawing_detail auto_detail].include?(rm)
+    os=mst_ch_section(e)
+    if os.nil? || mst_pk_section_sig(os)!=mst_pk_section_sig(sec) || (nl-len).abs>1e-6
+      if e.get_attribute(DICT,'pc_rebar_json','').to_s.empty?
+        nd << "ayrıntılı donatı (#{rm}): yeni kesit / boyda tonaj yeniden hesaplanamaz; eski tonaj metrajda kalmasın diye tip uygulanmaz — önce donatıyı kaldırın"
+      elsif !mst_ch_u_equiv?(sec)
+        nd << 'parametrik prekast donatısı U dışı kesitte hesaplanamaz (tonaj yeniden hesaplanamaz); önce donatıyı kaldırın'
+      end
+    end
+  end
   md=mst_pk_elev_mode(e)
   if %w[POCKET SUPPORT].include?(md)
     l,r=mst_pk_supports_of(e,ix)
@@ -13648,6 +13764,13 @@ def mst_pk_apply_check(e,rec,ix,decks,pockets_of=nil)
     nd << "döşeme #{element_visible_id(dk)}: dayandığı BK'lar bulunamadı; döşeme yeniden üretilemez" if n<2
   end
   nd
+end
+
+# K8: öğe dönüşümünün (iç içe zincir dahil) yerel X / Y / Z birim vektör boyları (ölçek; aynalama işareti dikkate alınmaz). Nokta dönüşümüyle
+# (homojen w bileşeni — SketchUp eşit ölçekte to_a[15] kullanır — doğru işlenir).
+def mst_pk_axis_scales(e)
+  t=mst_world_tr(e)*e.transformation;o=Geom::Point3d.new(0,0,0).transform(t)
+  [[1,0,0],[0,1,0],[0,0,1]].map{|v|q=Geom::Point3d.new(*v).transform(t);Math.sqrt((q.x-o.x)**2+(q.y-o.y)**2+(q.z-o.z)**2)}
 end
 
 # Çağıranın işlemi içinde: tip kaydı rec'i öğeye uygular → uyarılar. Kesit, boy (oturma farkı kadar; başlangıç yerel X'te kayar), beton,
@@ -13700,6 +13823,7 @@ def mst_pk_apply_rec!(e,rec,model=Sketchup.active_model,ctx={})
     e.definition=d unless e.definition==d
     fwa=mst_marked_area_m2(d.entities)
   else
+    mst_make_unique_keep_data!(e) if e.definition.count_instances>1   # Ö1 (42): kopya Group tanımı paylaşıyorsa kardeşler değişmez
     e.entities.clear!
     mst_precast_build_geometry!(e,p,model)
     fwa=mst_precast_role_formwork(p)
@@ -13709,18 +13833,21 @@ def mst_pk_apply_rec!(e,rec,model=Sketchup.active_model,ctx={})
   unless e.get_attribute(DICT,'formwork_inner_m2',nil).nil?
     e.set_attribute(DICT,'formwork_inner_m2',fw['inner'] ? (custom ? mst_ch_formwork_roles(sec,nl).values_at('INNER_FLOOR','INNER_SIDE').map(&:to_f).sum : mst_ch_u_fw_terms(nl,*u)[2]) : 0.0)
   end
-  if dl.abs>1e-9   # başlangıç ucu sol oturma farkı kadar yerel −X yönünde (BK'ya doğru)
-    xa=e.transformation.xaxis;xl=Math.sqrt(xa.x**2+xa.y**2+xa.z**2);k=m(-dl)/xl
-    e.transform!(Geom::Transformation.translation([xa.x*k,xa.y*k,xa.z*k]))
+  # K8 (42): öteleme YEREL birimle — yerel vektör öğe dönüşümüyle ebeveyn uzayına çevrilir (ölçek ve aynalama dahil)
+  lsh=lambda do |v|
+    t=e.transformation;o=Geom::Point3d.new(0,0,0).transform(t);q=Geom::Point3d.new(*v).transform(t)
+    Geom::Transformation.translation([q.x-o.x,q.y-o.y,q.z-o.z])
   end
+  e.transform!(lsh.([m(-dl),0,0])) if dl.abs>1e-9   # başlangıç ucu sol oturma farkı kadar yerel −X yönünde (BK'ya doğru)
   dw=(sec['total_width_m'].to_f-ow0)/2.0
-  if dw.abs>1e-9   # karar 9: kesit ortadan büyür / küçülür (merkez sabit) → başlangıç yerel −Y yönünde dw kadar
-    ya=e.transformation.yaxis;yl=Math.sqrt(ya.x**2+ya.y**2+ya.z**2);k=m(-dw)/yl
-    e.transform!(Geom::Transformation.translation([ya.x*k,ya.y*k,ya.z*k]))
-  end
+  e.transform!(lsh.([0,m(-dw),0])) if dw.abs>1e-9   # karar 9: kesit ortadan büyür / küçülür (merkez sabit) → başlangıç yerel −Y yönünde dw
   e.transform!(Geom::Transformation.translation([0,0,m(nb-ob)])) if (nb-ob).abs>1e-9   # mst_pk_reseat_after_edit ile aynı öteleme
   mst_precast_canonical_type!(e,ctx)
+  had_pc=!e.get_attribute(DICT,'pc_rebar_json','').to_s.empty?
   mst_pc_after_rebuild!(e) if respond_to?(:mst_pc_after_rebuild!)
+  # 43/2: parametrik donatı yeni ölçüde çizilemediyse (mst_pc_after_rebuild! pursantaja döndürüp pc_rebar_error yazar) işlem geri alınır
+  pe=e.get_attribute(DICT,'pc_rebar_error','').to_s
+  raise "#{cid}: prekast donatısı yeni ölçüde yeniden hesaplanamadı (#{pe}); tip uygulanmadı." if had_pc && !pe.empty?
   warn
 end
 
@@ -13739,7 +13866,7 @@ def mst_pk_type_save_sel(rq,model=Sketchup.active_model,elems=nil)
   ix=mst_pk_bk_index(elems);tgt=pks.map{|e|[e.persistent_id,true]}.to_h
   nwf=->(rec){(mst_pk_geom(rec,true)['section']['total_width_m'] rescue nil)}   # karar 9: komşu çakışması
   chk=lambda do |rec|
-    bad=pks.map{|e|n=mst_pk_apply_check(e,rec,ix,mst_pk_decks_of([mst_pk_dep_info(e)],elems))+mst_pk_neighbor_check(e,nwf.(rec),elems,tgt)[0];n.empty? ? nil : "#{element_visible_id(e)}: #{n.join('; ')}"}.compact
+    bad=pks.map{|e|n=mst_pk_apply_check(e,rec,ix,mst_pk_decks_of([mst_pk_dep_info(e)],elems))+mst_pk_neighbor_check(e,nwf.(rec),elems,tgt)[0]+mst_pk_span_len_check(e,rec,elems,tgt);n.empty? ? nil : "#{element_visible_id(e)}: #{n.join('; ')}"}.compact   # 43/1
     bad.empty? ? nil : "Seçili kanal prekastına tip uygulanamaz; kayıt yapılmadı — #{bad.join(' | ')}"
   end
   run=lambda do |rec|
@@ -13824,13 +13951,14 @@ def mst_pk_update_build(rq,model=Sketchup.active_model,elems=nil,pockets_of=nil)
     eu=e.get_attribute(DICT,'precast_type_uid','').to_s.strip
     next eu==u unless eu.empty?
     # eski bağ (uid yok): katalogdaki gibi ad + kesit anahtarı
-    mst_precast_type_id(e).upcase==kod.upcase && !okey.nil? && (mst_ch_geom_key(mst_pk_geom(e,false)['section']) rescue nil)==okey
+    mst_pk_same_code?(mst_precast_type_id(e),kod) && !okey.nil? && (mst_ch_geom_key(mst_pk_geom(e,false)['section']) rescue nil)==okey   # K5
   end
   ins,outs=mine.partition{|e|kap=='model' || mst_pk_elem_structure(e)==yapi}
   ix=mst_pk_bk_index(elems);tgt=ins.map{|e|[e.persistent_id,true]}.to_h
   ins.each do |e|
     n=mst_pk_apply_check(e,nr,ix,mst_pk_decks_of([mst_pk_dep_info(e)],elems),pockets_of)
     cn,cw=mst_pk_neighbor_check(e,sec['total_width_m'],elems,tgt);n+=cn   # karar 9
+    n+=mst_pk_span_len_check(e,nr,elems,tgt)   # 43/1
     out['ornekler'] << {'pid'=>e.persistent_id,'uid'=>e.get_attribute(DICT,'element_uid','').to_s,'kod'=>element_visible_id(e),'yapi'=>mst_pk_elem_structure(e),'uygun'=>n.empty?,'nedenler'=>n,'uyarilar'=>cw}
   end
   lab={}
@@ -13856,8 +13984,23 @@ def mst_pk_type_update_apply(rq,model=Sketchup.active_model,elems=nil,pockets_of
   base={'ok'=>false,'neden'=>nil,'guncellenen'=>0,'tip'=>nil,'uyarilar'=>[]}
   fail=->(msg){base.merge('neden'=>msg,'kutuphane_json'=>lj.())}
   return fail.('Güncelleme onaylanmadı; değişiklik yapılmadı.') unless rq.is_a?(Hash) && rq['onay']==true
+  # E1 (42): arayüz listesi modelle uyuşmuyorsa (Geri Al sonrası bayat) işlem açılmaz; kayıt kaynağı her zaman model (mst_pk_update_build)
+  ml=(JSON.parse(lj.()) rescue nil);ml=[] if lj.().strip.empty?
+  if ml.is_a?(Array) && ml.all?{|t|t.is_a?(Hash)}
+    st=mst_pk_lib_stale?(rq,ml)
+    return fail.('Arayüzden gelen tip listesi okunamadı; güncelleme yapılmadı.') if st==:bad
+    return fail.(MST_PK_STALE_MSG).merge('durum'=>'liste_bayat') if st
+  end
   pl=cx=nil
   mst_plan_readonly{pl,cx=mst_pk_update_build(rq,model,elems,pockets_of)}
+  # Ö3 (42): onaylanan plandaki örnek kümesi (plan_pids) yeniden kurulan plandaki kapsam içi örneklere eşit olmalı
+  if pl['ok'] && cx
+    pp=rq['plan_pids'].is_a?(Array) ? rq['plan_pids'].map{|x|x.to_s.strip}.reject(&:empty?).map(&:to_i).uniq.sort : nil
+    now=cx['targets'].map(&:persistent_id).uniq.sort
+    unless pp==now
+      return fail.("Onaylanan plandan sonra kapsamdaki örnekler değişti (planda #{pp ? pp.length : 0}, şimdi #{now.length} örnek); güncelleme yapılmadı. Planı yeniden hazırlayıp onaylayın.").merge('durum'=>'plan_degisti','tip'=>pl['tip'])
+    end
+  end
   return fail.(pl['neden'] || 'Güncelleme başlatılamaz.').merge('tip'=>pl['tip']) unless pl['ok'] && pl['baslatilabilir'] && cx
   rec=cx['rec'];nrev=pl['yeni_rev'];at=Time.now.strftime('%Y-%m-%dT%H:%M:%S%:z')
   note=rq['note'].to_s.strip;note=(pl['kapsam']=='model' ? 'tip güncellendi (tüm model)' : "tip güncellendi (yapı #{pl['yapi']})") if note.empty?
@@ -13885,10 +14028,42 @@ def mst_pk_type_update_apply(rq,model=Sketchup.active_model,elems=nil,pockets_of
 end
 
 # "PK Sil" (karar 7): seçili PK'lar + bağlı döşemeler tek normal işlem "MST Kanal Prekastı Sil" (tek Geri Al; hata → abort). Seçimde PK yoksa işlem açılmaz.
+# K6 (42): PK Sil kapsamı — yalnız DOĞRUDAN seçili PK öğeleri. Seçimde içinde PK bulunan kapsayıcı (ör. "Prekast Layout") varsa içindekiler
+# silinmez → [PK'lar, neden ya da nil]. Salt okuma.
+def mst_pk_delete_scope(model)
+  sel=model.selection.to_a.select{|x|(x.is_a?(Sketchup::Group) || x.is_a?(Sketchup::ComponentInstance)) && x.valid?}
+  pks=sel.select{|x|x.get_attribute(DICT,'element_type','').to_s=='channel_precast'}
+  box=(sel-pks).select{|x|a=[];mst_collect_elements_raw(x.is_a?(Sketchup::Group) ? x.entities : x.definition.entities,a);a.any?{|y|y.valid? && y.get_attribute(DICT,'element_type','').to_s=='channel_precast'}}
+  unless box.empty?
+    nm=box.first(3).map{|x|x.name.to_s.strip.empty? ? element_visible_id(x) : x.name.to_s.strip}.join(', ')
+    return [[],"Seçimde kanal prekastı içeren kapsayıcı grup var (#{nm}); PK Sil yalnız doğrudan seçili PK'ları siler, silme yapılmadı. Grubu açıp silinecek PK'ları seçin."]
+  end
+  return [[],'Modelde seçili kanal prekastı (PK) yok; silme yapılmadı.'] if pks.empty?
+  [pks,nil]
+end
+
+# K6: pk_delete_preview — salt okuma (işlem / yazım yok) → {ok, neden, adet, kodlar, dosemeler (adet), doseme_kodlari}.
+def mst_pk_delete_preview(model=Sketchup.active_model,elems=nil)
+  r=nil
+  mst_plan_readonly do
+    pks,why=mst_pk_delete_scope(model)
+    if why
+      r={'ok'=>false,'neden'=>why,'adet'=>0,'kodlar'=>[],'dosemeler'=>0,'doseme_kodlari'=>[]}
+    else
+      unless elems
+        elems=[];collect_elements(model.entities,elems)
+      end
+      dk=mst_pk_decks_of(pks.map{|e|mst_pk_dep_info(e)},elems)
+      r={'ok'=>true,'neden'=>nil,'adet'=>pks.length,'kodlar'=>pks.map{|e|element_visible_id(e)},'dosemeler'=>dk.length,'doseme_kodlari'=>dk.map{|d|element_visible_id(d)}}
+    end
+  end
+  r
+end
+
 def mst_pk_delete(model=Sketchup.active_model,elems=nil)
   base={'ok'=>false,'neden'=>nil,'silinen'=>0,'dosemeler'=>0,'uyarilar'=>[]}
-  pks=mst_pk_selected(model)
-  return base.merge('neden'=>'Modelde seçili kanal prekastı (PK) yok; silme yapılmadı.') if pks.empty?
+  pks,why=mst_pk_delete_scope(model)   # K6
+  return base.merge('neden'=>why) if why
   unless elems
     elems=[];collect_elements(model.entities,elems)
   end
@@ -13932,6 +14107,15 @@ def mst_pk_send_update_apply(dlg,raw)
   end
   pl['kutuphane_json']||=(model.get_attribute(DICT,'precast_type_library_json','').to_s rescue '')
   dlg.execute_script("window.mstPkTypeUpdated && mstPkTypeUpdated(#{JSON.generate(mst_pk_json_safe(pl))})")
+end
+
+def mst_pk_send_delete_preview(dlg,_raw=nil)
+  pl=begin
+    mst_pk_delete_preview(Sketchup.active_model)
+  rescue => e
+    {'ok'=>false,'neden'=>"Silinecek kanal prekastları okunamadı: #{e.message}",'adet'=>0,'kodlar'=>[],'dosemeler'=>0,'doseme_kodlari'=>[]}
+  end
+  dlg.execute_script("window.mstPkDeletePreview && mstPkDeletePreview(#{JSON.generate(mst_pk_json_safe(pl))})")
 end
 
 def mst_pk_send_delete(dlg,_raw=nil)
@@ -14079,7 +14263,7 @@ def mst_pk_elevation_preview(model,bk_ref,o,elems=nil,pockets_of=nil)
   else
     code=o['kod'].to_s.strip
     return base.merge('neden'=>'Kanal prekastı tipi seçin.') if code.empty?
-    en=mst_pk_type_catalog(model,elems).find{|x|x['kod'].to_s.upcase==code.upcase}
+    en=mst_pk_type_catalog(model,elems).find{|x|mst_pk_same_code?(x['kod'],code)}   # K5
     return base.merge('neden'=>"Kanal prekastı tipi bulunamadı: #{code}") unless en
     g=en['_g']
     return base.merge('neden'=>g['errors'].join(' ')) unless g['errors'].empty?
@@ -14287,6 +14471,10 @@ def mst_kn_place_plan(model=Sketchup.active_model,only_beams=nil,elems=nil,pocke
         warns << "#{span}: cebe uyan kanal tipi yok — dış genişlik #{f3[ow]} m (cep #{f3[a1-a0]} − 2 × derz #{f3[joint]}), yükseklik #{f3[oh]} m (PD üstü − cep tabanı). Prekast tip kütüphanesine bu ölçüde PK tipi ekleyin.";next
       end
       if ty['seat_err'];warns << "#{span}: #{ty['seat_err']}";next;end   # K3 P2: kayıtta sol ≠ sağ / okunamayan oturma (tahmin yok)
+      # 43/1: kayıttaki oturma açıklıktaki PD'lerin oturmasından farklıysa döşeme cebi (açıklık başına tek dikdörtgen) yanlış → yerleşim yok
+      if ty['seat'] && (mst_pk_n4(ty['seat'])!=mst_pk_n4(seat) || mates.any?{|x|mst_pk_n4(x.get_attribute(DICT,'seat_each_side_m',seat).to_f)!=mst_pk_n4(ty['seat'])})
+        warns << "#{span}: PK tipi #{ty['name']} kayıttaki oturma (#{mst_pk_f3c(ty['seat'])} m) açıklıktaki PD oturmasından (#{mst_pk_f3c(seat)} m) farklı; döşeme cebi yanlış hesaplanacağı için kanal yerleştirilmedi.";next
+      end
       seat=ty['seat'] if ty['seat']   # K3 P2: kayıttaki oturma; yoksa açıklıktaki PD'nin (önceki kural)
       if (er=mst_bk_span_frame_error(l) || mst_bk_span_frame_error(r))   # v0.51.5 K22 aşama 1
         warns << "#{span}: #{er}";next
@@ -14333,10 +14521,12 @@ def mst_kn_type_name(base,lm,t,ctx)
   dims=[(lm*1000.0).round]+%w[wi di tb tw].map{|k|(t[k].to_f*1000.0).round}+(t['section'] ? [mst_ch_geom_sig(t['section'])] : [])   # ADR-0515-K2 (mst_precast_dims_key ile aynı)
   key=['channel_precast',base.upcase,dims]
   return ctx['reg'][key] if ctx['reg'][key]
-  name=if ctx['pk_names'][base.upcase]
-    (('B'..'Z').to_a+(27..9999).map(&:to_s)).map{|x|"#{base}-#{x}"}.find{|n|!ctx['used'][n.upcase]}
+  # K5 (42): PK kodu karşılaştırması mst_pk_code_key (pk_names); ortak kayıt defteri (used / reg, PD ile paylaşılan) anahtarları değişmez
+  uk={};ctx['used'].each_key{|k|uk[mst_pk_code_key(k)]=true}
+  name=if ctx['pk_names'][mst_pk_code_key(base)]
+    (('B'..'Z').to_a+(27..9999).map(&:to_s)).map{|x|"#{base}-#{x}"}.find{|n|!ctx['used'][n.upcase] && !uk[mst_pk_code_key(n)]}
   else base end
-  ctx['used'][name.upcase]=true;ctx['pk_names'][name.upcase]=true;ctx['pk_names'][base.upcase]=true;ctx['reg'][key]=name
+  ctx['used'][name.upcase]=true;ctx['pk_names'][mst_pk_code_key(name)]=true;ctx['pk_names'][mst_pk_code_key(base)]=true;ctx['reg'][key]=name
   name
 end
 
@@ -14344,7 +14534,7 @@ def mst_kn_name_ctx(model)
   all=[];collect_elements(model.entities,all)
   r=mst_precast_type_registry(all,model)
   r['pk_names']={}
-  all.each{|e|r['pk_names'][mst_precast_type_id(e).upcase]=true if e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast'}
+  all.each{|e|r['pk_names'][mst_pk_code_key(mst_precast_type_id(e))]=true if e.valid? && e.get_attribute(DICT,'element_type','').to_s=='channel_precast'}
   r
 end
 

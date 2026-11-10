@@ -2949,7 +2949,7 @@ var mstPkForm={uid:'',kod:'',ad:'',rev:null,notes:[],diverged:false};
 // soldan sağa, 4 ondalık (yarım sıfırdan uzağa), -0 → 0; oturma yoksa '-'. Ön ayar etiketi, pasif çıkıntı, deck_ledge_*,
 // channel_top_ref, beton ve kalıp imzaya girmez.
 // K1: yarım değer sıfırdan uzağa (Ruby Float#round(4) gibi); +1e-9 kayan nokta hatasını karşılar (1.00005 → "1.0001")
-function mstPkN4(v){var x=typeof v==='number'?v:(parseFloat(String(v===null||v===undefined?'':v))||0);if(!isFinite(x))return String(x);var r=(x<0?-1:1)*Math.round(Math.abs(x)*1e4+1e-9)/1e4;if(r===0)r=0;return r.toFixed(4)}
+function mstPkN4(v){var x=typeof v==='number'?v:(parseFloat(String(v===null||v===undefined?'':v))||0);if(!isFinite(x))return String(x);var r=(x<0?-1:1)*Math.floor(Math.abs(x)*1e4+0.5+1e-7)/1e4;if(r===0)r=0;return r.toFixed(4)}   // main.rb mst_pk_n4 ile aynı: işaret · ⌊|x|·1e4 + 0,5 + 1e-7⌋ / 1e4
 function mstPkSectionSig(sec){var a=window.mstChSection.active(sec),o=['W'+mstPkN4(sec.total_width_m),'B'+mstPkN4(sec.base_m)],i;for(i=0;i<a.length;i++)o.push(mstPkN4(a[i].y0)+'-'+mstPkN4(a[i].y1)+':'+mstPkN4(a[i].h));return o.join('|')}
 // K3: oturma yok = null / undefined / boş (ya da yalnız boşluk) dize; imza, kayıt imzası ve form karşılaştırması bu tek kuralı kullanır
 function mstPkSeatNil(v){return v===null||v===undefined||(typeof v==='string'&&!v.trim())}

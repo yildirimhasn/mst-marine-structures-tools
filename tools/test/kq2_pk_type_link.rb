@@ -182,14 +182,17 @@ if HAVE
     [true, true, true, 0.15, true])
   rf = { 'uid' => 'pt_pk_9_1', 'family' => 'PK', 'name' => 'PK-L9', 'section' => JSON.parse(M.mst_ch_json(sec_l)), 'concrete' => 'C30/37',
          'fw_bottom' => true, 'fw_sides' => false, 'fw_inner' => true, 'fw_ends' => true, 'fw_ledge' => true, 'seat_left_m' => 0.10, 'seat_right_m' => 0.10, 'pk_rev' => 2 }
-  ok, ps = lay.([rf, PD_T], [{ 'type_uid' => 'pt_pk_9_1', 'count' => 1 }, { 'type_uid' => 'pd1', 'count' => 1 }])
+  # 43/1 (docs/duzeltme/43, karar 10): oturması PD'den farklı tip PD ile aynı yerleşimde reddedilir → 2.2 yalnız PK yerleşimi
+  ok, ps = lay.([rf, PD_T], [{ 'type_uid' => 'pt_pk_9_1', 'count' => 1 }])
   a = ps[0] && attrs(ps[0]); cs = ps[0] && M.mst_ch_section(ps[0])
   t('2.2 kayıtta fw_* + oturma 0,10: boy 3,20, oturma 0,10, x0 0,90, kalıp kayıttaki seçimle',
     [ok, a && near(a['length_m'], 3.2), a && a['seat_each_side_m'], ps[0] && near(ps[0].transformation.origin.x / IN, 0.9),
      a && cs && near(a['formwork_area_m2'], M.mst_ch_formwork(cs, a['length_m'], bottom: true, sides: false, inner: true, ends: true, ledge: true))],
     [true, true, 0.10, true, true])
-  pdx = $model.entities.to_a.flat_map { |e| e.respond_to?(:entities) ? e.entities.to_a : [] }.find { |e| e.respond_to?(:get_attribute) && e.get_attribute(D, 'element_type') == 'flat_precast' }
-  t('2.3 aynı yerleşimdeki PD form oturmasıyla (0,15, boy 3,30)', [pdx && pdx.get_attribute(D, 'seat_each_side_m'), pdx && near(pdx.get_attribute(D, 'length_m'), 3.3)], [0.15, true])
+  $ui_msgs = []
+  ok, ps = lay.([rf, PD_T], [{ 'type_uid' => 'pt_pk_9_1', 'count' => 1 }, { 'type_uid' => 'pd1', 'count' => 1 }])
+  t('2.3 (43/1) kayıt oturması 0,10 ≠ PD form oturması 0,15 aynı yerleşimde: yerleşim yok, işlem açılmaz, Türkçe neden (döşeme cebi)',
+    [ok == true, ps.length, $model.ops.map(&:first), $ui_msgs.join.include?('oturma') && $ui_msgs.join.include?('döşeme')], [false, 0, [], true])
   ok, ps = lay.([rf, PD_T], [{ 'type_uid' => 'pt_pk_9_1', 'count' => 1 }], 'channel_fw_ledge' => '0')
   a = ps[0] && attrs(ps[0]); cs = ps[0] && M.mst_ch_section(ps[0])
   t('2.4 ledge: kayıt açık + form kapalı → kapalı (açıkça kapatan kazanır, 38 K3 aynen)',
@@ -204,17 +207,20 @@ if HAVE
   t('2.6 U-eşdeğeri kayıt: kalıp kayıttan (taban + uç), oturma kayıtla aynı (0,15)', [ok, a && near(a['formwork_area_m2'], ft[0] + ft[3]), a && a['seat_each_side_m']], [true, true, 0.15])
 
   # ================================================================ 3. KN cebe yerleştirme
-  kn = lambda do |rec|
+  kn = lambda do |rec, ps_ = 0.15|   # ps_: açıklıktaki PD oturması (43/1: kayıt oturması buna eşit olmalı)
     fresh_model([rec])
     bk_y(9201, 0.0, 1.0); bk_y(9202, 4.0, 5.0)
-    pd = Sketchup::Group.new(9203, 'element_type' => 'flat_precast', 'precast_id' => 'PD9203', 'support_left_pid' => 9201, 'support_right_pid' => 9202, 'joint_m' => 0.02, 'seat_each_side_m' => 0.15, 'project' => 'P1')
-    pd.bounds = Geom::BoundingBox.new([0.85 * IN, 4.0 * IN, 2.7 * IN], [4.15 * IN, 5.0 * IN, 3.0 * IN]); put(pd)
+    pd = Sketchup::Group.new(9203, 'element_type' => 'flat_precast', 'precast_id' => 'PD9203', 'support_left_pid' => 9201, 'support_right_pid' => 9202, 'joint_m' => 0.02, 'seat_each_side_m' => ps_, 'project' => 'P1')
+    pd.bounds = Geom::BoundingBox.new([(1.0 - ps_) * IN, 4.0 * IN, 2.7 * IN], [(4.0 + ps_) * IN, 5.0 * IN, 3.0 * IN]); put(pd)
     M.mst_kn_place_plan($model, nil, nil, nil)
   end
   old = { 'uid' => 'pt_pk_1_1', 'family' => 'PK', 'name' => 'PK-KN', 'inner_width' => 0.8, 'inner_depth' => 0.6, 'base' => 0.2, 'wall' => 0.2, 'concrete' => 'C30/37' }
   kp = kn.(old); c0 = kp['cands'][0]
   t('3.1 KN eski kayıt: oturma PD\'den (0,15), boy 3,30, x0 0,85, kalıp varsayılan 0010', c0 && [c0['seat'], near(c0['length'], 3.3), near(c0['x0'], 0.85), c0['type']['fw']], [0.15, true, true, '0010'])
-  kp = kn.(old.merge('fw_bottom' => true, 'fw_sides' => false, 'fw_inner' => true, 'fw_ends' => true, 'seat_left_m' => 0.10, 'seat_right_m' => 0.10))
+  r10 = old.merge('fw_bottom' => true, 'fw_sides' => false, 'fw_inner' => true, 'fw_ends' => true, 'seat_left_m' => 0.10, 'seat_right_m' => 0.10)
+  kp = kn.(r10)
+  t('3.1b (43/1) KN kayıt oturması 0,10 ≠ açıklıktaki PD oturması 0,15: aday yok, Türkçe uyarı (döşeme cebi)', [kp['cands'].length, kp['warnings'].join.include?('kayıttaki oturma')], [0, true])
+  kp = kn.(r10, 0.10)
   c0 = kp['cands'][0]
   t('3.2 KN kayıtta fw_* + oturma 0,10: oturma 0,10, boy 3,20, x0 0,90, kalıp 1011', c0 && [c0['seat'], near(c0['length'], 3.2), near(c0['x0'], 0.9), c0['type']['fw']], [0.10, true, true, '1011'])
   inst = c0 && M.mst_kn_create_pk!(c0, $model, nil)

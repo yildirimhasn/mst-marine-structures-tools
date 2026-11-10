@@ -185,10 +185,12 @@ t('5.7 aynı geom farklı kod (az önce eklenen) atla, işlem yok', [r['ok'], r[
 wfile(JSON.generate('format' => 'mst_pk_types', 'v' => 1, 'tipler' => [fa.merge('pk_rev' => 5)]))
 r = M.mst_pk_lib_file_import({ 'uids' => %w[pt_pk_1_1] }, $model)
 t('5.8 rev büyük → güncelleme yok, bildir', [r['eklenen'], r['atlanan'][0]['neden'].include?('5'), JSON.parse(libtxt).find { |x| x['uid'] == 'pt_pk_1_1' }['pk_rev']], [0, true, 1])
-# kutuphane (JS tam liste) esas alınır
-model_lib([REC_PD]); wfile(JSON.generate('format' => 'mst_pk_types', 'v' => 1, 'tipler' => [fd]))
+# 42 E1 (sözleşme değişikliği): kaynak modeldeki liste; arayüz listesi modelde olmayan PK kaydı taşıyorsa (bayat) içe alma yapılmaz
+model_lib([REC_PD]); wfile(JSON.generate('format' => 'mst_pk_types', 'v' => 1, 'tipler' => [fd])); lib0 = libtxt
 r = M.mst_pk_lib_file_import({ 'uids' => %w[pt_pk_7_7], 'kutuphane' => [REC_PD, A] }, $model)
-t('5.9 kutuphane listesi esas', JSON.parse(libtxt).map { |x| x['uid'] }, %w[pd1 pt_pk_1_1 pt_pk_7_7])
+t('5.9 (E1) arayüz listesi modelle uyuşmuyor → liste_bayat, model aynı, yanıtta model listesi', [r['ok'], r['durum'], libtxt == lib0, r['kutuphane_json'] == lib0, ops], [false, 'liste_bayat', true, true, []])
+r = M.mst_pk_lib_file_import({ 'uids' => %w[pt_pk_7_7], 'kutuphane' => [REC_PD] }, $model)
+t('5.9b (E1) uyuşan liste → taban model listesi + yalnız içe alınan kayıt', JSON.parse(libtxt).map { |x| x['uid'] }, %w[pd1 pt_pk_7_7])
 # bozuk dosya / yok
 wfile('{bozuk'); model_lib([REC_PD]); lib0 = libtxt
 r = M.mst_pk_lib_file_import({ 'uids' => %w[pt_pk_7_7] }, $model)

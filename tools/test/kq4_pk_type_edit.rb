@@ -187,8 +187,8 @@ sel(b); ops_clear; l1 = libtxt
 r = M.mst_pk_type_save(RQS.('PK-L2', SEC_L13, 'karar' => 'mevcut'), $model)
 t('1.7 karar mevcut: mevcut_secildi + "MST PK Tipini Uygula" tek işlem, kütüphane aynı, PK yeni tipte',
   [r['ok'], r['durum'], r['guncellenen'], $model.ops, libtxt == l1, b.get_attribute(D, 'precast_type_uid') == nu, near(vol(b), 1.254, 1e-9)], [true, 'mevcut_secildi', 1, [[:start, 'MST PK Tipini Uygula'], [:commit]], true, true, true])
-# oturma 0,15 → 0,25: boy 3,50, başlangıç −0,10 (yerel X = dünya X)
-ok, ps, = place(1); a = ps[0]; x0 = a.transformation.to_a[12] / IN; sel(a)
+# oturma 0,15 → 0,25: boy 3,50, başlangıç −0,10 (yerel X = dünya X). 43/1 (karar 10): açıklıkta PD varken oturma farkı reddedilir → yalnız PK yerleşimi
+ok, ps, = place(1, {}, [REC_L]); a = ps[0]; x0 = a.transformation.to_a[12] / IN; sel(a)
 r = M.mst_pk_type_save(RQS.('PK-L25', SEC_L, 'seat_left_m' => 0.25, 'seat_right_m' => 0.25), $model)
 t('1.8 oturma 0,25: boy 3,50, beton 0,36 × 3,50 = 1,260, başlangıç x −0,10, seat_each_side_m 0,25',
   [r['ok'], near(a.get_attribute(D, 'length_m'), 3.5), near(vol(a), 1.26, 1e-9), near(a.transformation.to_a[12] / IN, x0 - 0.1, 1e-9), a.get_attribute(D, 'seat_each_side_m')], [true, true, true, true, 0.25])
@@ -198,7 +198,7 @@ t('1.9 yerleşim PK + sol ≠ sağ oturma: ok false, işlem / kayıt yok', [r['o
 ok, ps, = place(1, 'pk_elevation_mode' => 'POCKET'); sel(ps[0]); l1 = libtxt
 r = M.mst_pk_type_save(RQS.('PK-L2', SEC_L13), $model)
 t('1.10 POCKET + cebe sığmayan kesit (1,30 > cep 1,24): ok false (cep uyumu), işlem / kayıt yok', [ok, r['ok'], r['neden'].to_s.include?('cep uyumu'), ops, libtxt == l1], [true, false, true, [], true])
-ok, ps, = place(1); sel(ps[0]); $transform_fail = true
+ok, ps, = place(1, {}, [REC_L]); sel(ps[0]); $transform_fail = true   # 43/1: PD'siz (oturma farkı uygunluk reddine takılmadan hata yolu)
 r = M.mst_pk_type_save(RQS.('PK-L26', SEC_L, 'seat_left_m' => 0.26, 'seat_right_m' => 0.26), $model)
 $transform_fail = false
 t('1.11 hata → abort (tek işlem, commit yok), ok false, guncellenen 0', [r['ok'], ops, r['guncellenen'], r['neden'].to_s.include?('geri alındı')], [false, %i[start abort], 0, true])
@@ -252,7 +252,7 @@ t('3.9 1,22 ortadan (Y 2,01–3,23, cep 2,00–3,24) sığar → uygun', [pl['or
 
 # ---------------------------------------------------------------- 4. "Tüm örnekler" — apply
 ps = three([REC_PD, REC_L]); uids = ps.map { |e| e.get_attribute(D, 'element_uid') }; l0 = libtxt
-r = M.mst_pk_type_update_apply(RQ.merge('section' => secj(SEC_L13), 'onay' => true), $model)
+r = M.mst_pk_type_update_apply(RQ.merge('section' => secj(SEC_L13), 'onay' => true, 'plan_pids' => ps[0, 2].map(&:persistent_id)), $model)   # 42 Ö3: plan_pids
 t('4.1 apply yapı ANO-01: tek normal işlem "MST PK Tipini Güncelle", guncellenen 2, tip rev 2, kapsam dışı uyarısı',
   [r['ok'], $model.ops, $op_args.map { |x| x[3] }, r['guncellenen'], r['tip'], r['uyarilar'].to_a.join.include?('eski revizyonda')],
   [true, [[:start, 'MST PK Tipini Güncelle'], [:commit]], [nil], 2, { 'uid' => 'pt_pk_1_1', 'kod' => 'PK-L', 'rev' => 2 }, true])
@@ -265,8 +265,8 @@ t('4.3 kayıt: pk_rev 2, section 1,30, geom_sig yeni; rev_log eski kayıt korunu
 t('4.4 diğer kayıt (PD-01) JSON metni bayt aynı', [l0.include?(JSON.generate(REC_PD)), libtxt.include?(JSON.generate(REC_PD))], [true, true])
 cat = M.mst_pk_type_catalog($model).find { |x| x['uid'] == 'pt_pk_1_1' }
 t('4.5 katalog kullanim: RIHTIM-01 eski_rev 1, ANO-01 eski_rev 0', cat && cat['kullanim'].map { |k| [k['yapi'], k['adet'], k['eski_rev']] }, [['ANO-01', 2, 0], ['RIHTIM-01', 1, 1]])
-ok, ps, = place(1); $transform_fail = true
-r = M.mst_pk_type_update_apply(RQ.merge('kapsam' => 'model', 'seat_left_m' => 0.3, 'seat_right_m' => 0.3, 'onay' => true), $model)
+ok, ps, = place(1, {}, [REC_L]); $transform_fail = true   # 43/1: PD'siz; 42 Ö3: plan_pids
+r = M.mst_pk_type_update_apply(RQ.merge('kapsam' => 'model', 'seat_left_m' => 0.3, 'seat_right_m' => 0.3, 'onay' => true, 'plan_pids' => ps.map(&:persistent_id)), $model)
 $transform_fail = false
 t('4.6 hata → abort, ok false, guncellenen 0', [r['ok'], ops, r['guncellenen'], r['neden'].to_s.include?('geri alındı')], [false, %i[start abort], 0, true])
 
@@ -301,6 +301,7 @@ def deck_model
 end
 a, b, d, other = deck_model
 before = JSON.parse(d.get_attribute(D, 'deck_plan_json'))['openings']
+vol0 = JSON.parse(d.get_attribute(D, 'deck_plan_json'))['volume']; oth0 = other.get_attribute(D, 'deck_plan_json')
 r = M.mst_pk_delete($model)
 t('5.1 seçim yok → ok false, işlem açılmaz', [r['ok'], ops, r['silinen'], r['dosemeler']], [false, [], 0, 0])
 sel(a); ops_clear
@@ -311,6 +312,10 @@ t('5.2 PK Sil: tek normal işlem "MST Kanal Prekastı Sil" (transparent değil),
   [true, [[:start, 'MST Kanal Prekastı Sil'], [:commit]], [nil], 1, 1, true, [d], false, true])
 t('5.3 döşeme: silinen PK9601 açıklığı kalktı, PK9602 açıklığı birebir aynı',
   [before.map { |o| o['id'] }.uniq.sort, after.map { |o| o['id'] }.uniq, after == before.select { |o| o['id'] == 'PK9602' }], [%w[PK9601 PK9602], ['PK9602'], true])
+# 43/4 (metraj kontrolü 43 §4, elle beklenen): silinen PK yerinde döşeme net beton artışı 1,38 m³ (açıklık + prekast cebi kalkar, şerit
+# "PD yok" sayılıp tam kalınlık); diğer döşeme (D-002) değişmez
+vol1 = JSON.parse(d.get_attribute(D, 'deck_plan_json'))['volume']
+t('5.3b PK Sil: döşeme net beton artışı 1,38 m³ (elle beklenen, rapor 43 §4), diğer döşeme aynı', [(vol1 - vol0).round(9), other.get_attribute(D, 'deck_plan_json') == oth0], [1.38, true])
 a, b, d, = deck_model; sel(a); $regen_fail = true
 r = M.mst_pk_delete($model); $regen_fail = false
 t('5.4 döşeme hatası → abort, ok false', [r['ok'], ops, r['neden'].to_s.include?('geri alındı')], [false, %i[start abort], true])
@@ -337,9 +342,9 @@ r = M.mst_pk_type_save(RQS.('PK-L2', SEC_L13), $model)
 t('6.3 derz 0,02 + iki yana 0,05 → komşuyla 30 mm çakışır: ok false, metin, işlem / kayıt yok, konum aynı',
   [r['ok'], r['neden'].to_s.include?("komşu #{M.element_visible_id(b)} ile 30 mm çakışır"), ops, libtxt == l1, near(ys.(a), ya, 1e-12)], [false, true, [], true, true])
 ok, ps, = place(2); a, b = ps; ya = ys.(a); sel(a)
-r = M.mst_pk_type_save(RQS.('PK-L10', SEC_L10), $model)
-t('6.4 küçülme 1,20 → 1,00: çakışma / derz uyarısı yok, ortadan (y +0,10), layout_width_m 1,00',
-  [r['ok'], r['uyarilar'].to_a.grep(/komşu/), near(ys.(a), ya + 0.1, 1e-9), near(a.get_attribute(D, 'layout_width_m'), 1.0)], [true, [], true, true])
+r = M.mst_pk_type_save(RQS.('PK-L118', M.mst_ch_parse(SEC_L.merge('total_width_m' => 1.18))), $model)   # 43/3: 1,00'a küçülme (derz 120 mm) kq6'da reddedilir
+t('6.4 küçülme 1,20 → 1,18: çakışma / derz uyarısı yok, ortadan (y +0,01), layout_width_m 1,18',
+  [r['ok'], r['uyarilar'].to_a.grep(/komşu/), near(ys.(a), ya + 0.01, 1e-9), near(a.get_attribute(D, 'layout_width_m'), 1.18)], [true, [], true, true])
 ps = three([REC_PD, REC_L], '0.02')
 M.send(:mst_plan_readonly) { pl = M.mst_pk_update_build(RQ.merge('section' => secj(SEC_L13)), $model)[0] }
 o0 = pl['ornekler'].find { |o| o['pid'] == ps[0].persistent_id } || {}; o1 = pl['ornekler'].find { |o| o['pid'] == ps[1].persistent_id } || {}
