@@ -809,7 +809,9 @@ label{font-size:11px;color:#4c687f;font-weight:500}
     <!-- ADR-0515-K2 P2: PK seçim listesi + BK kanal cebi uyumu (salt okuma; yerleşim yine "PD Yerleşimini Oluştur" ile) -->
     <section class="pd-panel pd-span2" id="pkPickPanel"><h3>2b. PD Yerleşim Düzeni — Kanal Prekastı (PK) Seçimi ve Cep Uyumu</h3>
       <div class="channel-layout-note">Liste modelde kayıtlı tip kütüphanesinden ve modeldeki PK'lardan okunur. Formda kaydedilmemiş tip değişiklikleri, yerleşim oluşturulunca listeye girer. Cep uyumu için modelde <b>iki BK</b> seçin ve <b>Cep Uyumunu Denetle</b>'ye basın; yerleşim satırları değişirse denetimi yenileyin.</div>
-      <div style="margin-top:7px"><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkRefresh()">↻ PK Listesini Yenile</button><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkCheckPockets()">⊔ Cep Uyumunu Denetle</button></div>
+      <div style="margin-top:7px"><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkRefresh()">↻ PK Listesini Yenile</button><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkCheckPockets()">⊔ Cep Uyumunu Denetle</button><button type="button" class="secondary" id="pkDeleteBtn" style="margin:0 7px 4px 0" onclick="mstPkDelete()" title="SketchUp'ta seçili PK'ları siler; bağlı döşemelerin PK boşluğu aynı işlemde yeniden kurulur (tek Ctrl+Z)">Seçili PK'yı Sil (döşeme boşluğu da güncellenir)</button></div>
+      <div class="channel-layout-note">PK Sil: silinecek PK'ları modelde seçip düğmeye basın. SketchUp'ın Sil tuşuyla silinirse döşeme kendiliğinden güncellenmez; Model Kontrolü uyarır.</div>
+      <div id="pkDeleteResult" class="pk-pocket-info" role="status" aria-live="polite"></div>
       <div id="pkPickStatus" class="pk-status" role="status" aria-live="polite"></div>
       <div id="pkPickSave" class="pk-pocket-info" role="status" aria-live="polite"></div>
       <div id="pkPocketInfo" class="pk-pocket-info"></div>
@@ -982,6 +984,25 @@ label{font-size:11px;color:#4c687f;font-weight:500}
    <button id="pkSaveBtn" class="channel-model" type="button" onclick="mstPkSaveFromForm()">PK Tipi Olarak Kaydet</button>
    <div id="pkSaveWhy" class="ch-preset-note" style="padding:0 10px"></div>
    <div id="pkSaveResult" class="pk-pocket-info" role="status" aria-live="polite"></div>
+   <!-- ADR-0515-K3 P4: kayıtlı tipten yüklenip kesiti değişen formda (KAYITSIZ TASARIM) üç ayrı eylem; aynı form, ayrı pencere yok -->
+   <div id="pkEditBox" style="display:none">
+    <div class="ch-preset-note" style="padding:6px 10px 0"><b>Formdaki kesit yüklenen tipten (<span id="pkEditFrom"></span>) farklı. Üç seçenekten birini kullanın:</b><br>1) Yukarıdaki "Yeni PK Tipi Olarak Kaydet": yalnız tip kütüphanesine yeni tip yazar; modeldeki PK'lar değişmez.</div>
+    <div style="border-top:1px solid #d5dee6;margin-top:8px;padding:6px 10px 0">
+     <b>2) Yalnız seçili PK elemanları</b>
+     <p class="ch-preset-note" style="margin:3px 0">Yalnız SketchUp'ta seçili PK'lar değişir; diğer örnekler eski tipte kalır. Formdaki kesit, yukarıdaki PK kodu ve tip adıyla yeni tip olarak kaydedilir ve seçili PK'lar bu tipe geçer.</p>
+     <button id="pkApplySelBtn" class="secondary" type="button" onclick="mstPkApplySel()" aria-describedby="pkApplySelWhy">Seçili PK elemanlarına uygula (yeni tip olarak)</button>
+     <div id="pkApplySelWhy" class="ch-preset-note"></div>
+    </div>
+    <div style="border-top:1px solid #d5dee6;margin-top:8px;padding:6px 10px 0">
+     <b id="pkUpdTitle">3) Tipi güncelle</b>
+     <p class="ch-preset-note" style="margin:3px 0">Bu tipe bağlı PK örnekleri yeni revizyona geçer. Önce plan gösterilir; modeli yalnız onay düğmesi değiştirir. Beton, kalıp ve döşeme boşluğu metrajı değişir.</p>
+     <div role="radiogroup" aria-label="Tip güncelleme kapsamı" style="margin:3px 0 5px"><label style="display:inline;margin-right:14px"><input type="radio" name="pk_upd_kapsam" id="pk_upd_kapsam_yapi" value="yapi" checked onchange="mstPkUpdScope(this.value)"> Etkin yapı (varsayılan)</label><label style="display:inline"><input type="radio" name="pk_upd_kapsam" id="pk_upd_kapsam_model" value="model" onchange="mstPkUpdScope(this.value)"> Tüm model</label></div>
+     <button id="pkUpdPlanBtn" class="secondary" type="button" onclick="mstPkUpdPlan()" aria-describedby="pkUpdWhy">Planı göster</button>
+     <div id="pkUpdWhy" class="ch-preset-note"></div>
+     <div id="pkUpdPlan" class="pk-pocket-info" role="status" aria-live="polite"></div>
+    </div>
+   </div>
+   <div id="pkUpdResult" class="pk-pocket-info" role="status" aria-live="polite"></div>
   </div>
   <div class="channel-card"><h3>⌄ İşlemler</h3>
    <label class="channel-enable"><input id="channel_precast_enabled" type="checkbox" checked onchange="updateChannelPrecastUI()"> Kanal Prekastı Aktif</label>
@@ -2641,6 +2662,7 @@ function mstPkSaveSync(sec,ok,errs){
  if(mstPkSave.busy)r.push('Kayıt yanıtı bekleniyor.');
  btn.disabled=r.length>0;btn.title=r.join(' ');
  if(why)why.textContent=r.length?'Kaydedilemez: '+r.join(' '):'';
+ mstPkSave.why=r;if(typeof mstPkEditRender==='function')mstPkEditRender();   // K3 P4: seçili PK'lara uygula aynı ön koşullarla
 }
 function mstPkFormRequest(){
  var g=function(id){return document.getElementById(id)},ck=function(id){var e=g(id);return !!(e&&e.checked)},v=function(id){var e=g(id);return e?String(e.value||'').trim():''};
@@ -2687,17 +2709,21 @@ function mstPkSaveRender(){
  var p=mstPkSave.res;if(!p){box.innerHTML='';return}
  var d=String(p.durum||''),m=(p.mevcut&&typeof p.mevcut==='object')?p.mevcut:{},t=(p.tip&&typeof p.tip==='object')?p.tip:{};
  var nm=function(o){var k=o.kod||o.name||'?',a=o.ad||o.title||'';return esc(k)+(a?' ('+esc(a)+')':'')};
- if(d==='gonderildi'){box.innerHTML='<div class="pk-pair">Kaydediliyor… tip kütüphanesi denetleniyor.</div>';return}
+ // K3 P4 (b): uygula:"secim" — yalnız seçili PK'lar yeni tipe geçer; yanıtta guncellenen, uyarilar
+ var sel=!!(mstPkSave.req&&mstPkSave.req.uygula==='secim'),wl=mstPkWarnList(p.uyarilar);
+ if(d==='gonderildi'){box.innerHTML='<div class="pk-pair">Kaydediliyor… tip kütüphanesi denetleniyor'+(sel?'; seçili PK\'lar yeni tipe geçirilecek':'')+'.</div>';return}
  if(d==='ayni_geometri'){box.innerHTML='<div class="pk-pair"><span class="pk-tag est">AYNI GEOMETRİ</span> Bu geometri zaten '+nm(m)+' olarak kayıtlı. Mevcut tipi kullanın ya da ayrı bir tip olarak kaydedin.<div class="pk-pick-actions" style="margin-top:4px"><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkSaveDecide(\'mevcut\')">Mevcut tipi kullan</button><button type="button" class="secondary" style="margin:0 7px 4px 0" onclick="mstPkSaveDecide(\'yeni\')">Yine de yeni tip kaydet</button></div></div>';return}
  if(d==='kod_cakisma'){var rk=(mstPkSave.req&&mstPkSave.req.kod)||'';box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">KOD KULLANILIYOR</span> '+esc(rk)+' kodu başka bir PK tipinde kayıtlı'+(m.kod?' ('+nm(m)+')':'')+'; PK kodu alanına farklı bir kod verin ve yeniden kaydedin.'+(p.neden?'<div class="pk-dims">'+esc(p.neden)+'</div>':'')+'</div>';return}
  if(p.ok&&(d==='kaydedildi'||d==='mevcut_secildi')){
   var o=d==='mevcut_secildi'&&m.uid?m:t,uid=o.uid||t.uid||m.uid||'';mstPkSave.useUid=uid;
   box.innerHTML='<div class="pk-pair"><span class="pk-tag ok">'+(d==='kaydedildi'?'KAYDEDİLDİ':'MEVCUT TİP SEÇİLDİ')+'</span> '+(d==='kaydedildi'?nm(o)+' tip kütüphanesine kaydedildi.':'Yeni kayıt açılmadı; mevcut '+nm(o)+' kullanılacak.')+
+   (sel?'<div class="pk-dims">'+(typeof p.guncellenen==='number'?p.guncellenen+' adet seçili PK bu tipe geçirildi; diğer örnekler eski tipte kaldı (tek Ctrl+Z ile geri alınır).':'Güncellenen PK sayısı yanıtta yok; PK listesinden kontrol edin.')+'</div>':'')+wl+
    (uid?'<div class="pk-pick-actions" style="margin-top:4px"><button type="button" class="secondary" onclick="mstPkGoUse(mstPkSave.useUid)">Prekast Yerleşimi\'nde kullan</button></div>':'<div class="pk-dims">Tip kimliği yanıtta yok; PK listesinden seçin.</div>')+'</div>';
   return;
  }
- box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">KAYDEDİLMEDİ</span> '+esc(p.neden||'PK tipi kaydedilemedi.')+'</div>';
+ box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">KAYDEDİLMEDİ</span> '+esc(p.neden||'PK tipi kaydedilemedi.')+wl+'</div>';
 }
+function mstPkWarnList(a){return Array.isArray(a)&&a.length?'<ul class="pk-why">'+a.map(function(w){return '<li>'+esc(w)+'</li>'}).join('')+'</ul>':''}
 // Kayıtlı tipi ilk PK yerleşim satırına atar (mstPkUseType) ve Prekast sayfasında yerleşim satırlarına götürür
 function mstPkGoUse(uid){
  var pg=document.getElementById('precast'),bs,i;
@@ -2758,7 +2784,8 @@ function mstPkAddSend(){
 
 /* ADR-0515-K3 P2 — Tip kartı / 2b "Kullanıldığı yapılar": katalog (pk_type_catalog → mstPk.cat) kütüphane satırının kullanim
    listesi [{yapi, yapi_ad, adet}] (main.rb öğelerden hesaplar); uid ile eşlenir. yapi_turu katalogda varsa gösterilir. */
-function mstPkUseList(arr){return arr.map(function(u){u=u||{};return esc(u.yapi_ad||u.yapi||'Yapı belirtilmemiş')+(u.yapi_turu?' ('+esc(u.yapi_turu)+')':'')+' '+(typeof u.adet==='number'?u.adet:'?')+' adet'}).join('; ')}
+// K3 P4: satırda eski_rev (adet) > 0 ise "N adet eski revizyonda" (tip güncellemesinde kapsam dışında kalan örnekler)
+function mstPkUseList(arr){return arr.map(function(u){u=u||{};var er=u.eski_rev;return esc(u.yapi_ad||u.yapi||'Yapı belirtilmemiş')+(u.yapi_turu?' ('+esc(u.yapi_turu)+')':'')+' '+(typeof u.adet==='number'?u.adet:'?')+' adet'+(typeof er==='number'&&isFinite(er)&&er>0?' <span class="pk-tag est">'+er+' adet eski revizyonda</span>':'')}).join('; ')}
 function mstPkUseCardText(uid){
  var c=mstPk.cat,en=null,i;
  if(mstPk.catErr)return 'Kullanıldığı yapılar: PK listesi okunamadı.';
@@ -2771,8 +2798,8 @@ function mstPkUseFill(){var a=document.querySelectorAll('[data-pk-use]'),i;for(i
 
 /* ADR-0515-K3 P2 — Kanal Prekastı formu ↔ tip kütüphanesi: "Kayıtlı PK tipinden başla". Kesitli PK kaydı (precastTypes) formu
    doldurur. create_channel_precast isteğine tip_uid YALNIZ formdaki geometri (kesit + oturma) yüklenen tiple aynıysa eklenir;
-   main.rb yeniden denetler, eşit değilse bağ yazmaz. Kayıtlı tipin kendisini değiştirme P4'te (bu partide yok): formdaki
-   değişiklik kaydı değiştirmez. Callback yok. */
+   main.rb yeniden denetler, eşit değilse bağ yazmaz. Formdaki değişiklik kaydı kendiliğinden değiştirmez; kayıtlı tipi
+   değiştirme P4 eylemleriyle (mstPkEdit*, aşağıda). Bu bölümde callback yok. */
 var mstPkForm={uid:'',kod:'',ad:'',rev:null,notes:[],diverged:false};
 // Geometri imzası — main.rb mst_pk_n4 (:13282), mst_pk_section_sig (:13284-13286), mst_pk_geom_sig (:13289-13291) ve
 // channel_section.rb mst_ch_active (:144-151) kuralının kopyası: "pk1|W<t>|B<b>|<y0>-<y1>:<h>…|oturma:<sol>/<sağ>", açık çıkıntılar
@@ -2855,15 +2882,16 @@ function mstPkFormSync(sec,ok){
 function mstPkFormNote(){
  var box=document.getElementById('pkFormTypeNote');if(!box)return;
  var f=mstPkForm,h='',ex=f.notes&&f.notes.length?'<br>'+f.notes.map(esc).join('<br>'):'';
- var p4='<br>Kayıtlı tipin kendisini değiştirme sonraki partide (P4) gelecek; bu formdaki değişiklik kayıtlı tipi değiştirmez.';
+ var p4='<br>Formdaki değişiklik kayıtlı tipi kendiliğinden değiştirmez; kesit değişince PK Tip Kaydı bölümünde üç seçenek çıkar (yeni tip / seçili PK\'lara uygula / tipi güncelle).';
  if(!f.uid){
   h=f.count===0?'Tip kütüphanesinde kesitli PK tipi yok. Kesiti tasarlayıp "PK Tipi Olarak Kaydet" ile kaydedebilirsiniz.':'Kayıtlı bir PK tipi seçilince kesit, döşeme ledge seçimi, oturma payları, beton, kalıp seçimleri ve üst yüzey o kayıttan doldurulur. "Yeni / kayıtsız tasarım" seçiliyken form değişmez ve modellenen PK bir tipe bağlanmaz.';
-  box.innerHTML=esc(h)+ex;return;
+  box.innerHTML=esc(h)+ex;if(typeof mstPkEditRender==='function')mstPkEditRender();return;
  }
  var nm=esc(f.kod)+(f.ad?' — '+esc(f.ad):'')+(typeof f.rev==='number'&&f.rev>0?' (rev '+f.rev+')':'');
- if(f.diverged)h='<span class="pk-tag est">KAYITSIZ TASARIM</span> Yüklenen tipten ('+nm+') farklı — kayıtsız tasarım (yeni tip olarak kaydedebilirsiniz). Modellenen PK bu tipe bağlanmaz.';
+ if(f.diverged)h='<span class="pk-tag est">KAYITSIZ TASARIM</span> Yüklenen tipten ('+nm+') farklı — kayıtsız tasarım (yeni tip olarak kaydedebilirsiniz). Modellenen PK bu tipe bağlanmaz. Seçenekler PK Tip Kaydı bölümünde.';
  else h='<span class="pk-tag ok">KAYITLI TİP</span> '+nm+' formda. '+(f.noSeat?'Kayıtta oturma payı yok (eski kayıt): yalnız kesit karşılaştırılır; kesit kayıtla aynı':'Kesit ve oturma kayıtla aynı')+': modellenen PK bu tipe bağlanır (bağ modellemede yeniden denetlenir).'+mstPkFormDiffNote();
  box.innerHTML=h+ex+p4;
+ if(typeof mstPkEditRender==='function')mstPkEditRender();
 }
 // Geometri dışı farklar (beton / kalıp): tip bağı geometriye göredir, fark yalnız bilgi olarak gösterilir
 function mstPkFormDiffNote(){
@@ -2875,6 +2903,137 @@ function mstPkFormDiffNote(){
 }
 // Beton / kalıp alanları updateChannelPrecastUI'yi çağırmaz; yalnız durum notu yenilenir
 document.addEventListener('DOMContentLoaded',function(){['channel_concrete_class','channel_fw_bottom','channel_fw_sides','channel_fw_inner','channel_fw_ledge','channel_fw_ends'].forEach(function(id){var e=document.getElementById(id);if(e)e.addEventListener('change',mstPkFormNote)})});
+
+/* ADR-0515-K3 P4 — Kayıtlı PK tipini düzenleme: üç ayrı eylem (talimat 40a md. 10; karar 3, 4), tek form (md. 14), PK Sil (karar 7).
+   Görünürlük: form kayıtlı bir tipten yüklenmiş ve geometri ayrılmış (mstPkForm.diverged, KAYITSIZ TASARIM).
+   (a) Yeni PK tipi olarak kaydet: mevcut pk_type_save akışı (değişmedi).
+   (b) Yalnız seçili PK'lar: pk_type_save isteği + uygula:"secim" (karar 3: zorunlu yeni tip; kod / ad PK Tip Kaydı alanlarından)
+       → mstPkTypeSaved (guncellenen, uyarilar).
+   (c) Tipi güncelle (tüm örnekler): sketchup.pk_type_update_plan(json) → window.mstPkTypePlan(p); onay → sketchup.pk_type_update_apply(
+       plan isteği + onay:true) → window.mstPkTypeUpdated(p). İstek: {tip_uid, section, seat_left_m, seat_right_m, concrete,
+       fw:{bottom,sides,inner,ends,ledge}, channel_top_ref (boşsa null), kapsam:"yapi"|"model"}; yapi gönderilmez (etkin yapıyı Ruby
+       belirler). Uygunluk, kapsam, revizyon ve onay denetimi Ruby'dedir; burada yalnız istek ve gösterim. Plan alındıktan sonra form
+       veya kapsam değişirse onay pasif olur (plan yenilenmeli).
+   PK Sil: sketchup.pk_delete() (seçili PK'lar) → window.mstPkDeleted(p). */
+var mstPkUpd={kapsam:'yapi',busy:'',plan:null,planKey:'',planReq:null,res:null,html:null};
+function mstPkEditOn(){return !!(mstPkForm.uid&&mstPkForm.diverged&&typeByUid(mstPkForm.uid))}
+function mstPkUpdRequest(){
+ var f=mstPkFormRequest();
+ return {tip_uid:mstPkForm.uid,section:f.section,seat_left_m:f.seat_left_m,seat_right_m:f.seat_right_m,concrete:f.concrete,fw:f.fw,channel_top_ref:f.channel_top_ref||null,kapsam:mstPkUpd.kapsam==='model'?'model':'yapi'};
+}
+function mstPkUpdScope(v){mstPkUpd.kapsam=v==='model'?'model':'yapi';mstPkEditRender()}
+function mstPkEditRender(){
+ var g=function(id){return document.getElementById(id)},box=g('pkEditBox'),sb=g('pkSaveBtn'),pe=g('pkUpdPlan');if(!box||!mstPkUpd)return;
+ var on=mstPkEditOn();
+ if(sb)sb.textContent=on?'Yeni PK Tipi Olarak Kaydet':'PK Tipi Olarak Kaydet';
+ box.style.display=on?'':'none';
+ if(!on){if(!mstPkUpd.busy){mstPkUpd.plan=null;mstPkUpd.planReq=null;mstPkUpd.planKey=''}if(pe&&mstPkUpd.html){pe.innerHTML='';mstPkUpd.html=''}return}
+ var t=typeByUid(mstPkForm.uid),r=t.pk_rev,hasR=typeof r==='number'&&isFinite(r)&&r>0;
+ g('pkEditFrom').textContent=mstPkForm.kod+(mstPkForm.ad?' — '+mstPkForm.ad:'')+(hasR?', rev '+r:'');
+ g('pkUpdTitle').textContent='3) Tipi güncelle: '+mstPkForm.kod+' ('+(hasR?'rev '+r+' → '+(r+1):'revizyonsuz kayıt → yeni revizyon')+')';
+ var ky=g('pk_upd_kapsam_yapi'),km=g('pk_upd_kapsam_model');if(ky)ky.checked=mstPkUpd.kapsam!=='model';if(km)km.checked=mstPkUpd.kapsam==='model';
+ // (b) ön koşulları: PK Tipi Olarak Kaydet ile aynı (mstPkSaveSync nedenleri) + güncelleme yanıtı bekleniyorsa pasif
+ var w=(mstPkSave.why||[]).slice(),ab=g('pkApplySelBtn'),aw=g('pkApplySelWhy');
+ if(mstPkUpd.busy)w.push('Tip güncelleme yanıtı bekleniyor.');
+ if(ab){ab.disabled=w.length>0;ab.title=w.join(' ')}if(aw)aw.textContent=w.length?'Uygulanamaz: '+w.join(' '):'';
+ // (c) Planı göster
+ var bad=window.mstChSection.valid(chReadSection()).length>0,u=[],pb=g('pkUpdPlanBtn'),uw=g('pkUpdWhy');
+ if(bad)u.push('Kesit geçersiz; önizleme altındaki hataları düzeltin.');
+ if(mstPkSave.busy)u.push('Kayıt yanıtı bekleniyor.');
+ if(mstPkUpd.busy)u.push(mstPkUpd.busy==='plan'?'Plan yanıtı bekleniyor.':'Güncelleme yanıtı bekleniyor.');
+ if(pb){pb.disabled=u.length>0;pb.title=u.join(' ')}if(uw)uw.textContent=u.length?'Plan alınamaz: '+u.join(' '):'';
+ var h=mstPkUpdPlanHtml(bad?'':JSON.stringify(mstPkUpdRequest()));
+ if(pe&&h!==mstPkUpd.html){pe.innerHTML=h;mstPkUpd.html=h}
+}
+function mstPkUpdPlanHtml(key){
+ var U=mstPkUpd,p=U.plan,num=function(v){return typeof v==='number'&&isFinite(v)},yn=function(y,a){return esc(a||y||'Yapı belirtilmemiş')};
+ if(U.busy==='plan')return '<div class="pk-pair">Plan hazırlanıyor… bu tipe bağlı PK\'lar denetleniyor (model değişmez).</div>';
+ if(!p)return '';
+ if(!p.ok)return '<div class="pk-pair"><span class="pk-tag bad">PLAN ALINAMADI</span> '+esc(p.neden||'Güncelleme planı hazırlanamadı.')+'</div>';
+ var t=(p.tip&&typeof p.tip==='object')?p.tip:{},yo=Array.isArray(p.yapi_ozet)?p.yapi_ozet:[],ex=Array.isArray(p.kapsam_disi)?p.kapsam_disi:[];
+ var bad=(Array.isArray(p.ornekler)?p.ornekler:[]).filter(function(o){return o&&!o.uygun});
+ var stale=key!==U.planKey||!!(t.uid&&U.planReq&&t.uid!==U.planReq.tip_uid),ya='',i;
+ for(i=0;i<yo.length;i++)if(yo[i]&&yo[i].yapi===p.yapi)ya=yo[i].yapi_ad;
+ var h='<div class="pk-pair"><b>Güncelleme planı: '+esc(t.kod||mstPkForm.kod)+(t.ad?' ('+esc(t.ad)+')':'')+' · revizyon '+(num(t.rev)?t.rev:'—')+' → '+(num(p.yeni_rev)?p.yeni_rev:'—')+'</b>'+
+  '<div class="pk-dims">Kapsam: '+(p.kapsam==='model'?'Tüm model':'Etkin yapı'+(p.yapi||ya?' — '+yn(p.yapi,ya):''))+'</div>';
+ h+=yo.length?'<div class="pk-dims">Kapsamdaki PK\'lar (yapı başına):</div><ul style="margin:2px 0 4px 18px;padding:0">'+yo.map(function(y){y=y||{};return '<li>'+yn(y.yapi,y.yapi_ad)+': '+(num(y.adet)?y.adet:'?')+' adet'+(num(y.uygun_degil)&&y.uygun_degil>0?' <span class="pk-tag bad">'+y.uygun_degil+' adet uygun değil</span>':'')+'</li>'}).join('')+'</ul>':'<div class="pk-dims">Kapsamda bu tipe bağlı PK yok.</div>';
+ if(bad.length)h+='<div class="pk-dims"><b>Uymayan örnekler (güncelleme başlamaz):</b></div><ul class="pk-why">'+bad.map(function(o){var n=Array.isArray(o.nedenler)?o.nedenler:[];return '<li>'+esc(o.kod||'PK')+(o.uid?' ['+esc(o.uid)+']':'')+(o.yapi?' · '+esc(o.yapi):'')+': '+esc(n.join('; ')||'neden bildirilmedi')+'</li>'}).join('')+'</ul>';
+ if(ex.length)h+='<div class="pk-dims"><b>Kapsam dışında kalan yapılar (eski revizyonda kalır):</b> '+ex.map(function(x){x=x||{};return yn(x.yapi,'')+' '+(num(x.adet)?x.adet:'?')+' adet'}).join('; ')+'</div>';
+ h+='<div class="pk-dims"><span class="pk-tag est">METRAJ DEĞİŞİR</span> '+(p.geom_degisti?'Kesit / oturma değişiyor: güncellenen PK\'ların beton ve kalıp metrajı ile bağlı döşemelerin PK boşluğu yeniden kurulur.':'Kesit ve oturma aynı; beton sınıfı / kalıp seçimi değişikliği metrajı değiştirebilir.')+'</div>';
+ var why=U.busy==='apply'?'Güncelleniyor… yanıt bekleniyor.':stale?'Form veya kapsam plan alındıktan sonra değişti; "Planı göster" ile planı yenileyin.':!p.baslatilabilir?(p.neden||(bad.length?'Uymayan örnek var; güncelleme başlatılmaz.':'Güncelleme başlatılamaz.')):'';
+ h+='<div class="pk-pick-actions" style="margin-top:4px"><button type="button" id="pkUpdApplyBtn" class="channel-model" onclick="mstPkUpdApply()"'+(why?' disabled title="'+esc(why)+'"':'')+'>Onayla ve güncelle (tek Ctrl+Z ile geri alınır)</button></div>'+(why?'<div class="pk-dims"><span class="pk-tag bad">BAŞLATILAMAZ</span> '+esc(why)+'</div>':'');
+ return h+'</div>';
+}
+function mstPkUpdPlan(){
+ if(!(window.sketchup&&sketchup.pk_type_update_plan)||!mstPkEditOn()||mstPkUpd.busy||mstPkSave.busy)return;
+ if(window.mstChSection.valid(chReadSection()).length){updateChannelPrecastUI();return}
+ var q=mstPkUpdRequest();mstPkUpd.planReq=q;mstPkUpd.planKey=JSON.stringify(q);mstPkUpd.plan=null;mstPkUpd.res=null;mstPkUpd.busy='plan';
+ mstPkUpdResultRender();mstPkEditRender();
+ sketchup.pk_type_update_plan(JSON.stringify(q));
+}
+window.mstPkTypePlan=function(p){
+ if(mstPkUpd.busy!=='plan')return;   // istenmemiş / geç gelen yanıt gösterilmez
+ mstPkUpd.busy='';mstPkUpd.plan=(p&&typeof p==='object')?p:{ok:false,neden:'Plan yanıtı okunamadı.'};
+ mstPkEditRender();
+};
+function mstPkUpdApply(){
+ var U=mstPkUpd,p=U.plan,q={},k;
+ if(!(window.sketchup&&sketchup.pk_type_update_apply)||U.busy||!p||!p.ok||!p.baslatilabilir||!U.planReq||!mstPkEditOn())return;
+ if(JSON.stringify(mstPkUpdRequest())!==U.planKey){mstPkEditRender();return}   // plan eskidi: gönderilmez
+ for(k in U.planReq)if(Object.prototype.hasOwnProperty.call(U.planReq,k))q[k]=U.planReq[k];
+ q.onay=true;U.busy='apply';mstPkEditRender();
+ sketchup.pk_type_update_apply(JSON.stringify(q));
+}
+window.mstPkTypeUpdated=function(p){
+ p=(p&&typeof p==='object')?p:{ok:false,neden:'Güncelleme yanıtı okunamadı.'};
+ var U=mstPkUpd,uid=(p.tip&&p.tip.uid)||(U.planReq&&U.planReq.tip_uid)||mstPkForm.uid;
+ U.busy='';U.res=p;
+ if(p.ok){
+  U.plan=null;U.planReq=null;U.planKey='';
+  var kj=p.kutuphane_json;if(kj!==null&&kj!==undefined&&typeof kj!=='string')kj=JSON.stringify(kj);
+  if(kj){loadPrecastTypeLibrary(kj);if(typeByUid(uid))mstPkFormPick(uid);else updateChannelPrecastUI()}   // form güncellenmiş kayıttan yeniden yüklenir
+  else updateChannelPrecastUI();
+  mstPkRefresh();
+ }
+ mstPkUpdResultRender();mstPkEditRender();
+};
+function mstPkUpdResultRender(){
+ var box=document.getElementById('pkUpdResult'),p=mstPkUpd.res;if(!box)return;
+ if(!p){box.innerHTML='';return}
+ var t=(p.tip&&typeof p.tip==='object')?p.tip:{},wl=mstPkWarnList(p.uyarilar);
+ if(p.ok)box.innerHTML='<div class="pk-pair"><span class="pk-tag ok">TİP GÜNCELLENDİ</span> '+esc(t.kod||'PK tipi')+(typeof t.rev==='number'?' revizyon '+t.rev:'')+': '+(typeof p.guncellenen==='number'?p.guncellenen+' adet PK güncellendi':'güncellenen PK sayısı yanıtta yok')+' (tek Ctrl+Z ile geri alınır). Kapsam dışındaki örnekler eski revizyonda kaldı.'+wl+'</div>';
+ else box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">TİP GÜNCELLENMEDİ</span> '+esc(p.neden||'PK tipi güncellenemedi.')+wl+'</div>';
+}
+// (b) Yalnız seçili PK'lar: PK Tipi Olarak Kaydet isteği + uygula:"secim" (aynı geometri / kod çakışması kararı aynı akışta, uygula korunur)
+function mstPkApplySel(){
+ if(!mstPkEditOn())return;
+ if(window.mstChSection.valid(chReadSection()).length){updateChannelPrecastUI();return}
+ var q=mstPkFormRequest();if(!q.kod||!q.ad||mstPkSave.busy||mstPkUpd.busy){mstPkSaveSync();return}
+ q.uygula='secim';mstPkSaveSend(q,'form');
+}
+// PK Sil (karar 7): seçili PK'lar + bağlı döşemelerin PK boşluğu aynı normal işlemde (Ruby); burada onay ve sonuç gösterimi
+var mstPkDel={busy:false,res:null};
+function mstPkDelete(){
+ if(!(window.sketchup&&sketchup.pk_delete)||mstPkDel.busy)return;
+ if(!confirm('SketchUp\'ta seçili kanal prekastları (PK) silinecek.\n\nBağlı döşemelerin PK boşluğu aynı işlemde yeniden kurulur; beton ve kalıp metrajı değişir.\nTek Ctrl+Z ile geri alınır.\n\nSilinsin mi?'))return;
+ mstPkDel.busy=true;mstPkDel.res=null;mstPkDelRender();
+ sketchup.pk_delete();
+}
+window.mstPkDeleted=function(p){
+ p=(p&&typeof p==='object')?p:{ok:false,neden:'Silme yanıtı okunamadı.'};
+ mstPkDel.busy=false;mstPkDel.res=p;mstPkDelRender();
+ if(p.ok)mstPkRefresh();
+};
+function mstPkDelRender(){
+ var b=document.getElementById('pkDeleteBtn'),box=document.getElementById('pkDeleteResult'),p=mstPkDel.res;
+ if(b)b.disabled=mstPkDel.busy;
+ if(!box)return;
+ if(mstPkDel.busy){box.innerHTML='<div class="pk-pair">Siliniyor… bağlı döşemelerin PK boşluğu güncelleniyor.</div>';return}
+ if(!p){box.innerHTML='';return}
+ var cnt=function(v){return typeof v==='number'&&isFinite(v)?v:(Array.isArray(v)?v.length:null)},n=cnt(p.silinen),d=cnt(p.dosemeler),wl=mstPkWarnList(p.uyarilar);
+ if(p.ok)box.innerHTML='<div class="pk-pair"><span class="pk-tag ok">SİLİNDİ</span> '+(n===null?'Seçili PK\'lar':n+' adet PK')+' silindi'+(d===null?'':'; '+d+' döşemenin PK boşluğu güncellendi')+' (tek Ctrl+Z ile geri alınır).'+wl+'</div>';
+ else box.innerHTML='<div class="pk-pair"><span class="pk-tag bad">SİLİNMEDİ</span> '+esc(p.neden||'Seçili PK silinemedi; modelde PK seçin ve yeniden deneyin.')+wl+'</div>';
+}
 
 
 

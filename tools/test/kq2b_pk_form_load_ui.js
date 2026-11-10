@@ -52,7 +52,7 @@ ok(val('channel_concrete_class') === 'C50/60' && js("Array.prototype.slice.call(
 ok(chk('channel_fw_bottom') === false && chk('channel_fw_sides') === true && chk('channel_fw_inner') === true && chk('channel_fw_ends') === false && chk('channel_fw_ledge') === false, 'kalıp kutuları kayıttaki fw_* değerlerinden');
 ok(val('pk_save_kod') === 'PK-005' && val('pk_save_ad') === 'L Kanal 1000', 'PK Tip Kaydı alanlarında kod / ad');
 ok(val('pk_save_top_ref') === 'right', 'üst yüzey seçimi kayıttan (Sağ)');
-ok(/KAYITLI TİP/.test(txt('pkFormTypeNote')) && /PK-005 — L Kanal 1000 \(rev 2\)/.test(txt('pkFormTypeNote')) && /P4/.test(txt('pkFormTypeNote')), 'durum: KAYITLI TİP + P4 notu');
+ok(/KAYITLI TİP/.test(txt('pkFormTypeNote')) && /PK-005 — L Kanal 1000 \(rev 2\)/.test(txt('pkFormTypeNote')) && /kendiliğinden değiştirmez/.test(txt('pkFormTypeNote')), 'durum: KAYITLI TİP + "kayıtlı tipi kendiliğinden değiştirmez" notu (P4 sonrası)');
 let r = sendCh();
 ok(r && r.tip_uid === 'pt_pk_L' && r.section.preset === 'L' && r.concrete_class === 'C50/60' && r.seat_left_m === 0.1 && r.fw_ledge === false, 'geometri aynı: tip_uid gönderildi, diğer alanlar formdan');
 
