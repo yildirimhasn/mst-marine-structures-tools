@@ -59,3 +59,4 @@ Kullanıcı kararları bu bölümün altına eklenecek.
 6. Alt kot: yeni **`SUPPORT`** modu (alt yüz BK üstüne, BK değişince izler; eski sürüm TOP okur). TOP/POCKET/MANUAL kayıtlı değerleri değişmez.
 7. PK silme: **"PK Sil" komutu** (PK + ilgili döşeme aynı normal işlemde, tek Geri Al); SketchUp Delete ile silmede karar 7 (uyarı + elle güncelle) geçerli kalır.
 8. (ana oturum, mimar önerisi) 3B önizleme: SVG izometrik, WebGL yok.
+9. (10.11.2026, P4 sonrası, kullanıcı) Tip güncellemesinde/seçili PK'ya uygulamada kesit genişlerse komşu prekastla (PD/PDÖ/PV/PK) çakışan örnek **uygun değil** sayılır ("komşu … ile X mm çakışır"), işlem başlamaz; kesit **ortadan** (iki yana eşit) büyür/küçülür; komşular kendiliğinden kaydırılmaz; `layout_width_m` güncellenir.
