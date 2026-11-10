@@ -109,6 +109,11 @@ pq = c.length === 1 ? JSON.parse(c[0][1]) : null;
 const planOk = Object.assign({}, planBad, { kapsam: 'model', yapi: null, ornekler: [planBad.ornekler[0]], yapi_ozet: [{ yapi: 'ANO-01', yapi_ad: 'Ano 1', adet: 1, uygun_degil: 0 }], kapsam_disi: [], baslatilabilir: true, neden: null });
 js('mstPkTypePlan(' + JSON.stringify(planOk) + ')');
 ok(!dis('pkUpdApplyBtn') && /Tüm model/.test(txt('pkUpdPlan')) && !/BAŞLATILAMAZ/.test(txt('pkUpdPlan')), 'baslatilabilir=true: onay etkin');
+clickId('pkUpdPlanBtn'); take('pk_type_update_plan');   // yanıt yalnız istenmiş plana kabul edilir
+js('mstPkTypePlan(' + JSON.stringify(Object.assign({}, planOk, { ornekler: [Object.assign({}, planOk.ornekler[0], { uygun: true, nedenler: [], uyarilar: ["komşu PD-03 ile derz 5 mm'ye düşer (kayıtlı derz 20 mm)"] })] })) + ')');
+ok(/Uyarılar \(güncellemeyi engellemez\)/.test(txt('pkUpdPlan')) && /derz 5 mm/.test(txt('pkUpdPlan')) && !dis('pkUpdApplyBtn'), 'karar 9: derz uyarısı planda görünür, onayı engellemez');
+clickId('pkUpdPlanBtn'); take('pk_type_update_plan');
+js('mstPkTypePlan(' + JSON.stringify(planOk) + ')');
 setv('channel_right_height_m', '0.70');
 ok(dis('pkUpdApplyBtn') && /plan alındıktan sonra değişti/.test(txt('pkUpdPlan')), 'form değişince plan eskir, onay pasif');
 setv('channel_right_height_m', '0.65');

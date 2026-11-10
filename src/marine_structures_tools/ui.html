@@ -801,6 +801,22 @@ label{font-size:11px;color:#4c687f;font-weight:500}
       <input id="pd_type" value="PD-01" type="hidden"><input id="pd_height_m" value="0.30" type="hidden"><input id="pd_seat_m" value="0.15" type="hidden">
       <label style="margin-top:8px">Varsayılan Beton Sınıfı<select id="pd_concrete_class"><option selected>C30/37</option><option>C35/45</option><option>C40/50</option><option>C45/55</option><option>C50/60</option></select></label>
     </section>
+    <!-- ADR-0515-K3 P5: Kişisel PK kütüphanesi (projeler arası) — sketchup.pk_lib_file_list / pk_lib_file_export / pk_lib_file_import → mstPkLibFile / mstPkLibFileExported / mstPkLibFileImported -->
+    <details class="pd-panel" id="pkLibFilePanel" ontoggle="mstPkLibToggle(this)"><summary><b>Kişisel PK Kütüphanesi (projeler arası)</b></summary>
+      <div class="channel-layout-note">Bu bilgisayardaki kişisel kütüphane dosyası; model kendi tiplerini ayrıca saklar. Aktarma yalnız elle yapılır.</div>
+      <div id="pkLibFileInfo" class="pk-pocket-info" role="status" aria-live="polite"></div>
+      <div style="margin-top:7px"><button type="button" class="secondary" id="pkLibRefreshBtn" onclick="mstPkLibRefresh()">↻ Listeyi Yenile</button></div>
+      <h4 style="margin:10px 0 2px">Dışa ver (modelden dosyaya)</h4>
+      <div class="channel-layout-note">Modelin tip kütüphanesindeki kesitli PK tipleri listelenir. Dosyaya modelde kayıtlı hali yazılır; formda kaydedilmemiş değişiklikler aktarılmaz. Model değişmez.</div>
+      <div id="pkLibExpList" class="pk-list"></div>
+      <div style="margin-top:6px"><button type="button" class="secondary" id="pkLibExpBtn" onclick="mstPkLibExport()">Seçilenleri Dosyaya Ver</button></div>
+      <div id="pkLibExpResult" class="pk-pocket-info" role="status" aria-live="polite"></div>
+      <h4 style="margin:10px 0 2px">İçe al (dosyadan modele)</h4>
+      <div class="channel-layout-note">Yalnız "modelde yok" durumundaki tipler seçilebilir. Seçilen tipler modelin tip kütüphanesine eklenir; modele PK konmaz.</div>
+      <div id="pkLibImpList" class="pk-list"></div>
+      <div style="margin-top:6px"><button type="button" class="secondary" id="pkLibImpBtn" onclick="mstPkLibImport()">Seçilenleri Modele Al</button></div>
+      <div id="pkLibImpResult" class="pk-pocket-info" role="status" aria-live="polite"></div>
+    </details>
     <section class="pd-panel"><h3>2. PD Yerleşim Düzeni (Y yönü)</h3>
       <div id="pdLayoutRows"></div>
       <div class="channel-layout-note">Yerleşim satırında önce sınıfı, sonra tanımladığınız tipi seçin. Genişlik tip kütüphanesinden otomatik gelir.</div>
@@ -1547,6 +1563,7 @@ function renderPrecastTypes(){
   return '<div style="border:1px solid #d8e3ea;border-radius:8px;padding:8px;margin:7px 0"><div style="display:grid;grid-template-columns:repeat(3,minmax(110px,1fr));gap:6px">'+common+geo+'<label>Beton<select onchange="setPT(\''+t.uid+'\',\'concrete\',this.value)"><option'+(t.concrete==='C30/37'?' selected':'')+'>C30/37</option><option'+(t.concrete==='C35/45'?' selected':'')+'>C35/45</option><option'+(t.concrete==='C40/50'?' selected':'')+'>C40/50</option></select></label></div><div style="text-align:right;margin-top:5px"><button type="button" class="secondary" onclick="deletePrecastType(\''+t.uid+'\')">Tipi Sil</button></div></div>';
  }).join('');
  if(typeof mstPkFormTypesSync==='function')mstPkFormTypesSync();   // K3 P2: Kanal Prekastı formundaki "Kayıtlı PK tipinden başla" listesi
+ if(typeof mstPkLibExpRender==='function')mstPkLibExpRender();   // K3 P5: kişisel kütüphaneye dışa ver listesi
 }
 function rowTypeOptions(f,selected){var arr=typesOfFamily(f);return arr.map(function(t){return '<option value="'+t.uid+'"'+(t.uid===selected?' selected':'')+'>'+esc(t.name)+'</option>'}).join('')}
 function pdRows(){return Array.prototype.slice.call(document.querySelectorAll('.pd-layout-row')).map(function(r){var f=r.querySelector('.pd-family').value,uid=r.querySelector('.pd-type').value,t=typeByUid(uid);return t?{family:f,type_uid:uid,type_name:t.name,width:typeWidth(t),count:Math.max(1,parseInt(r.querySelector('.pd-count').value)||1)}:null}).filter(Boolean)}
@@ -2504,6 +2521,107 @@ function mstPkRender(){
 }
 document.addEventListener('DOMContentLoaded',function(){setTimeout(mstPkRefresh,300);});
 
+/* ADR-0515-K3 P5 — Kişisel PK kütüphanesi (ADR 41 karar 1: model esas + kullanıcı dosyası, yalnız elle aktarım).
+   sketchup.pk_lib_file_list() → mstPkLibFile; pk_lib_file_export(json {uids}) → mstPkLibFileExported;
+   pk_lib_file_import(json {uids, kutuphane}) → mstPkLibFileImported. Dosya durumu ve modelde durumu Ruby'den gelir; burada denetim yok.
+   Liste bölüm ilk açılınca veya "Listeyi Yenile" ile okunur (sayfa açılışında dosya okunmaz). */
+var mstPkLib={file:null,asked:false,busy:'',exp:null,imp:null};
+var PK_LIB_MODELDE={yok:['ok','MODELDE YOK',''],ayni:['ok','MODELDE AYNI','Bu tip modelde zaten var; içe almaya gerek yok.'],
+ kod_cakisma:['bad','KOD ÇAKIŞMASI','Modelde aynı kodlu, farklı geometrili tip var; birleştirilmez, içe alınamaz. Kodlardan birini değiştirip listeyi yenileyin.'],
+ geom_ayni_kod_farkli:['est','AYNI GEOMETRİ FARKLI KODLA MODELDE','Bu kesit modelde başka bir kodla kayıtlı; ikinci kayıt açılmaz, modeldeki tipi kullanın.']};
+function mstPkLibToggle(el){if(el&&el.open&&!mstPkLib.asked)mstPkLibRefresh()}
+function mstPkLibRefresh(){
+ mstPkLibExpRender();
+ if(!(window.sketchup&&sketchup.pk_lib_file_list))return;
+ mstPkLib.asked=true;mstPkLib.busy='list';mstPkLibRender();sketchup.pk_lib_file_list();
+}
+window.mstPkLibFile=function(pl){pl=pl||{};mstPkLib.file=pl;if(mstPkLib.busy==='list')mstPkLib.busy='';mstPkLibRender()};
+function mstPkLibTips(){var f=mstPkLib.file;return f&&f.ok&&f.durum==='tamam'&&Array.isArray(f.tipler)?f.tipler:[]}
+function mstPkLibBad(){var f=mstPkLib.file;return !!(f&&f.durum==='bozuk')}
+function mstPkLibChecked(id){var a=document.querySelectorAll('#'+id+' input[type="checkbox"]'),u=[],i;for(i=0;i<a.length;i++)if(a[i].checked&&!a[i].disabled)u.push(a[i].value);return u}
+function mstPkLibName(kod,ad,rev){return '<b>'+esc(kod||'(kodsuz)')+'</b>'+(ad?' — '+esc(ad):'')+' · rev '+((typeof rev==='number'&&isFinite(rev))?rev:'—')}
+function mstPkLibExpTypes(){return precastTypes.filter(function(t){return t&&t.family==='PK'&&!!mstPkSectionOf(t)})}
+function mstPkLibExpRender(){
+ var box=document.getElementById('pkLibExpList');if(!box)return;
+ var keep={},old=box.querySelectorAll('input[type="checkbox"]'),i;for(i=0;i<old.length;i++)if(old[i].checked)keep[old[i].value]=1;
+ var ts=mstPkLibExpTypes();
+ box.innerHTML=ts.length?ts.map(function(t){
+  return '<label style="display:block;margin:3px 0;font-size:12px;font-weight:600;color:#173650;cursor:pointer"><input type="checkbox" value="'+esc(t.uid)+'"'+(keep[t.uid]?' checked':'')+' onchange="mstPkLibBtnSync()"> '+mstPkLibName(t.name,t.title,t.pk_rev)+' <span class="pk-src">model tip kütüphanesi</span></label>';
+ }).join(''):'<div class="hint">Modelin tip kütüphanesinde kesitli PK tipi yok. Kanal Prekastı formunda kesiti tasarlayıp "PK Tipi Olarak Kaydet"e basın.</div>';
+ mstPkLibBtnSync();
+}
+function mstPkLibBtnSync(){
+ var e=document.getElementById('pkLibExpBtn'),m=document.getElementById('pkLibImpBtn'),b=!!mstPkLib.busy;
+ if(e){e.disabled=b||mstPkLibBad()||!mstPkLibExpTypes().length;e.title=mstPkLibBad()?'Kişisel kütüphane dosyası bozuk; dosya değiştirilmez.':''}
+ if(m)m.disabled=b||!mstPkLibTips().some(function(t){return t&&t.modelde==='yok'});
+ var r=document.getElementById('pkLibRefreshBtn');if(r)r.disabled=b;
+}
+function mstPkLibRender(){
+ var info=document.getElementById('pkLibFileInfo'),box=document.getElementById('pkLibImpList');if(!info||!box)return;
+ var f=mstPkLib.file,h='',tips=mstPkLibTips();
+ if(mstPkLib.busy==='list')h='<div class="pk-pair">Kişisel kütüphane okunuyor…</div>';
+ else if(!f)h='<div class="pk-pair">Liste henüz okunmadı; "Listeyi Yenile"ye basın.</div>';
+ else{
+  var yol=f.yol?'<div class="pk-dims">Dosya: '+esc(f.yol)+'</div>':'';
+  if(f.durum==='bozuk')h='<div class="pk-pair"><span class="pk-tag bad">DOSYA BOZUK</span> Kişisel kütüphane dosyası okunamadı; dosya değiştirilmez. Dışa ver ve içe al yapılamaz. Dosyayı yedekleyip düzeltin veya başka klasöre taşıyın, sonra "Listeyi Yenile"ye basın.'+(f.neden?'<div class="pk-dims">Neden: '+esc(f.neden)+'</div>':'')+yol+'</div>';
+  else if(!f.ok)h='<div class="pk-pair"><span class="pk-tag bad">OKUNAMADI</span> '+esc(f.neden||'Kişisel kütüphane dosyası okunamadı.')+yol+'</div>';
+  else if(f.durum==='yok')h='<div class="pk-pair"><span class="pk-tag est">DOSYA YOK</span> Kişisel kütüphane dosyası henüz yok; içe alınacak tip yok. Dışa verince dosyaya yazılır.'+yol+'</div>';
+  else if(f.durum==='bos')h='<div class="pk-pair"><span class="pk-tag est">DOSYA BOŞ</span> Kişisel kütüphane dosyasında tip yok; içe alınacak tip yok.'+yol+'</div>';
+  else h='<div class="pk-pair"><span class="pk-tag ok">DOSYA OKUNDU</span> Kişisel kütüphanede '+tips.length+' tip var.'+yol+'</div>';
+ }
+ info.innerHTML=h;
+ box.innerHTML=tips.map(function(en,i){
+  en=en||{};var md=PK_LIB_MODELDE[en.modelde]||['est','MODELDE DURUMU BİLİNMİYOR','Modeldeki durum okunamadı; içe alınamaz. Listeyi yenileyin.'],can=en.modelde==='yok';
+  return '<div class="pk-item"><svg class="pk-mini" id="pkLibMini'+i+'" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet" role="img" aria-label="'+esc(en.kod||'')+' kesit önizlemesi"></svg><div>'+
+   '<label style="display:block;font-size:13px;font-weight:600;color:#173650;cursor:'+(can?'pointer':'default')+'"><input type="checkbox" value="'+esc(en.uid||'')+'"'+(can?'':' disabled')+' onchange="mstPkLibBtnSync()"> '+mstPkLibName(en.kod,en.ad,en.rev)+' <span class="pk-src model">kişisel dosya</span></label>'+
+   (en.created_at?'<div class="pk-dims">Dosyaya ilk yazılış: '+esc(en.created_at)+'</div>':'')+
+   '<div><span class="pk-tag '+md[0]+'">'+md[1]+(en.modeldeki_kod&&en.modelde!=='yok'?': '+esc(en.modeldeki_kod):'')+'</span></div>'+(md[2]?'<div class="pk-dims">'+md[2]+'</div>':'')+'</div></div>';
+ }).join('');
+ var S=window.mstChSection;
+ tips.forEach(function(en,i){var sv=document.getElementById('pkLibMini'+i),sec=S&&en?S.parse(en.section):null,ok=!!(sec&&!S.valid(sec).length);if(sv)chDrawSection(ok?sec:null,ok,sv,true)});
+ mstPkLibBtnSync();
+}
+function mstPkLibResHtml(r,exp){
+ if(!r)return '';
+ if(r.yerel)return '<div class="pk-pair"><span class="pk-tag est">SEÇİM YOK</span> '+esc(r.yerel)+'</div>';
+ if(r.bekle)return '<div class="pk-pair">'+(exp?'Kişisel kütüphane dosyasına yazılıyor…':'Modelin tip kütüphanesine alınıyor…')+'</div>';
+ var n=function(v){return (typeof v==='number'&&isFinite(v))?v:0},at=Array.isArray(r.atlanan)?r.atlanan:[];
+ var li=at.map(function(a){a=a||{};return '<li>'+esc(a.kod||'(kodsuz)')+': '+esc(a.neden||'neden bildirilmedi')+'</li>'}).join('');
+ var h=r.ok?'<span class="pk-tag ok">'+(exp?'DOSYAYA VERİLDİ':'MODELE ALINDI')+'</span> '+(exp?'Eklenen '+n(r.eklenen)+' tip · güncellenen '+n(r.guncellenen)+' tip · atlanan '+at.length+' tip. Model değişmedi.':'Eklenen '+n(r.eklenen)+' tip · atlanan '+at.length+' tip. Tipler modelin tip kütüphanesine eklendi; modele PK konmadı.')
+  :'<span class="pk-tag bad">'+(exp?'DIŞA VERİLMEDİ':'İÇE ALINMADI')+'</span> '+esc(r.neden||'İşlem yapılamadı.');
+ return '<div class="pk-pair">'+h+(li?'<div class="pk-dims">Atlananlar:</div><ul class="pk-why">'+li+'</ul>':'')+(exp&&r.yol?'<div class="pk-dims">Dosya: '+esc(r.yol)+'</div>':'')+'</div>';
+}
+function mstPkLibResRender(){
+ var e=document.getElementById('pkLibExpResult'),m=document.getElementById('pkLibImpResult');
+ if(e)e.innerHTML=mstPkLibResHtml(mstPkLib.exp,true);if(m)m.innerHTML=mstPkLibResHtml(mstPkLib.imp,false);
+}
+function mstPkLibExport(){
+ if(mstPkLib.busy||mstPkLibBad()||!(window.sketchup&&sketchup.pk_lib_file_export))return;
+ var ok={};mstPkLibExpTypes().forEach(function(t){ok[t.uid]=1});
+ var u=mstPkLibChecked('pkLibExpList').filter(function(x){return ok[x]});
+ if(!u.length){mstPkLib.exp={yerel:'Dışa verilecek PK tipini seçin.'};mstPkLibResRender();return}
+ mstPkLib.busy='exp';mstPkLib.exp={bekle:true};mstPkLibResRender();mstPkLibBtnSync();
+ sketchup.pk_lib_file_export(JSON.stringify({uids:u}));
+}
+window.mstPkLibFileExported=function(pl){
+ pl=pl||{};if(mstPkLib.busy==='exp')mstPkLib.busy='';mstPkLib.exp=pl;mstPkLibResRender();
+ mstPkLibRefresh();   // dosyadaki liste ve modelde durumu yenilenir
+};
+function mstPkLibImport(){
+ if(mstPkLib.busy||!(window.sketchup&&sketchup.pk_lib_file_import))return;
+ var ok={};mstPkLibTips().forEach(function(t){if(t&&t.modelde==='yok')ok[t.uid]=1});
+ var u=mstPkLibChecked('pkLibImpList').filter(function(x){return ok[x]});
+ if(!u.length){mstPkLib.imp={yerel:'İçe alınacak tipi seçin (yalnız "modelde yok" olanlar seçilebilir).'};mstPkLibResRender();return}
+ mstPkLib.busy='imp';mstPkLib.imp={bekle:true};mstPkLibResRender();mstPkLibBtnSync();
+ sketchup.pk_lib_file_import(JSON.stringify({uids:u,kutuphane:mstPkLibraryForSave(precastTypes)}));
+}
+window.mstPkLibFileImported=function(pl){
+ pl=pl||{};if(mstPkLib.busy==='imp')mstPkLib.busy='';mstPkLib.imp=pl;
+ if(pl.ok){var kj=pl.kutuphane_json;if(kj&&typeof kj!=='string')kj=JSON.stringify(kj);if(kj)loadPrecastTypeLibrary(kj);mstPkRefresh()}
+ mstPkLibResRender();
+ mstPkLibRefresh();   // modelde durumu değişti
+};
+
 /* ADR-0515-K2 P3 — PK kot yöntemi (K5): TOP (varsayılan, önceki kural) | POCKET | MANUAL. TOP seçiliyken create_flat_precast ve
    kn_place girdisi eskisiyle birebir aynıdır (anahtar eklenmez). Önizleme salt okuma: sketchup.pk_elevation_preview(json) →
    mstPkElevation (main.rb mst_pk_send_elevation); kot burada hesaplanmaz, Ruby'den gelir. */
@@ -2958,6 +3076,8 @@ function mstPkUpdPlanHtml(key){
   '<div class="pk-dims">Kapsam: '+(p.kapsam==='model'?'Tüm model':'Etkin yapı'+(p.yapi||ya?' — '+yn(p.yapi,ya):''))+'</div>';
  h+=yo.length?'<div class="pk-dims">Kapsamdaki PK\'lar (yapı başına):</div><ul style="margin:2px 0 4px 18px;padding:0">'+yo.map(function(y){y=y||{};return '<li>'+yn(y.yapi,y.yapi_ad)+': '+(num(y.adet)?y.adet:'?')+' adet'+(num(y.uygun_degil)&&y.uygun_degil>0?' <span class="pk-tag bad">'+y.uygun_degil+' adet uygun değil</span>':'')+'</li>'}).join('')+'</ul>':'<div class="pk-dims">Kapsamda bu tipe bağlı PK yok.</div>';
  if(bad.length)h+='<div class="pk-dims"><b>Uymayan örnekler (güncelleme başlamaz):</b></div><ul class="pk-why">'+bad.map(function(o){var n=Array.isArray(o.nedenler)?o.nedenler:[];return '<li>'+esc(o.kod||'PK')+(o.uid?' ['+esc(o.uid)+']':'')+(o.yapi?' · '+esc(o.yapi):'')+': '+esc(n.join('; ')||'neden bildirilmedi')+'</li>'}).join('')+'</ul>';
+ var wr=(Array.isArray(p.ornekler)?p.ornekler:[]).filter(function(o){return o&&Array.isArray(o.uyarilar)&&o.uyarilar.length});   // karar 9: derz azalması uyarısı (uygun, ama bildirilir)
+ if(wr.length)h+='<div class="pk-dims"><b>Uyarılar (güncellemeyi engellemez):</b></div><ul class="pk-why">'+wr.map(function(o){return '<li>'+esc(o.kod||'PK')+(o.yapi?' · '+esc(o.yapi):'')+': '+esc(o.uyarilar.join('; '))+'</li>'}).join('')+'</ul>';
  if(ex.length)h+='<div class="pk-dims"><b>Kapsam dışında kalan yapılar (eski revizyonda kalır):</b> '+ex.map(function(x){x=x||{};return yn(x.yapi,'')+' '+(num(x.adet)?x.adet:'?')+' adet'}).join('; ')+'</div>';
  h+='<div class="pk-dims"><span class="pk-tag est">METRAJ DEĞİŞİR</span> '+(p.geom_degisti?'Kesit / oturma değişiyor: güncellenen PK\'ların beton ve kalıp metrajı ile bağlı döşemelerin PK boşluğu yeniden kurulur.':'Kesit ve oturma aynı; beton sınıfı / kalıp seçimi değişikliği metrajı değiştirebilir.')+'</div>';
  var why=U.busy==='apply'?'Güncelleniyor… yanıt bekleniyor.':stale?'Form veya kapsam plan alındıktan sonra değişti; "Planı göster" ile planı yenileyin.':!p.baslatilabilir?(p.neden||(bad.length?'Uymayan örnek var; güncelleme başlatılmaz.':'Güncelleme başlatılamaz.')):'';
