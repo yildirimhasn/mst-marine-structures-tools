@@ -1,4 +1,18 @@
-# DEVAM NOTU — 18.11.2026 (uyku öncesi)
+# DEVAM NOTU — 18.11.2026 (GÜNCEL: AÇIK İŞ YOK)
+
+## Güncel durum (18.11.2026, D2 sonrası)
+**Açık iş yok.** Nihai RBZ üretildi, D2 (temiz profil kurulumu) GEÇTİ (kullanıcı beyanı).
+- RBZ: `ADAY_PAKETLER\MST_v0.52.18_Fore_Donati_NIHAI_ADAY17.rbz`, SHA-256 `60242F69…CFC3`, 222 dosya.
+- D2 çıktısı: `KOŞU 12 PASS: manifest=222 aynı=222 eksik=0 farklı=0 sürüm=0.52.18`.
+- Kaynak kod: GitHub özel depo `yildirimhasn/mst-marine-structures-tools`, `master`, commit `4eebb75` (yerel: `sketchup-deniz-eklentisi\mst_tb1`; `src/` = RBZ içeriği, 222/222 SHA-256 aynı). `dist/` ve `*.rbz` .gitignore gereği depoda yok.
+- Yedek: `MST_FINAL_140_140_KABUL` klasörü Drive'a kullanıcı tarafından yüklendi (yükleme tamlığı doğrulanamadı; Drive bağlayıcısı yetki hatası veriyor).
+- Kurulu SketchUp profili asıl profile geri döndürüldü (`SketchUp 2020_TEST` = temiz profil denemesi).
+- "140/140 geçti" DENMEZ; kapanış grup + kullanıcı beyanıyla. Bilinen sınırlar aşağıda ve CHANGELOG_05218.md'de.
+- Yeni iş ancak kullanıcı isterse başlar (ör. kalıp düşümü / U-bar kg doğrulaması pafta gerektirir).
+
+---
+# Aşağısı: önceki not (arşiv)
+
 
 ## Nerede kaldık
 **Nihai RBZ ÜRETİLDİ, yalnız D2 (temiz profil kurulumu) kaldı, kullanıcıda.**
