@@ -183,7 +183,7 @@ module MAG
         raise 'Poz birimi model miktarının birimiyle aynı olmalı.' unless item['unit']==template[2]
         raise 'Pozun para birimi USD olmalı.' unless item['currency']=='USD'
         used=map.any?{|source,row|source!=key && row['id']==item['id'] && !(key.start_with?('ACCESSORY:') && source.start_with?('ACCESSORY:')) && !(key.start_with?('JETGROUT:') && source.start_with?('JETGROUT:') && key.split(':').last==source.split(':').last)}
-        seeds=BOQLibrary.decode(File.read(File.join(__dir__,'unified_catalog.json'),encoding:'UTF-8'))
+        seeds=BOQLibrary.seeds   # FIX-09: önbellekli katalog
         used ||= seeds.any? do |seed|
           source=seed['source']
           source!=key && BOQ_TEMPLATE.any?{|r|r[4]==source} && !map.key?(source) && (seed['id']==item['id'] || (!item['catalog_key'].empty? && seed['catalog_key']==item['catalog_key']))

@@ -102,7 +102,7 @@ def rockfill_source_action(action,dialog)
  end
  state={'mode'=>rockfill_source_selection['mode'],'materials'=>[],'ready'=>false}
  begin
-  q=rf02_quantity_data
+  q=rockfill_qto_data
   state.merge!({'materials'=>q[:materials],'total_volume_m3'=>q[:total_volume_m3],'total_tonnage_t'=>q[:total_tonnage_t],'ready'=>true})
   if state['mode']=='alt2' && rockfill_source_selection['fingerprint']!=q[:reference_result]['fingerprint']
    state['message']='Referans sürümü değişmiş. Alternatif-02 kaynağını yeniden etkinleştirin; eski bağlantıyla keşif üretilemez.'

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require 'securerandom'
+require_relative 'column_geometry'
 module MAG
 module MarineStructuresTools
 BP_TYPES='bored_pile_types_v1'.freeze
@@ -11,8 +12,9 @@ end
 def bp_validate(raw)
  d=bp_defaults.merge(raw)
  %w[diameter top bottom drill_top rebar_rate rebar_kg extra casing_length].each do |key|
-  d[key]=Float(d[key].to_s.tr(',','.'))
-  raise "Geçersiz sayı: #{key}" unless d[key].finite?
+  v=(Float(d[key].to_s.tr(',','.')) rescue nil)   # 0.52.18 ADAY: ham Ruby hatası yerine Türkçe mesaj
+  raise "Geçersiz sayı: #{key}" unless v&.finite?
+  d[key]=v
  end
  raise 'Tip kodu boş olamaz.' if d['type_id'].to_s.strip.empty?
  raise 'Çap sıfırdan büyük olmalı.' unless d['diameter']>0
@@ -41,8 +43,7 @@ def bp_types
  JSON.parse(Sketchup.active_model.get_attribute(DICT,BP_TYPES,'{}'))
 end
 def bp_elements
- all=[];collect_elements(Sketchup.active_model.entities,all)
- all.select{|e|e.get_attribute(DICT,'element_type')=='bored_pile'}
+ mst_column_walk(Sketchup.active_model.entities,'bored_pile','bored_pile_data',:bp_validate)
 end
 def bp_data(e)
  JSON.parse(e.get_attribute(DICT,'bored_pile_data','{}'))
@@ -82,11 +83,15 @@ class BoredPilePlacement
   return UI.messagebox('Aktif model değişti. Fore kazık yerleşimini bu projede yeniden başlatın.') unless model.object_id==@model_token
   return UI.messagebox('Önce grup düzenleme modundan çıkın.') if model.active_path
   model.start_operation('Fore Kazık Yerleştir',true)
+  committed=false
   begin
    g=model.entities.add_group;p=@ip.position
-   MarineStructuresTools.bp_write(g,@data,p.x,p.y);model.commit_operation
-   MarineStructuresTools.bp_send
+   MarineStructuresTools.bp_write(g,@data,p.x,p.y);model.commit_operation;committed=true
   rescue=>e;model.abort_operation;UI.messagebox(e.message);end
+  # 0.52.18 ADAY: işlem kapandıktan sonra arayüz yenileme hatası kapanmış işleme abort çağırmaz
+  if committed
+   begin;MarineStructuresTools.bp_send;rescue=>e;UI.messagebox("Kazık yerleştirildi; liste yenilenemedi: #{e.message}");end
+  end
  end
  def onCancel(reason,view);Sketchup.active_model.select_tool(nil);end
 end
@@ -102,6 +107,7 @@ def show_bored_pile
  if @bp_dialog && @bp_dialog.visible?;@bp_dialog.bring_to_front;bp_send;return;end
  @bp_dialog=mst_html_dialog('bored_pile',dialog_title:'Fore Kazık • Teknik Model ve Metraj',preferences_key:'MAG_MST_BoredPile',width:1400,height:900,resizable:true)
  @bp_dialog.set_file(File.join(__dir__,'bored_pile.html'))
+ mst_register_model_preview(@bp_dialog, 'bored')
  @bp_dialog.add_action_callback('bp_action') do |_,action,json|
   begin
    payload=JSON.parse(json||'{}');model=Sketchup.active_model

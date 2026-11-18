@@ -24,7 +24,8 @@ var FLOWS={
  precast:{tab:'pd',pin:[],note:['Notlar','Mühendislik Mantığı'],steps:[
   {t:'Prekast Tipleri',h:'PD / PDÖ / PV / PK tip kütüphanesi',m:['Prekast Tip Kütüphanesi']},
   {t:'Yerleşim',h:'BK aralığı, Y yönünde dizilim, parametreler, genişlik kontrolü',m:['PD Yerleşim Düzeni','Parametreler','Genişlik Kontrolü']},
-  {t:'Kalıp Yüzleri',h:'Hangi yüzler kalıp sayılır',m:['PD Kalıp Yüzleri']}]},
+  {t:'Kalıp Yüzleri',h:'Hangi yüzler kalıp sayılır',m:['PD Kalıp Yüzleri']},
+  {t:'Önizleme',h:'Kesit, boyuna, plan ve 3B',m:[]}]},
  deck:{pin:[],note:['Mühendislik Notları'],steps:[
   {t:'Döşeme',h:'ID, toplam kalınlık, beton, oturma payı',m:['Döşeme Tanımı','Yerleşim Mantığı']},
   {t:'Tretuvar ve Baba',h:'Taraflar, ölçüler, baba kaidesi aksları',m:['Bordür / Tretuvar','Baba Kaideleri']},
@@ -65,9 +66,13 @@ var FLOWS={
 };
 FLOWS.rockfill_alt2={pin:[],note:[],steps:[{t:'Referans Kesitler',h:'Kesit dosyası, kübaj, kaynak',m:['Referans kesitlerinden']},{t:'Aks ve İstasyonlar',h:'Seçili aks, istasyon hazırlığı',m:['Aks ve istasyonlar']}]};
 
+var previewPages=['pile','beam','deck','crown','rockfill','rockfill_live','rockfill_alt2'];
+previewPages.forEach(function(id){
+ FLOWS[id].steps.push({t:'Önizleme',h:'Tam sayfa çizim ve metraj',m:[],preview:true});
+});
 function topSections(pg){
  return $$(SEL,pg).filter(function(e){
-  if(e.closest('.mst-std-head,.mst-pf,.mst-embed-page'))return false;
+  if(e.closest('.mst-std-head,.mst-pf,.mst-embed-page,.mstpv-full'))return false;
   for(var x=e.parentElement;x&&x!==pg;x=x.parentElement){if(x.matches(SEL))return false;}
   return true;});
 }
@@ -118,6 +123,12 @@ function build(pg){
 function go(pg,i,scroll){
  var f=pg._pf;if(!f)return;
  var all=(i==='all');STATE[pg.id]=all?'all':+i;store(pg.id,all?'all':String(i));
+ if(previewPages.indexOf(pg.id)>=0){
+  var preview=!all&&!!(f.cfg.steps[+i]&&f.cfg.steps[+i].preview);
+  if(!preview)f.previousStep=all?'all':+i;
+  pg.setAttribute('data-mst-full-preview',String(preview));
+ }
+ if(pg.id==='precast')pg.setAttribute('data-pf-preview',String(!all&&+i===3));
  f.secs.forEach(function(s){s.classList.toggle('mst-pf-off',!all&&+s.getAttribute('data-pf-step')!==+i);});
  /* tamamen boşalan ızgara kapları da gizlenir */
  $$('.card-grid',pg).forEach(function(g){var kids=Array.prototype.slice.call(g.children);if(!kids.length)return;
@@ -133,6 +144,10 @@ function go(pg,i,scroll){
  if(window.mstSyncBar)setTimeout(window.mstSyncBar,0);
  if(scroll){try{f.bar.scrollIntoView({block:'nearest'});var top=f.bar.getBoundingClientRect().top;if(top<150)window.scrollBy(0,top-150);}catch(e){}}
 }
+window.mstPreviewBack=function(page){
+ var pg=document.getElementById(page),flow=pg&&pg._pf;
+ if(flow)go(pg,flow.previousStep==null?0:flow.previousStep,true);
+};
 window.mstPageStep=function(page,i){var pg=document.getElementById(page);if(pg){build(pg);go(pg,i,true);}};
 function watchTab(pg){
  var upd=function(){var on=(pg.getAttribute('data-pctab')||'pd')===pg._pf.cfg.tab;pg._pf.bar.style.display=on?'':'none';pg._pf.foot.style.display=on&&STATE[pg.id]!=='all'?'':'none';};

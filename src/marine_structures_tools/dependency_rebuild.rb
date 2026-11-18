@@ -231,7 +231,10 @@ module MAG
       def onTransactionUndo(model); cancel; end
       def onTransactionRedo(model); cancel; end
       def onTransactionAbort(model); cancel; end
-      def onDeleteModel(model); cancel; end
+      def onDeleteModel(model)
+        cancel
+        MarineStructuresTools.release_dependency_observer(model)
+      end
     end
 
     class DependencyAppObserver < Sketchup::AppObserver
@@ -244,13 +247,18 @@ module MAG
       @dependency_observers ||= {}
       return if @dependency_observers.key?(model)
       observer = DependencyModelObserver.new
-      model.add_observer(observer)
-      @dependency_observers[model] = observer
+      @dependency_observers[model] = observer if model.add_observer(observer)
+    end
+
+    def release_dependency_observer(model)
+      @dependency_observers.delete(model) if @dependency_observers
     end
 
     def install_dependency_observers
-      @dependency_app_observer ||= DependencyAppObserver.new
-      Sketchup.add_observer(@dependency_app_observer)
+      unless @dependency_app_observer
+        observer = DependencyAppObserver.new
+        @dependency_app_observer = observer if Sketchup.add_observer(observer)
+      end
       attach_dependency_observer(Sketchup.active_model)
     end
   end

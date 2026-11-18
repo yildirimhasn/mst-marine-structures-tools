@@ -46,7 +46,17 @@ module MAG
       return {value:number(data.fetch('rebar_t'),'definition_rebar_t'),state:'calculated',method:'bim:component_definition'} if data
      end
     end
-    return attribute(e,['rebar_t']) if t=='bored_pile' || (t=='head_beam' && e.get_attribute(DICT,'rebar_mode','').to_s=='bim_detail')
+    if t=='bored_pile'
+     result=attribute(e,['rebar_t'])
+     raw=e.get_attribute(DICT,'bored_pile_data',nil)
+     return result if result[:state]=='missing' || raw.to_s.empty?
+     data=api.bp_validate(api.bp_data(e))
+     if data['rebar_mode']=='rate'
+      return result.merge(state:'estimated',method:'volume_rate:bored_pile',rate:data['rebar_rate'],rate_unit:'kg/m³')
+     end
+     return result.merge(method:'provided_rebar_kg:bored_pile')
+    end
+    return attribute(e,['rebar_t']) if t=='head_beam' && e.get_attribute(DICT,'rebar_mode','').to_s=='bim_detail'
     rate_key=t=='steel_pipe_pile' ? 'pile' : REBAR_RATES[t]
     return {value:0.0,state:'not_applicable',method:'no_rebar'} unless rate_key
     volume=t=='steel_pipe_pile' ? pile_owned_concrete(e) : calculate(e,:concrete_m3)

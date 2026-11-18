@@ -422,6 +422,25 @@ def mst_sc_rewrite_links!(s,d,mp)
     d.set_attribute(DICT,k,nv) unless nv==v.to_s
   end
   t=mst_sc_type(s)
+  # 0.52.18 ADAY4 (METRAJ ETKİLİ): VK / BBK'nın BK temas ve destek durumu kayıtları kaynak BK'ların PID'lerini gösteriyordu.
+  # Kopya BK temas düşümünü kaybediyor (kalıp +), kaynak BK çift düşüm alıyordu (kalıp −); doğrulama aşaması Yapıyı Kopyala'yı geri alıyordu.
+  # ADAY16 (ADAY4 bağımsız inceleme bulgu 1): kayıt var ama bozuk/dizi değilse sessiz atlanmaz (kopya VK kaynak BK'lara bağlı kalırdı); boş içerik eski gibi atlanır.
+  if t=='head_beam' && !s.get_attribute(DICT,'link_contact_json',nil).to_s.strip.empty?
+    lc=(JSON.parse(s.get_attribute(DICT,'link_contact_json').to_s) rescue nil)
+    raise "link_contact_json: kayıt okunamadı (bozuk ya da dizi değil); yapı kopyalanamaz" unless lc.is_a?(Array)
+    d.set_attribute(DICT,'link_contact_json',JSON.generate(lc.map{|pid,a|[mp[:pid].fetch(pid.to_i){raise "link_contact_json: PID #{pid} eşlemde yok"},a]}))
+    ssr=s.get_attribute(DICT,'link_support_state_json',nil)
+    unless ssr.to_s.strip.empty?
+      ss=(JSON.parse(ssr.to_s) rescue nil)
+      raise "link_support_state_json: kayıt okunamadı (bozuk ya da dizi değil); yapı kopyalanamaz" unless ss.is_a?(Array)
+      ns=ss.map do |pid,*rest|
+        nb=mp[:pid].fetch(pid.to_i){raise "link_support_state_json: PID #{pid} eşlemde yok"}
+        be=(Sketchup.active_model.find_entity_by_persistent_id(nb) rescue nil)
+        (be && be.valid?) ? mst_vk_support_state(be) : [nb]+rest
+      end
+      d.set_attribute(DICT,'link_support_state_json',JSON.generate(ns))
+    end
+  end
   if t=='steel_pipe_pile' && !s.get_attribute(DICT,'global_pile_id',nil).nil? && s.get_attribute(DICT,'global_pile_id','').to_s==s.get_attribute(DICT,'pile_id','').to_s
     d.set_attribute(DICT,'global_pile_id',d.get_attribute(DICT,'pile_id','').to_s)
   end
@@ -603,10 +622,11 @@ def mst_structure_copy_apply!(plan,model=Sketchup.active_model)
       mst_structure_copy_fault!('copy',ci)
     end
     ci=0;st[:elem]=nil
+    @mst_vk_idx=nil
     stage='kayıtlar';mst_sc_write_records!(plan,model)
     stage='aks görseli';plan['codes'].each{|c|mst_show_grid_visual(c,model,c,false,plan['system'])} if plan['visual']
     stage='doğrulama'
-    @mst_pile_idx_cache=nil;@mst_def_cache=nil
+    @mst_pile_idx_cache=nil;@mst_def_cache=nil;@mst_vk_idx=nil # ADAY4: VK temas önbelleği (1,5 sn) kopya PID'leriyle yeniden kurulsun
     mst_structure_copy_fault!('verify',0)
     errs=mst_structure_copy_verify(plan,model,built)
     raise errs.first(10).join('; ')+(errs.length>10 ? " … #{errs.length-10} hata daha" : '') unless errs.empty?
@@ -614,7 +634,7 @@ def mst_structure_copy_apply!(plan,model=Sketchup.active_model)
     commit_with_dependencies(model)
   rescue Exception=>ex
     model.abort_operation
-    @mst_pile_idx_cache=nil;@mst_def_cache=nil
+    @mst_pile_idx_cache=nil;@mst_def_cache=nil;@mst_vk_idx=nil   # ADAY16: hata yolunda da VK temas önbelleği
     ok=(mst_sc_signature(plan['roots'])==plan['source_sig'] rescue false)
     raise unless ex.is_a?(StandardError)
     code=ci>0 ? plan['codes'][ci-1] : nil

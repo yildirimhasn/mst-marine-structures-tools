@@ -32,7 +32,9 @@ module MAG
       refs=values.uniq.map{|value|['Döşeme mesnedi',pid,value,'head_beam','']}
      when 'head_beam'
       values=tokens(e.get_attribute(DICT,'connected_pile_ids',''))
-      add.call('NO_PILE_SUPPORT','Başlık kirişi için bağlı kazık kaydı bulunamadı.') if values.empty?
+      # 0.52.18 ADAY4: VK / BBK bağ kirişleri BK'lara oturur, kazığa değil; kazık kaydı beklenmez (yanlış uyarı giderildi)
+      link_beam=api.respond_to?(:mst_v50_link?) && api.mst_v50_link?(e)
+      add.call('NO_PILE_SUPPORT','Başlık kirişi için bağlı kazık kaydı bulunamadı.') if values.empty? && !link_beam
       add.call('DUPLICATE_SUPPORT','Kazık listesi yinelenen kayıt içeriyor.') if values.size!=values.uniq.size
       refs=values.uniq.map{|value|['Kazık mesnedi',ids,value,'steel_pipe_pile','']}
      when 'curb'
@@ -80,6 +82,31 @@ module MAG
      structural=%w[flat_precast channel_precast crane_precast deck_slab head_beam curb].include?(type)
      state=checks.empty? ? (structural ? 'consistent' : 'identity_only') : 'needs_review'
      records<<{key:entry[:key],id:api.element_visible_id(e),type:type,label:ProjectWorkspace::TYPES[type],state:state,checks:checks,supports:resolved}
+    end
+    # v0.52.18 ADAY8 (A8): Jet Grout kökleri ProjectWorkspace dışındadır; yalnız kimlik sorunu olanlar için kayıt eklenir
+    # (temiz modelde kayıt sayısı ve özet DEĞİŞMEZ). Seçim/yakınlaştırma anahtarı yok (key: 'JG:<pid>').
+    if api.respond_to?(:mst_jg_roots)
+     jg=api.mst_jg_roots(model.entities)
+     jg_uid=jg.group_by{|g|g.get_attribute(DICT,'element_uid','').to_s}
+     jg.each do |g|
+      own=g.get_attribute(DICT,'element_uid','').to_s;checks=[]
+      checks<<{code:'MISSING_UID',message:'Eleman UID kimliği eksik.'} if own.empty?
+      checks<<{code:'DUPLICATE_UID',message:'UID birden fazla fiziksel yerleşimde kullanılıyor.'} if !own.empty?&&(jg_uid[own].size+(uid[own]||[]).size)>1
+      next if checks.empty?
+      records<<{key:"JG:#{g.persistent_id}",id:api.element_visible_id(g),type:'jet_grout',label:'Jet grout',state:'needs_review',checks:checks,supports:[]}
+     end
+    end
+    # v0.52.18 ADAY8 (A2): prekast yerleşiminden eleman silinmiş mi? Yalnız 'layout_piece_count' kaydı olan yerleşimler (yeni oluşturulanlar);
+    # eski modelde anahtar yoktur → uyarı yok. Seçim anahtarı yok (key: 'LAYOUT:<pid>').
+    if api.respond_to?(:mst_layout_groups)
+     api.mst_layout_groups(model.entities).each do |g|
+      want=g.get_attribute(DICT,'layout_piece_count',nil)
+      next unless want.is_a?(Integer)&&want>0
+      have=g.entities.count{|x|(x.is_a?(Sketchup::Group)||x.is_a?(Sketchup::ComponentInstance))&&x.valid?&&%w[flat_precast channel_precast crane_precast].include?(x.get_attribute(DICT,'element_type','').to_s)}
+      next unless have<want
+      records<<{key:"LAYOUT:#{g.persistent_id}",id:g.name.to_s,type:'precast_layout',label:'Prekast yerleşimi',state:'needs_review',
+                checks:[{code:'LAYOUT_PIECE_MISSING',message:"Prekast yerleşiminde #{want-have} eleman eksik (oluşturulurken #{want}, şimdi #{have}). Silindiyse beklenen bir durum olabilir; kontrol edin."}],supports:[]}
+     end
     end
     {schema:'mst.relationship-audit/1',version:VERSION,created_at:Time.now.utc.iso8601,model_token:model.object_id.to_s,
      summary:{elements:records.size,needs_review:records.count{|r|r[:state]=='needs_review'},consistent:records.count{|r|r[:state]=='consistent'},identity_only:records.count{|r|r[:state]=='identity_only'}},records:records,

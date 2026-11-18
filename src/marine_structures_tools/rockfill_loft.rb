@@ -16,10 +16,29 @@ module RockfillGeometry
   end
   p
  end
+ # Shared strip endpoints can round 0.1 micrometre apart. Weld endpoints
+ # before splitting boundaries, while retaining the overlap rejection below.
+ def weld_cell_vertices(polygons,tolerance=1e-6)
+  buckets={};canonical={}
+  polygons.flatten(1).uniq.sort.each do |point|
+   key=point.map{|v|(v/tolerance).floor};candidates=[]
+   (-1..1).each{|dx|(-1..1).each{|dy|candidates.concat(buckets[[key[0]+dx,key[1]+dy]]||[])}}
+   match=candidates.select{|q|Math.hypot(q[0]-point[0],q[1]-point[1])<=tolerance}.min
+   canonical[point]=match||point
+   (buckets[key]||=[])<<point unless match
+  end
+  polygons.map do |poly|
+   welded=clean_polygon(poly.map{|p|canonical.fetch(p)})
+   before=polygon_area(poly).abs;after=welded.size>=3 ? polygon_area(welded).abs : 0.0
+   raise 'Kesit köşe birleştirmesi alan toleransını aşıyor.' if (after-before).abs>[1e-6,before*1e-7].max
+   welded
+  end
+ end
  # Cancel shared strip boundaries after splitting at every collinear vertex.
  # This recovers actual material outlines, not a bounding-box solid.
  def cell_boundaries(cells)
   polygons=cells.map{|c|clean_polygon(c['points'])}.select{|p|p.size>=3 && polygon_area(p).abs>1e-9}
+  polygons=weld_cell_vertices(polygons).select{|p|p.size>=3 && polygon_area(p).abs>1e-9}
   polygons.each{|p|p.reverse! if polygon_area(p)<0}
   points=polygons.flatten(1).uniq;segments={}
   polygons.each do |poly|

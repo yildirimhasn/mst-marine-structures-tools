@@ -9,6 +9,8 @@
 #  · Keşif Cetveli ve Hakediş Raporu Excel, revizyonlar arası keşif farkı
 # Var olan fonksiyonlar alias ile korunur; eski modeller (eleman durumu "Onaylandı") aynen çalışır.
 require 'json'
+require_relative 'progress_validation'
+require_relative 'ground_sources'
 module MAG
 module MarineStructuresTools
 
@@ -42,18 +44,62 @@ def boq2_set(key,value)
 end
 def boq2_today;Time.now.strftime('%Y-%m-%d');end
 def boq2_user;(ENV['USERNAME'] || ENV['USER'] || 'kullanıcı').to_s;end
-def boq2_date_ok?(s);s.to_s.match?(/\A\d{4}-\d{2}-\d{2}\z/);end
+def boq2_date_ok?(s);PaymentValidation.date?(s);end
 def boq2_num(v);(Float(v.to_s.strip.tr(',','.')) rescue nil);end
 def boq2_has_history?;!progress_history.empty?;end
-
-# ---------------------------------------------------------------- 3 · poz listesi
+# ADAY10: bayrak (boq_schema_v2) YOKSA model ESKİ düzende kalır (ADAY9 davranışı birebir); yeni düzen yalnız bayrakla (BOQSchema).
+def boq2_legacy?(model=Sketchup.active_model)
+ BOQSchema.legacy?(model)
+end
+def boq2_adopt_new_schema!(model=Sketchup.active_model)   # ÇAĞIRAN işlemi açmış olmalı
+ BOQSchema.adopt!(model)
+end
+# Keşif sayfası açılışı: YALNIZ tamamen boş yeni projede (eleman, poz listesi, hakediş, boq_price yok) bayrak otomatik yazılır
+# (transparent işlem: ayrı Geri Al kaydı bırakmaz; abort edilmez). Diğer tüm modeller eski düzende kalır; geçiş kullanıcı kararıyla.
+def boq2_adopt_new_schema_quiet!(model=Sketchup.active_model)
+ has_el=lambda do
+  a=[];collect_elements(model.entities,a)
+  !a.empty? || (respond_to?(:mst_jg_roots,true) && !mst_jg_roots(model.entities).empty?) || (respond_to?(:mst_collect_toppings,true) && !mst_collect_toppings(model.entities).empty?)
+ end
+ return unless BOQSchema.fresh?(model,history_count:->{progress_history.size},has_elements:has_el)
+ op=false
+ begin
+  model.start_operation('MST Keşif düzeni',true,false,true);op=true
+  boq2_adopt_new_schema!(model)
+ rescue => e
+  warn("MST Keşif düzeni bayrağı: #{e.message}")
+ ensure
+  model.commit_operation if op
+ end
+end
+# Kullanıcının açık kararı ("Kütüphane düzenine geç"): normal işlem, tek Ctrl+Z
+def boq2_adopt_new_schema_user!(model=Sketchup.active_model)
+ return false unless boq2_legacy?(model)
+ model.start_operation('MST Keşif fiyat düzeni: kütüphane',true)
+ begin
+  boq2_adopt_new_schema!(model)
+  model.commit_operation
+ rescue
+  model.abort_operation;raise
+ end
+ true
+end
 def boq2_source_labels
  h={}
  BOQ_TEMPLATE.each{|c,n,u,_,s|h[s]="#{c} · #{n} (#{u})"}
  h
 end
 def boq2_default_items
+ return boq2_new_default_items unless boq2_legacy?
  BOQ_TEMPLATE.map{|c,n,u,p,s|{'code'=>c,'name'=>n,'unit'=>u,'price'=>p,'source'=>s,'active'=>true}}
+end
+# ADAY10 yeni düzen: poz kodu/adı kütüphane kaydından, fiyat YOK (kütüphaneden gelir)
+def boq2_new_default_items
+ pool=BOQResolver.pool(BOQLibrary.load,BOQLibrary.seeds)
+ BOQ_TEMPLATE.map do |c,n,u,_p,s|
+  item=BOQResolver.pick(pool,source:s,unit:u)[:record] || BOQResolver.by_name_unit(pool,name:n,unit:u)
+  {'code'=>(item ? item['code'] : c),'name'=>(item ? item['name'] : n),'unit'=>u,'price'=>nil,'source'=>s,'active'=>true}
+ end
 end
 def boq2_items
  a=boq2_json('items_json',nil)
@@ -62,6 +108,7 @@ end
 # fiyatı kütüphaneden gelen kaynaklar (poz listesindeki fiyat kullanılmaz)
 def boq2_library_sources
  s=BOQ_LIBRARY_IDS.keys+['PILE_DRILLING']
+ s+=BOQ_TEMPLATE.map{|r|r[4]} unless boq2_legacy?   # ADAY10: yeni düzende tüm şablon kaynakları kütüphane fiyatlı
  s+=(boq_project_mapping.keys rescue [])
  s.uniq
 end
@@ -127,6 +174,7 @@ def boq2_clean_items(items)
   r={'code'=>h['code'].to_s.strip,'name'=>h['name'].to_s.strip,'unit'=>h['unit'].to_s.strip,'source'=>h['source'].to_s.strip,
      'price'=>(pr.empty? ? nil : boq2_num(pr)),'active'=>h['active']!=false}
   r['qty']=boq2_num(h['qty']).to_f if boq2_manual?(r['source'])
+  r['library_id']=h['library_id'].to_s unless h['library_id'].to_s.empty?   # ADAY10: kütüphane kaydına bağlı poz
   r
  end
 end
@@ -318,11 +366,21 @@ def boq_rows(include_inactive=false)
  items=boq2_items.reject{|h|h['active']==false}
  cur=boq2_currency
  tmpl={};boq_template.each{|c,_,_,p,s|tmpl[s]=[c,p]}
+ lib_idx=nil
  rows.each do |r|
   src=r[:source].to_s
   if boq2_manual?(src)
    it=items.find{|h|h['source']==src}
    r[:quantity]=it ? it['qty'].to_f : 0.0;r[:manual]=true
+   if it && !it['library_id'].to_s.empty? && !boq2_legacy?   # ADAY10: kütüphaneye bağlı elle miktarlı poz → kod/ad/fiyat kütüphaneden
+    lib_idx||=Hash[BOQResolver.pool(BOQLibrary.load,BOQLibrary.seeds).map{|x|[x['id'],x]}]
+    rec=lib_idx[it['library_id']]
+    if rec
+     r[:code]=rec['code'];r[:name]=rec['name']
+     r[:unit_price]=(rec['currency']=='USD' && !rec['unit_price'].nil?) ? rec['unit_price'].to_f : nil
+     r[:library_price]=true;r[:price_status]=r[:unit_price].nil? ? 'FİYAT YOK' : 'TAMAM'
+    end
+   end
   end
   # boş fiyat = fiyat yok (0 değil)
   lib=r[:library_price] || r[:fx_done]   # kazık ayrı poz satırı kütüphane kökenini fx_done ile taşır
@@ -341,6 +399,11 @@ def boq_rows(include_inactive=false)
  end
  rows=boq2_split_rows(rows) if boq2_split?
  rows.each{|r|boq2_fx_row!(r,cur);r[:currency]=cur}
+ unless boq2_legacy?   # ADAY10: kullanıcı sıra numarası (Keşif özetinde Poz No yerine; kütüphane kayıt no ayrı)
+  seq=BOQOrder.seq_map(boq2_items.reject{|h|h['active']==false}.map{|h|h['source'].to_s})
+  nxt=seq.size
+  rows.each{|r|b=prog2_base(r[:source]);seq[b]=(nxt+=1) unless seq.key?(b);r[:seq]=seq[b];r[:poz_no]=BOQOrder.poz_no(r[:seq])}
+ end
  include_inactive ? rows : rows.select{|r|r[:quantity].to_f>0}
 end
 
@@ -349,15 +412,20 @@ alias_method :boq_trace_entities_base, :boq_trace_entities unless method_defined
 def boq_trace_entities(source)
  base,cls=source.to_s.split('#',2)
  base=base.to_s.split('@',2)[0]
- es=boq_trace_entities_base(base)
+ es=if mst_ground_progress_source?(base)
+  pool=base.start_with?('BORED:') ? bp_elements : jg_elements
+  pool.select{|e|mst_ground_source_quantities(e)[base].to_f>0}
+ else
+  boq_trace_entities_base(base)
+ end
  return es unless cls
- # v0.51.5: prekast sınıf satırı normalleştirilmiş sınıf anahtarıyla (boq_precast_class_quantities ile aynı küme)
  return es.select{|e|mst_precast_class_key(e)==cls} if base=='PRECAST_CONCRETE'
  es.select{|e|boq2_class_of(e)==cls}
 end
 alias_method :progress_entity_quantity_base, :progress_entity_quantity unless method_defined?(:progress_entity_quantity_base)
 def progress_entity_quantity(e,source)
  base=prog2_base(source)
+ return mst_ground_source_quantities(e)[base].to_f if mst_ground_progress_source?(base)
  if base=='PILE_INFILL' && e.get_attribute(DICT,'element_type','').to_s=='steel_pipe_pile'
   # v0.51.5 K21 (S7): hata sessiz 0 değil — konsola yazılır; Model Kontrolü (mst_audit_v0515) aynı hesabı HATA olarak gösterir
   begin
@@ -385,9 +453,48 @@ rescue => e
   UI.messagebox("Keşif ekranı güncellenemedi: #{e.message}") rescue nil
  end
 end
+# ADAY10: Keşif sayfasında ara/seç için kütüphane (kullanıcı + katalog) özeti
+def boq2_library_choices
+ BOQResolver.pool(BOQLibrary.load,BOQLibrary.seeds).map{|r|{'id'=>r['id'],'code'=>r['code'],'name'=>r['name'],'unit'=>r['unit'],'price'=>r['unit_price'],'currency'=>r['currency']}}
+end
+# Kendi pozunu yaz (kütüphaneye yeni kayıt) ya da mevcut kütüphane pozunu seç → elle miktarlı, kütüphaneye BAĞLI poz olarak listeye ekler.
+# Önce liste doğrulanır (hata varsa hiçbir şey yazılmaz); kütüphane yazımı atomik; poz listesi tek model işlemi.
+def boq2_add_library_poz(raw)
+ d=raw.is_a?(String) ? JSON.parse(raw) : raw
+ raise 'Bu proje eski şablon fiyat düzeninde: kütüphaneden poz eklenemez. Önce poz listesi kartında "Kütüphane düzenine geç" düğmesine basın.' if boq2_legacy?
+ rows=BOQLibrary.load
+ pool=BOQResolver.pool(rows,BOQLibrary.seeds)
+ rec=nil;new_rec=false
+ if d['library_id'].to_s.empty?
+  pr=d['price'].to_s.strip
+  price=pr.empty? ? nil : boq2_num(pr)
+  raise 'Birim fiyat geçerli bir sayı olmalı.' if !pr.empty? && (price.nil? || price<0)
+  proj=Sketchup.active_model.get_attribute(DICT,'project_name','').to_s.strip
+  code=d['code'].to_s.strip.empty? ? BOQLibrary.next_code(pool) : d['code'].to_s.strip   # kod katalogla da çakışmasın
+  raise "Poz kodu kütüphanede zaten var: #{code}" if pool.any?{|x|x['code']==code}
+  rec=BOQLibrary.record({'project'=>(proj.empty? ? 'Proje' : proj),'year'=>Date.today.year.to_s,'date'=>Date.today.iso8601,'code'=>code,'name'=>d['name'].to_s.strip,
+                         'unit'=>d['unit'].to_s.strip,'unit_price'=>price,'currency'=>'USD','note'=>'Keşif sayfasından eklendi'},true)
+  new_rec=true
+ else
+  rec=pool.find{|x|x['id']==d['library_id']}
+  raise 'Kütüphane pozu bulunamadı. Listeyi yenileyin.' unless rec
+ end
+ items=boq2_items.map{|h|h.dup}
+ item={'code'=>rec['code'],'name'=>rec['name'],'unit'=>rec['unit'],'price'=>nil,'source'=>"MANUAL:#{SecureRandom.hex(6)}",'qty'=>0.0,'active'=>true,'library_id'=>rec['id']}
+ err=boq2_validate_items(items+[item])
+ raise err.first(6).join("\n") unless err.empty?
+ BOQLibrary.save(rows+[rec]) if new_rec
+ begin
+  boq2_save_items(items+[item])
+ rescue
+  BOQLibrary.save(rows) if new_rec   # liste yazılamadıysa yetim kütüphane kaydını geri al
+  raise
+ end
+ rec
+end
 def boq2_payload
  {items:boq2_items_effective,custom:!boq2_get('items_json',nil).to_s.empty?,sources:boq2_source_labels,settings:boq2_settings,
-  contract:boq2_contract,library_sources:boq2_library_sources}
+  contract:boq2_contract,library_sources:boq2_library_sources,library_choices:boq2_library_choices,schema:(boq2_legacy? ? 'legacy' : 'library')}
 end
 
 # ---------------------------------------------------------------- 5–7 · iş kalemi bazında ilerleme
@@ -481,7 +588,7 @@ end
 def prog2_quantities(row,date=nil)
  src=row[:source].to_s;qty=row[:quantity].to_f;key=prog2_row_key(row)
  es=prog2_row_entities(row)
- if es.empty?
+ if es.empty? || (mst_ground_progress_source?(src) && prog2_norm(prog2_manual[key]))
   m=prog2_norm(prog2_manual[key])
   a=m ? prog2_rec_frac(m,date) : 0.0
   c=m ? [prog2_clamp(m['claim']),prog2_rec_frac(m)].max : 0.0
@@ -544,7 +651,7 @@ def progress_live_rows(date=nil)
   end
   w=(current< -1e-9 ? 'Önceki hakedişte ödenen miktar modelde azaldı' : (r[:unit_price].nil? && (current.abs>1e-9 || paid[key]) ? 'Birim fiyat yok'+(paid[key] ? ' · önceki tutar son hakedişten' : '') : nil))
   w=[w,k34].compact.join(' · ') if k34
-  out << {key:key,code:r[:code],name:r[:name],source:r[:source].to_s,unit:r[:unit],quantity:r[:quantity].to_f,
+  out << {key:key,code:r[:code],poz_no:r[:poz_no],name:r[:name],source:r[:source].to_s,unit:r[:unit],quantity:r[:quantity].to_f,
           unit_price:(r[:unit_price].nil? ? nil : r[:unit_price].to_f),price_missing:r[:unit_price].nil?,
           previous:previous,current_period:current,approved_quantity:q[:approved],claimed_quantity:q[:claimed],manual:q[:manual],
           previous_amount:(r[:unit_price].nil? ? paid[key] : nil),
@@ -695,6 +802,7 @@ def progress_save(raw=nil,dialog=@d)
   return nil
  end
  rows=progress_live_rows(date)
+ PaymentValidation.period_rows!(rows)
  neg=rows.select{|r|r[:current_period]< -1e-9}
  if !neg.empty? && !d['accept_negative']
   ans=UI.messagebox("#{neg.length} pozda önceki hakedişte ödenen miktar modelde AZALMIŞ:\n"+neg.first(8).map{|r|"  #{r[:code]}: #{format('%.3f',r[:current_period])} #{r[:unit]}"}.join("\n")+"\n\nBu dönem eksi (alacak) olarak kaydedilsin mi?",MB_YESNO)
@@ -710,7 +818,7 @@ def progress_save(raw=nil,dialog=@d)
   hist=progress_history
   no=(hist.map{|h|h['no'].to_i}.max||0)+1
   rec={'no'=>no,'saved_at'=>Time.now.strftime('%d.%m.%Y %H:%M'),'date'=>date,'by'=>boq2_user,'currency'=>boq2_currency,
-       'rows'=>rows.map{|r|Hash[r.map{|k,v|[k.to_s,v]}]},'status_summary'=>progress_status_summary,
+       'rows'=>rows.map{|r|Hash[r.reject{|k,_|k==:poz_no}.map{|k,v|[k.to_s,v]}]},'status_summary'=>progress_status_summary,
        'price_diff'=>pd,'cum_price_diff'=>icmal.find{|l|l['key']=='B'}['cum'],
        'icmal'=>icmal,'icmal_cum'=>boq2_icmal_cum(icmal),'contract'=>boq2_contract,'note'=>d['note'].to_s}
   hist << rec
@@ -790,7 +898,7 @@ def prog2_selection_info
   if all.empty?
    m=prog2_norm(prog2_manual[key]) || {}
    x=prog2_ok_entry(m)
-   manual << {key:key,source:src,code:r[:code],name:r[:name],unit:r[:unit],quantity:r[:quantity],pct:m['claim'].to_f,
+   manual << {key:key,source:src,code:r[:code],poz_no:r[:poz_no],name:r[:name],unit:r[:unit],quantity:r[:quantity],pct:m['claim'].to_f,
               approved_pct:(x ? x[1].to_f : 0.0),ok:!x.nil?,date:(m['claim_date'] || (x && x[0]))}
    next
   end
@@ -798,7 +906,16 @@ def prog2_selection_info
   next if es.empty?
   q=es.sum{|e|progress_entity_quantity(e,src).to_f}
   ap=es.sum{|e|prog2_frac(e,src)}/es.length;cl=es.sum{|e|prog2_claim(e,src)}/es.length
-  rows << {key:key,source:src,code:r[:code],name:r[:name],unit:r[:unit],count:es.length,quantity:q,approved_pct:ap*100.0,claimed_pct:cl*100.0}
+  if mst_ground_progress_source?(src)
+   legacy=prog2_norm(prog2_manual[key])
+   if legacy
+    ap=prog2_rec_frac(legacy);cl=[prog2_clamp(legacy['claim']),ap].max
+   elsif q>0
+    ap=es.sum{|e|progress_entity_quantity(e,src)*prog2_frac(e,src)}/q
+    cl=es.sum{|e|progress_entity_quantity(e,src)*prog2_claim(e,src)}/q
+   end
+  end
+  rows << {key:key,source:src,code:r[:code],poz_no:r[:poz_no],name:r[:name],unit:r[:unit],count:es.length,quantity:q,approved_pct:ap*100.0,claimed_pct:cl*100.0}
  end
  {selected:sel.length,rows:rows,manual:manual}
 end
@@ -819,7 +936,9 @@ def prog2_apply(raw)
   keys.each do |key|
    row=prog2_find_row(key,rows)
    base=prog2_base(key)
-   es=(row ? prog2_row_entities(row) : boq_trace_entities(key)).select{|e|pids[e.persistent_id]}
+   all_es=row ? prog2_row_entities(row) : boq_trace_entities(key)
+   es=all_es.select{|e|pids[e.persistent_id]}
+   mst_ground_materialize_progress!(key,base,all_es,row && row[:quantity]) if !es.empty? && mst_ground_progress_source?(base)
    es.each do |e|
     h=prog2_items_for_write(e)
     if clear && base=='PRECAST_CONCRETE' && h.key?('PRECAST_C35_45')
@@ -1012,15 +1131,18 @@ def boq2_kesif_xlsx_write(path)
  raise 'Keşifte aktif poz yok.' if rows.empty?
  k=[[{v:'Keşif Cetveli',s:st.id(:title)}],[{v:"Para birimi: #{cur}#{boq2_split? ? ' · beton sınıfa göre ayrı' : ''}",s:st.id(:note)}],[]]
  hdr=['Poz No','İşin Tanımı','Birim','Miktar','Birim Fiyat','Tutar','Durum / Not']
+ ns=!boq2_legacy?   # ADAY10
+ hdr[0]='Poz No' if ns   # yeni düzende Poz No = sıraya göre ÖBF-01…; kütüphane kayıt no son sütunda
+ hdr << 'Kütüphane Kayıt No' if ns
  k << hdr.map{|h|{v:h,s:st.id(:header)}}
  first=k.length+1
  rows.each do |r|
   rn=k.length+1
-  k << [{v:r[:code].to_s,s:st.id(:cell)},{v:r[:name].to_s,s:st.id(:cell)},{v:r[:unit].to_s,s:st.id(:cell)},
+  k << [{v:(ns ? r[:poz_no].to_s : r[:code].to_s),s:st.id(:cell)},{v:r[:name].to_s,s:st.id(:cell)},{v:r[:unit].to_s,s:st.id(:cell)},
         {v:r[:quantity].to_f,s:st.id(:cell,'#,##0.000')},
         (r[:unit_price].nil? ? {v:'FİYAT YOK',s:st.id(:cell)} : {v:r[:unit_price].to_f,s:st.id(:cell,boq2_money_fmt(cur))}),
         (r[:unit_price].nil? ? {v:'',s:st.id(:cell)} : {v:r[:quantity].to_f*r[:unit_price].to_f,f:"D#{rn}*E#{rn}",s:st.id(:cell,boq2_money_fmt(cur))}),
-        {v:[r[:status],r[:price_note]].compact.join(' · '),s:st.id(:note)}]
+        {v:[r[:status],r[:price_note],((ns && r[:price_conflict].to_a.any?) ? "Çakışan fiyat: #{(r[:price_conflict_detail] || r[:price_conflict]).join(', ')}" : nil),((ns && r[:price_status]=='KAYIT YOK') ? 'Kütüphanede poz yok' : nil)].compact.join(' · '),s:st.id(:note)}]+(ns ? [{v:r[:code].to_s,s:st.id(:cell)}] : [])
  end
  last=k.length
  tot=rows.sum{|r|r[:unit_price].nil? ? 0.0 : r[:quantity].to_f*r[:unit_price].to_f}
@@ -1036,7 +1158,7 @@ def boq2_kesif_xlsx_write(path)
  m=[[{v:'Poz Metrajları — eleman bazında',s:st.id(:title)}],[{v:'Her pozun miktarını oluşturan BIM elemanları. Toplu hesaplanan pozlarda (kazık imalat / ek / çarık vb.) eleman toplamı keşif miktarına ölçeklenmiştir.',s:st.id(:note)}],[]]
  rows.each do |r|
   src=r[:source].to_s
-  m << [{v:"#{r[:code]} · #{r[:name]}",s:st.id(:h3)}]
+  m << [{v:"#{r[:poz_no] || r[:code]} · #{r[:name]}",s:st.id(:h3)}]
   es=prog2_row_entities(r)
   if es.empty?
    m << [{v:(boq2_manual?(src) ? 'Elle girilen miktar' : 'Modelde eleman yok (götürü / elle)'),s:st.id(:note)},{v:r[:quantity].to_f,s:st.id(:cell,boq2_qty_fmt(r[:unit]))}];m << [];next
@@ -1083,6 +1205,8 @@ def boq2_hakedis_xlsx_write(path,period_no=nil)
  (wk=prog2_icmal_cetvel_warning(rows,icmal,cur)) && ic << [{v:wk[0],s:st.id(:note)}]   # v0.51.5 K38
  hc=[[{v:'Hakediş Cetveli',s:st.id(:title)}],[{v:"Para birimi: #{cur}",s:st.id(:note)}],[]]
  hdr=['Poz No','İşin Tanımı','Birim','Sözleşme Miktarı','Önceki','Bu Dönem','Kümülatif','İlerleme','Birim Fiyat','Önceki Tutar','Bu Dönem Tutar','Kümülatif Tutar','Uyarı']
+ pzc=rows.any?{|r|r[:poz_no]}   # A6 (ADAY12): yeni düzende Poz No = Keşif sırası ÖBF-NN; kütüphane kayıt no son sütunda
+ hdr << 'Kütüphane Kayıt No' if pzc
  hc << hdr.map{|h|{v:h,s:st.id(:header)}}
  first=hc.length+1
  rows.each do |r|
@@ -1092,12 +1216,12 @@ def boq2_hakedis_xlsx_write(path,period_no=nil)
   mf=st.id(role,boq2_money_fmt(cur))
   amt=->(val,f){nop ? {v:0.0,s:mf} : {v:val,f:f,s:mf}}
   pa=r[:previous_amount].to_f   # fiyatı silinen poz: önceki hakedişte ödenen tutar
-  hc << [{v:r[:code].to_s,s:st.id(role)},{v:r[:name].to_s,s:st.id(role)},{v:r[:unit].to_s,s:st.id(role)},
+  hc << [{v:(r[:poz_no] || r[:code]).to_s,s:st.id(role)},{v:r[:name].to_s,s:st.id(role)},{v:r[:unit].to_s,s:st.id(role)},
          {v:q,s:st.id(role,'#,##0.000')},{v:pr,s:st.id(role,'#,##0.000')},{v:cu,s:st.id(role,'#,##0.000')},
          {v:pr+cu,f:"E#{n}+F#{n}",s:st.id(role,'#,##0.000')},{v:(q>0 ? (pr+cu)/q : 0.0),f:"IF(D#{n}>0,G#{n}/D#{n},0)",s:st.id(role,'0.0%')},
          (nop ? {v:'FİYAT YOK',s:st.id(role)} : {v:up,s:mf}),
          (nop ? {v:pa,s:mf} : amt.(pr*up,"E#{n}*I#{n}")),amt.(cu*up,"F#{n}*I#{n}"),(nop ? {v:pa,s:mf} : amt.((pr+cu)*up,"G#{n}*I#{n}")),
-         {v:r[:warning].to_s,s:st.id(:note)}]
+         {v:r[:warning].to_s,s:st.id(:note)}]+(pzc ? [{v:r[:code].to_s,s:st.id(role)}] : [])
  end
  last=hc.length
  tr=->(col,val){{v:val,f:"SUM(#{col}#{first}:#{col}#{last})",s:st.id(:total,boq2_money_fmt(cur))}}
@@ -1122,7 +1246,7 @@ def boq2_hakedis_xlsx_write(path,period_no=nil)
     rc=prog2_rec(e,src);x=rc ? prog2_ok_entry(rc,vdate) : nil
     when_s=x ? (x[0].to_s=='0000-00-00' ? 'eski durum' : x[0].to_s) : 'eski durum'
     yk=(e.get_attribute(DICT,'ano','').to_s.empty? ? e.get_attribute(DICT,'structure','').to_s : e.get_attribute(DICT,'ano','').to_s)
-    mt << [{v:r[:code].to_s,s:st.id(:cell)},{v:element_visible_id(e).to_s,s:st.id(:cell)},{v:e.get_attribute(DICT,'element_type','').to_s,s:st.id(:cell)},
+    mt << [{v:(r[:poz_no] || r[:code]).to_s,s:st.id(:cell)},{v:element_visible_id(e).to_s,s:st.id(:cell)},{v:e.get_attribute(DICT,'element_type','').to_s,s:st.id(:cell)},
            {v:mst_structure_display(yk,sn),s:st.id(:cell)},{v:yk,s:st.id(:cell)},
            {v:q,s:st.id(:cell,boq2_qty_fmt(r[:unit]))},{v:f,s:st.id(:cell,'0%')},{v:when_s,s:st.id(:cell)},{v:(x ? x[2] : '').to_s,s:st.id(:cell)},
            {v:q*f,s:st.id(:cell,boq2_qty_fmt(r[:unit]))}]
@@ -1147,7 +1271,7 @@ def boq2_excel_ui(kind,period=nil)
  path+='.xlsx' unless path.downcase.end_with?('.xlsx')
  names=kind=='kesif' ? boq2_kesif_xlsx_write(path) : boq2_hakedis_xlsx_write(path,period)
  if UI.messagebox("Excel hazır (#{names.join(' · ')}):\n#{path}\n\nDosya açılsın mı?",MB_YESNO)==IDYES
-  UI.openURL('file:///'+path.tr('\\','/').sub(%r{\A/+},''))
+  UI.openURL(mst_file_url(path))   # FIX-10: URL kodlu yol
  end
 rescue => e
  UI.messagebox("Excel'e aktarılamadı:\n#{e.message}")
@@ -1169,9 +1293,11 @@ def boq2_register_callbacks(d)
  wrap=->(name,&blk){d.add_action_callback(name){|_,*a|begin;blk.call(*a);rescue => e
    d.execute_script("window.bq2Error&&bq2Error(#{JSON.generate(e.message.to_s)})") rescue nil
    UI.messagebox(e.message);end}}
- wrap.('boq2_get'){d.execute_script("boq2Loaded(#{JSON.generate(boq2_payload)})")}
+ wrap.('boq2_get'){boq2_adopt_new_schema_quiet!;d.execute_script("boq2Loaded(#{JSON.generate(boq2_payload)})")}
  wrap.('boq2_save_items'){|j|boq2_save_items(j);send_boq(d)}
  wrap.('boq2_reset_items'){boq2_reset_items;send_boq(d)}
+ wrap.('boq2_add_library_poz'){|j|boq2_add_library_poz(j);send_boq(d)}   # ADAY10
+ wrap.('boq2_adopt_schema'){boq2_adopt_new_schema_user!;send_boq(d)}   # ADAY10: kullanıcı kararı
  wrap.('boq2_items_export'){boq2_items_export}
  wrap.('boq2_items_import'){boq2_items_import;send_boq(d)}
  wrap.('boq2_save_settings'){|j|boq2_save_settings(j);send_boq(d)}

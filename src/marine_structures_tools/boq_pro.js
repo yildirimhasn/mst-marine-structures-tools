@@ -21,8 +21,14 @@ function buildBoq(){
  var pg=$('#boq');if(!pg||$('#bq2Items'))return;
  var main=$('#boq > section.qto-panel')||pg.lastElementChild;
  var items=card('bq2Items','Poz Listesi','Projenin pozları: poz no, tanım, birim, varsayılan fiyat ve miktarın modelden hangi kaynaktan geleceği. Model miktarı olmayan işler için elle miktarlı poz ekleyebilirsin.',
-  '<div class="bq2-toolbar"><button type="button" class="secondary" onclick="bq2AddItem(false)">＋ Poz</button><button type="button" class="secondary" onclick="bq2AddItem(true)">＋ Elle Miktarlı Poz</button><span class="grow"></span><button type="button" class="secondary" onclick="bq2Call(\'boq2_items_import\')">⇪ İçe Aktar</button><button type="button" class="secondary" onclick="bq2Call(\'boq2_items_export\')">⇩ Dışa Aktar</button><button type="button" class="secondary" onclick="bq2ResetItems()">Varsayılana Dön</button><button type="button" class="action" onclick="bq2SaveItems()">Poz Listesini Kaydet</button></div>'+
-  '<div class="boq-scroll"><table class="qto-table bq2-items"><thead><tr><th>Etkin</th><th>Poz No</th><th>İşin Tanımı</th><th>Birim</th><th>Varsayılan Fiyat</th><th>Miktar Kaynağı</th><th>Elle Miktar</th><th></th></tr></thead><tbody id="bq2ItemRows"><tr><td colspan="8">okunuyor…</td></tr></tbody></table></div>'+
+  '<div id="bq2Schema" class="small" style="margin:4px 0"></div>'+'<div class="bq2-toolbar"><button type="button" class="secondary" onclick="bq2AddItem(false)">＋ Poz</button><button type="button" class="secondary" onclick="bq2AddItem(true)">＋ Elle Miktarlı Poz</button><span class="grow"></span><button type="button" class="secondary" onclick="bq2Call(\'boq2_items_import\')">⇪ İçe Aktar</button><button type="button" class="secondary" onclick="bq2Call(\'boq2_items_export\')">⇩ Dışa Aktar</button><button type="button" class="secondary" onclick="bq2ResetItems()">Varsayılana Dön</button><button type="button" class="action" onclick="bq2SaveItems()">Poz Listesini Kaydet</button></div>'+
+  '<div id="bq2AddLib" class="bq2-addlib" style="margin:8px 0;padding:8px;border:1px solid #d4e1ec;border-radius:6px"><b>Kütüphaneden poz ekle</b> <small>(önce yukarıdaki liste değişikliklerini kaydedin; eklenen poz elle miktarlıdır, adı ve fiyatı kütüphaneden gelir)</small><br>'+
+  '<input id="bq2LibPick" autocomplete="off" oninput="bq2LibSearch()" onfocus="bq2LibSearch()" placeholder="Kütüphanede ara: poz kodu veya ad…" style="width:360px"> <button type="button" class="secondary" onclick="bq2AddFromLibrary()">Seçili pozu ekle</button>'+
+  '<div id="bq2LibResults" style="display:none;max-height:220px;overflow:auto;margin:4px 0;border:1px solid #d4e1ec;border-radius:6px;background:#fff;max-width:720px"></div>'+
+  '<b>Kendi pozunu yaz</b> <small>(aynı anda kütüphaneye kaydedilir)</small><br>'+
+  '<input id="bq2NewName" placeholder="Poz tanımı" style="width:300px"> <select id="bq2NewUnit" style="width:90px"><option>m</option><option>m²</option><option>m³</option><option>kg</option><option>ton</option><option>ad</option><option selected>LS</option><option>pkt</option><option>saat</option><option>komp.</option></select> '+
+  '<input id="bq2NewPrice" placeholder="Birim fiyat USD (isteğe bağlı)" style="width:180px"> <input id="bq2NewCode" placeholder="Poz kodu (boşsa otomatik)" style="width:160px"> <button type="button" class="secondary" onclick="bq2AddNewLibraryPoz()">Kütüphaneye yaz ve listeye ekle</button></div>'+
+  '<style>.bq2-items input:not([type=checkbox]),.bq2-items select{width:100%;box-sizing:border-box}.bq2-items td{vertical-align:middle}.bq2-items textarea{width:100%;box-sizing:border-box;resize:none;font:inherit;line-height:1.25;padding:4px 6px;text-align:left}.bq2-rowbtn{white-space:nowrap}</style><div class="boq-scroll"><table class="qto-table bq2-items" style="table-layout:fixed;width:100%;min-width:1100px"><colgroup><col style="width:5%"><col style="width:10%"><col style="width:10%"><col style="width:26%"><col style="width:6%"><col style="width:10%"><col style="width:16%"><col style="width:8%"><col style="width:9%"></colgroup><thead><tr><th>Etkin</th><th>Sıra / Poz No</th><th id="bq2CodeTh">Poz No</th><th>İşin Tanımı</th><th>Birim</th><th>Varsayılan Fiyat</th><th>Miktar Kaynağı</th><th>Elle Miktar</th><th></th></tr></thead><tbody id="bq2ItemRows"><tr><td colspan="9">okunuyor…</td></tr></tbody></table></div>'+
   '<div id="bq2ItemsMsg" class="small bq2-msg"></div>');
  var set=card('bq2Settings','Para Birimi ve Keşif Ayarları','Bütün birim fiyatlar sözleşme para birimindedir. Kütüphane (USD) fiyatları kur ile çevrilir. Kurlar TL karşılığıdır.',
   '<div class="deck-grid bq2-grid"><label>Sözleşme para birimi<select id="bq2Cur"><option>USD</option><option>EUR</option><option>TRY</option></select></label>'+
@@ -45,22 +51,24 @@ function srcOptions(sel){
 }
 var MSEQ=0;function newManualId(){MSEQ++;return 'MANUAL:'+Date.now().toString(36)+'-'+MSEQ+Math.random().toString(36).slice(2,6);}
 function itemRow(it){
- var manual=String(it.source||'').indexOf('MANUAL:')===0,lib=!manual&&BQ.library.indexOf(it.source)>=0;
- var tr=document.createElement('tr');tr.className='bq2-item'+(it.active===false?' off':'');tr.setAttribute('data-manual-id',manual?it.source:'');
- tr.innerHTML='<td><input type="checkbox" class="i-act"'+(it.active===false?'':' checked')+'></td>'+
-  '<td><input class="i-code" value="'+esc(it.code)+'"></td><td><input class="i-name" value="'+esc(it.name)+'"></td>'+
+ var manual=String(it.source||'').indexOf('MANUAL:')===0,lib=(!manual&&BQ.library.indexOf(it.source)>=0)||!!it.library_id;
+ var tr=document.createElement('tr');tr.className='bq2-item'+(it.active===false?' off':'');tr.setAttribute('data-manual-id',manual?it.source:'');tr.setAttribute('data-library-id',it.library_id||'');
+ tr.innerHTML='<td><input type="checkbox" class="i-act"'+(it.active===false?'':' checked')+'></td>'+'<td><input class="i-seq" type="number" min="1" style="width:54px" title="Sıra numarası: Keşif tablosunda Poz No olarak ÖBF-01, ÖBF-02… görünür; değiştirince satır o sıraya taşınır"> <b class="i-pozno" style="color:#176b9c"></b></td>'+
+  '<td><input class="i-code" value="'+esc(it.code)+'"></td><td><textarea class="i-name" rows="2" title="'+esc(it.name)+'">'+esc(it.name)+'</textarea></td>'+
   '<td><input class="i-unit" value="'+esc(it.unit)+'"></td><td>'+(lib?'<input class="i-price" disabled placeholder="kütüphane" title="Bu pozun fiyatı Keşif Kütüphanesinden gelir (USD → kur). Fiyatı Keşif sayfasındaki kütüphane eşleştirmesinden değiştir.">':'<input class="i-price" type="number" step="0.01" min="0" placeholder="fiyat yok" value="'+(it.price==null?'':it.price)+'">')+'</td>'+
   '<td><select class="i-src">'+srcOptions(it.source)+'</select></td><td><input class="i-qty" type="number" step="0.001" min="0" value="'+(manual?(it.qty||0):'')+'"'+(manual?'':' disabled')+'></td>'+
   '<td class="bq2-rowbtn"><button type="button" class="secondary" title="Yukarı" onclick="bq2Move(this,-1)">↑</button><button type="button" class="secondary" title="Aşağı" onclick="bq2Move(this,1)">↓</button><button type="button" class="secondary" title="Sil" onclick="bq2Del(this)">✕</button></td>';
- tr.querySelector('.i-src').onchange=function(){var m=this.value==='__MANUAL',q=tr.querySelector('.i-qty');q.disabled=!m;if(m&&!tr.getAttribute('data-manual-id'))tr.setAttribute('data-manual-id',newManualId());};
- tr.querySelector('.i-act').onchange=function(){tr.classList.toggle('off',!this.checked);};
+ tr.querySelector('.i-name').oninput=function(){var v=this.value.replace(/[\r\n]+/g,' ');if(v!==this.value)this.value=v;this.title=v;};tr.querySelector('.i-name').onkeydown=function(e){if(e.key==='Enter'||e.keyCode===13)e.preventDefault();};tr.querySelector('.i-src').onchange=function(){var m=this.value==='__MANUAL',q=tr.querySelector('.i-qty');q.disabled=!m;if(m&&!tr.getAttribute('data-manual-id'))tr.setAttribute('data-manual-id',newManualId());};
+ tr.querySelector('.i-act').onchange=function(){tr.classList.toggle('off',!this.checked);renumber();};tr.querySelector('.i-seq').onchange=function(){bq2SetPos(tr,this.value);};
  return tr;
 }
-function renderItems(){var b=$('#bq2ItemRows');if(!b)return;b.textContent='';BQ.items.forEach(function(it){b.appendChild(itemRow(it));});}
+function renumber(){var k=0;$$('#bq2ItemRows tr.bq2-item').forEach(function(tr){var e=tr.querySelector('.i-seq'),on=tr.querySelector('.i-act').checked;if(e){e.disabled=!on;e.value=on?++k:'';var pn=tr.querySelector('.i-pozno');if(pn)pn.textContent=on?'ÖBF-'+(k<10?'0'+k:k):'';}});}
+window.bq2SetPos=function(tr,v){var b=tr.parentNode,n=parseInt(v,10);if(!(n>=1)){renumber();return;}b.removeChild(tr);var cur=$$('#bq2ItemRows tr.bq2-item').filter(function(x){return x.querySelector('.i-act').checked;});if(n>cur.length){var last=cur.length?cur[cur.length-1]:null;b.insertBefore(tr,last?last.nextSibling:b.firstChild);}else b.insertBefore(tr,cur[n-1]);renumber();};
+function renderItems(){var b=$('#bq2ItemRows');if(!b)return;b.textContent='';BQ.items.forEach(function(it){b.appendChild(itemRow(it));});renumber();if(!b.__obs){b.__obs=1;new MutationObserver(renumber).observe(b,{childList:true});}}
 function readItems(){
  return $$('#bq2ItemRows tr.bq2-item').map(function(tr){
   var s=tr.querySelector('.i-src').value;var o={active:tr.querySelector('.i-act').checked,code:tr.querySelector('.i-code').value,name:tr.querySelector('.i-name').value,unit:tr.querySelector('.i-unit').value,price:(tr.querySelector('.i-price').disabled?'':tr.querySelector('.i-price').value)};
-  if(s==='__MANUAL'){o.source=tr.getAttribute('data-manual-id')||newManualId();o.qty=tr.querySelector('.i-qty').value||'0';}else o.source=s;
+  if(s==='__MANUAL'){o.source=tr.getAttribute('data-manual-id')||newManualId();o.qty=tr.querySelector('.i-qty').value||'0';}else o.source=s;if(tr.getAttribute('data-library-id'))o.library_id=tr.getAttribute('data-library-id');
   return o;});
 }
 window.bq2ReadItems=readItems;
@@ -77,12 +85,35 @@ window.bq2Move=function(btn,d){var tr=btn.closest('tr'),t=d<0?tr.previousElement
 window.bq2Del=function(btn){btn.closest('tr').remove();};
 window.bq2SaveItems=function(){var it=readItems(),e=localCheck(it),m=$('#bq2ItemsMsg');if(e.length){m.className='small bq2-msg err';m.textContent=e.slice(0,6).join(' · ');return;}m.className='small bq2-msg';m.textContent='Kaydediliyor…';call('boq2_save_items',JSON.stringify(it));};
 window.bq2ResetItems=function(){if(confirm('Poz listesi şablona dönsün mü? Girdiğin birim fiyatlar silinmez.'))call('boq2_reset_items');};
+window.bq2RenderSchema=function(){var el=$('#bq2Schema'),al=$('#bq2AddLib');if(!el)return;var lib=BQ.schema==='library';if(al)al.style.display=lib?'':'none';var ch=$('#bq2CodeTh');if(ch)ch.textContent=lib?'Kütüphane Kayıt No':'Poz No';
+ el.innerHTML=lib?'<b>Fiyat düzeni: Kütüphane</b> — poz adı ve fiyatı Keşif Kütüphanesi\'nden gelir.':'<b>Fiyat düzeni: Şablon (eski)</b> — bu proje şablonun varsayılan fiyatlarını kullanır. <button type="button" class="secondary" onclick="bq2Adopt()">Kütüphane düzenine geç</button>';};
+window.bq2Adopt=function(){if(confirm('Bu projenin pozları ve fiyatları Keşif Kütüphanesi\'nden gelecek. Şablonun sabit varsayılan fiyatları kullanılmayacak; kütüphanede fiyatı olmayan pozlar fiyatsız kalır ve keşif tutarı değişir. Devam edilsin mi? (Ctrl+Z ile geri alınır.)'))call('boq2_adopt_schema');};
 window.bq2Call=function(n){call(n);};
+/* ADAY13: arama alanı — tam değer, ya da yazılan metin TEK bir kütüphane kaydında geçiyorsa o kayıt (büyük/küçük harf, Türkçe i/İ farksız) */
+function bq2PickLib(v,map){var s=String(v||'').trim();if(!s)return {err:'none'};map=map||{};if(Object.prototype.hasOwnProperty.call(map,s))return {id:map[s]};
+ var q=s.toLocaleLowerCase('tr-TR'),hits=Object.keys(map).filter(function(k){return k.toLocaleLowerCase('tr-TR').indexOf(q)>=0;});
+ if(hits.length===1)return {id:map[hits[0]]};if(hits.length>1)return {err:'many',n:hits.length};return {err:'none'};
+}
+/* ADAY14: görünür sonuç listesi (Keşif Kütüphanesi kayıt araması gibi) — her sözcük kod/ad/birim/fiyat metninde herhangi bir yerde geçmeli (Türkçe i/İ farksız) */
+function bq2FilterLib(q,choices,limit){
+ var terms=String(q||'').toLocaleLowerCase('tr-TR').split(/\s+/).filter(Boolean),out=[];limit=limit||50;
+ for(var i=0;i<(choices||[]).length&&out.length<limit;i++){var c=choices[i];
+  var label=c.code+' · '+c.name+' ('+c.unit+')'+(c.price==null?'':' · '+c.price+(c.currency?' '+c.currency:'')),hay=label.toLocaleLowerCase('tr-TR');
+  if(terms.every(function(t){return hay.indexOf(t)>=0;}))out.push({id:c.id,label:label});}
+ return out;
+}
+window.bq2LibSearch=function(){BQ.libSel=null;var box=$('#bq2LibResults');if(!box)return;var q=$('#bq2LibPick').value,all=BQ.libChoices||[],r=bq2FilterLib(q,all,60);box.textContent='';box.style.display='block';
+ if(!r.length){var e=document.createElement('div');e.className='small';e.style.padding='4px 6px';e.textContent='Kütüphanede eşleşen kayıt yok.';box.appendChild(e);return;}
+ r.forEach(function(x){var d=document.createElement('div');d.className='bq2-libres';d.style.cssText='padding:3px 6px;cursor:pointer;border-bottom:1px solid #eef3f8';d.textContent=x.label;d.onmouseenter=function(){d.style.background='#eef5fb';};d.onmouseleave=function(){d.style.background='';};d.onclick=function(){BQ.libSel=x;$('#bq2LibPick').value=x.label;box.style.display='none';};box.appendChild(d);});
+ if(!String(q||'').trim()&&all.length>r.length){var m=document.createElement('div');m.className='small';m.style.padding='4px 6px';m.textContent='İlk '+r.length+' kayıt gösteriliyor ('+all.length+' kayıt var); aramak için yazın.';box.appendChild(m);}};
+window.bq2AddFromLibrary=function(){var sel=BQ.libSel;var r=(sel&&sel.label===$('#bq2LibPick').value)?{id:sel.id}:bq2PickLib($('#bq2LibPick').value,BQ.libMap);if(!r.id){alert(r.err==='many'?('Yazdığınız metin '+r.n+' kütüphane kaydıyla eşleşiyor; listeden birini seçin ya da aramayı daraltın.'):'Listeden bir kütüphane pozu seçin (yazarak arayın).');return;}call('boq2_add_library_poz',JSON.stringify({library_id:r.id}));$('#bq2LibPick').value='';BQ.libSel=null;var bx=$('#bq2LibResults');if(bx){bx.textContent='';bx.style.display='none';}};
+window.bq2AddNewLibraryPoz=function(){var n=($('#bq2NewName').value||'').trim();if(!n){alert('Poz tanımını yazın.');return;}call('boq2_add_library_poz',JSON.stringify({name:n,unit:$('#bq2NewUnit').value,price:$('#bq2NewPrice').value,code:$('#bq2NewCode').value}));$('#bq2NewName').value='';$('#bq2NewPrice').value='';$('#bq2NewCode').value='';};
 window.bq2SaveSettings=function(){var d={currency:$('#bq2Cur').value,fx:{USD:$('#bq2FxUSD').value,EUR:$('#bq2FxEUR').value},price_date:$('#bq2PriceDate').value,split_concrete:$('#bq2Split').checked};$('#bq2SetMsg').textContent='Kaydediliyor…';call('boq2_save_settings',JSON.stringify(d));};
 window.bq2KesifExcel=function(){call('boq2_kesif_excel');};
 window.boq2Loaded=function(d){
- d=d||{};BQ.items=d.items||[];BQ.sources=d.sources||{};BQ.settings=d.settings||BQ.settings;BQ.contract=d.contract||null;BQ.custom=!!d.custom;BQ.library=d.library_sources||[];
- renderItems();var s=BQ.settings;
+ d=d||{};BQ.items=d.items||[];BQ.sources=d.sources||{};BQ.settings=d.settings||BQ.settings;BQ.contract=d.contract||null;BQ.custom=!!d.custom;BQ.library=d.library_sources||[];BQ.schema=d.schema||'legacy';
+ BQ.libMap={};BQ.libChoices=d.library_choices||[];BQ.libSel=null;BQ.libChoices.forEach(function(c){var v=c.code+' · '+c.name+' ('+c.unit+')'+(c.price==null?'':' · '+c.price+(c.currency?' '+c.currency:''));BQ.libMap[v]=c.id;});
+ renderItems();bq2RenderSchema();var s=BQ.settings;
  if($('#bq2Cur')){$('#bq2Cur').value=s.currency||'USD';$('#bq2FxUSD').value=(s.fx||{}).USD||1;$('#bq2FxEUR').value=(s.fx||{}).EUR||1;$('#bq2PriceDate').value=s.price_date||'';$('#bq2Split').checked=!!s.split_concrete;$('#bq2Split').disabled=!!s.split_locked;$('#bq2Split').parentNode.title=s.split_locked?'Kaydedilmiş hakediş var: beton sınıf ayrımı değiştirilemez.':'';}
  var m=$('#bq2ItemsMsg');if(m){m.className='small bq2-msg';m.textContent=(BQ.custom?'Projeye özel poz listesi':'Şablon poz listesi (henüz değiştirilmedi)')+' · '+BQ.items.length+' poz';}
  var sm=$('#bq2SetMsg');if(sm)sm.textContent='Para birimi: '+(s.currency||'USD')+(s.price_date?' · fiyat tarihi '+s.price_date:'');
@@ -145,9 +176,9 @@ window.prog2SelectionLoaded=function(d){
  d=d||{};PG.rows=d.rows||[];PG.manual=d.manual||[];PG.selected=d.selected||0;
  $('#pg2SelInfo').textContent=PG.selected?PG.selected+' eleman seçili · '+PG.rows.length+' iş kalemi':'Modelde seçim yok.';
  var b=$('#pg2Rows');
- b.innerHTML=PG.rows.length?PG.rows.map(function(r){return '<tr><td><input type="checkbox" class="pg2-src" value="'+esc(r.key||r.source)+'"></td><td><b>'+esc(r.code)+'</b></td><td class="txt">'+esc(r.name)+'</td><td class="num">'+r.count+'</td><td class="num">'+num(r.quantity,3)+' '+esc(r.unit)+'</td><td class="num">'+bar(r.approved_pct,'ok')+'</td><td class="num">'+bar(r.claimed_pct,'part')+'</td></tr>';}).join(''):'<tr><td colspan="7">'+(PG.selected?'Seçili elemanlar hiçbir aktif poza girmiyor.':'Modelde eleman seçip “Seçimi Oku”ya bas.')+'</td></tr>';
+ b.innerHTML=PG.rows.length?PG.rows.map(function(r){return '<tr><td><input type="checkbox" class="pg2-src" value="'+esc(r.key||r.source)+'"></td><td><b>'+esc(r.poz_no||r.code)+'</b></td><td class="txt">'+esc(r.name)+'</td><td class="num">'+r.count+'</td><td class="num">'+num(r.quantity,3)+' '+esc(r.unit)+'</td><td class="num">'+bar(r.approved_pct,'ok')+'</td><td class="num">'+bar(r.claimed_pct,'part')+'</td></tr>';}).join(''):'<tr><td colspan="7">'+(PG.selected?'Seçili elemanlar hiçbir aktif poza girmiyor.':'Modelde eleman seçip “Seçimi Oku”ya bas.')+'</td></tr>';
  var m=$('#pg2Manual');
- m.innerHTML=PG.manual.length?PG.manual.map(function(r,i){return '<tr data-src="'+esc(r.key||r.source)+'"><td><b>'+esc(r.code)+'</b></td><td class="txt">'+esc(r.name)+'</td><td class="num">'+num(r.quantity,3)+' '+esc(r.unit)+'</td><td><input class="m-pct" type="number" min="0" max="100" value="'+(r.pct||0)+'"></td><td><input class="m-ok" type="checkbox"'+(r.ok?' checked':'')+' title="Onaylı: '+Number(r.approved_pct||0)+'%"></td><td><input class="m-date" type="date" value="'+esc(r.date||today())+'"></td><td><button type="button" class="secondary" onclick="pg2Manual(this)">Kaydet</button></td></tr>';}).join(''):'<tr><td colspan="7">Elle ilerleyen poz yok.</td></tr>';
+ m.innerHTML=PG.manual.length?PG.manual.map(function(r,i){return '<tr data-src="'+esc(r.key||r.source)+'"><td><b>'+esc(r.poz_no||r.code)+'</b></td><td class="txt">'+esc(r.name)+'</td><td class="num">'+num(r.quantity,3)+' '+esc(r.unit)+'</td><td><input class="m-pct" type="number" min="0" max="100" value="'+(r.pct||0)+'"></td><td><input class="m-ok" type="checkbox"'+(r.ok?' checked':'')+' title="Onaylı: '+Number(r.approved_pct||0)+'%"></td><td><input class="m-date" type="date" value="'+esc(r.date||today())+'"></td><td><button type="button" class="secondary" onclick="pg2Manual(this)">Kaydet</button></td></tr>';}).join(''):'<tr><td colspan="7">Elle ilerleyen poz yok.</td></tr>';
 };
 function bar(p,cls){p=Number(p||0);return '<span class="pg2-bar '+cls+'"><i style="width:'+Math.max(0,Math.min(100,p))+'%"></i></span> '+p.toFixed(0)+'%';}
 window.pg2Apply=function(clear){
@@ -192,7 +223,7 @@ function wrapProgress(){
   /* eksilen (negatif) satırları işaretle */
   var trs=$$('#progressBody tr');((d&&d.rows)||[]).forEach(function(row,i){var tr=trs[i];if(!tr)return;/* v0.51.5 K34: uyarı notu satırda görünür (ui.html progressLoaded); kırmızı yalnız azalan/negatif satırda */if(row.warning)tr.title=row.warning;if(Number(row.current_period)<-1e-9){tr.classList.add('pg2-neg');tr.title=row.warning||'Önceki hakedişe göre azalma';}if(row.manual)tr.classList.add('pg2-manual');if(row.price_missing){tr.classList.add('pg2-noprice');tr.title=(tr.title?tr.title+' · ':'')+'Birim fiyat yok';}if(row.removed)tr.classList.add('pg2-removed');});
   renderIcmal(d||{});renderContract(d&&d.contract);
-  var vs=$('#pg2ViewSrc');if(vs){var keep=vs.value;vs.innerHTML='<option value="">Tüm kalemler (eleman durumu)</option>'+((d&&d.rows)||[]).filter(function(r){return !r.manual&&!r.removed;}).map(function(r){return '<option value="'+esc(r.key||r.source)+'">'+esc(r.code)+' · '+esc(r.name)+'</option>';}).join('');vs.value=keep;}
+  var vs=$('#pg2ViewSrc');if(vs){var keep=vs.value;vs.innerHTML='<option value="">Tüm kalemler (eleman durumu)</option>'+((d&&d.rows)||[]).filter(function(r){return !r.manual&&!r.removed;}).map(function(r){return '<option value="'+esc(r.key||r.source)+'">'+esc(r.poz_no||r.code)+' · '+esc(r.name)+'</option>';}).join('');vs.value=keep;}
   var sel=$('#progressPeriodSelect');if(sel&&d&&d.history){Array.prototype.forEach.call(sel.options,function(o){var h=d.history.filter(function(x){return String(x.no)===o.value;})[0];if(h&&h.date)o.textContent='Hakediş '+String(h.no).padStart(2,'0')+' · dönem sonu '+h.date;});}
   relabel(cur);
  }catch(e){console.error('BQ1 hakediş:',e);}return r;};

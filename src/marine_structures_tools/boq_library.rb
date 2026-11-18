@@ -71,13 +71,34 @@ module MAG
         JSON.generate({'schema'=>'mst.boq-library/2','records'=>records})
       end
 
+      # FIX-09 (0.52 denetimi O5): paketteki unified_catalog.json her keşif / eşleştirme / arşiv çağrısında diskten okunup
+      # (≈280 KB JSON) kayıt kayıt doğrulanıyordu. Dosya damgası (mtime + boyut) değişmediği sürece ayrıştırılmış kayıtlar
+      # önbellekten verilir; çağıranlar kayıtları yerinde değiştirebildiği (capture / merge) için her kayıt yüzeysel kopyalanır.
+      def seeds(path=File.join(__dir__,'unified_catalog.json'))
+        stamp=[File.mtime(path).to_f,File.size(path)]
+        c=@seeds_cache
+        c=nil unless c && c[:path]==path && c[:stamp]==stamp
+        c||=(@seeds_cache={path:path,stamp:stamp,rows:decode(File.read(path,encoding:'UTF-8'))})
+        c[:rows].map(&:dup)
+      end
+
+      def records_path;File.join(storage_directory,'records.json');end
+      def records_stamp(path=records_path);File.exist?(path) ? [File.mtime(path).to_f,File.size(path)] : nil;end
+
       def load
+        # FIX-09: kullanıcı kütüphanesi (records.json) de damga değişmediği sürece önbellekten (kayıtlar yüzeysel kopya);
+        # her save sonrası önbellek düşürülür. Dosya yoksa (Sketchup.read_default geçişi) eski yol.
+        path=records_path;stamp=records_stamp(path)
+        c=@records_cache
+        return c[:rows].map(&:dup) if stamp && c && c[:path]==path && c[:stamp]==stamp
         raw=stored_records
         rows=decode(raw)
         original=JSON.parse(raw)['records']
         if original.zip(rows).any? { |old,row| old['code']!=row['code'] }
           save(rows)
+          stamp=records_stamp(path)
         end
+        @records_cache=(stamp ? {path:path,stamp:stamp,rows:rows.map(&:dup)} : nil)
         rows
       end
 
@@ -116,8 +137,10 @@ module MAG
         decode(raw) # Validate everything before either write.
         previous=stored_records
         return if raw==previous && File.exist?(File.join(storage_directory,'records.json'))
+        @records_cache=nil   # FIX-09: yazımdan önce ve sonra önbellek düşer; doğrulama diskten okur
         write_storage('previous',previous)
         write_storage('records',raw)
+        @records_cache=nil
         raise 'Kayıt doğrulaması başarısız; başarı bildirimi verilmedi.' unless load==decode(raw)
       end
 
@@ -194,7 +217,7 @@ module MAG
         rows=load
         project_ids=MarineStructuresTools.boq_project_mapping.values.map{|r|r['id']}
         before=encode(rows)
-        seeds=decode(File.read(File.join(__dir__,'unified_catalog.json'),encoding:'UTF-8'))
+        seeds=BOQLibrary.seeds   # FIX-09: önbellekli katalog (her kayıt kopya; aşağıda yerinde değiştirilir)
         seeds.each do |seed|
           found=rows.find { |r| r['catalog_key']==seed['catalog_key'] || r['id']==seed['id'] }
           if found
@@ -337,6 +360,31 @@ module MAG
               raise 'Dosya 2 MB sınırını aşıyor.' if File.size(path)>BOQLibrary::MAX_BYTES
               raw=File.read(path,encoding:'UTF-8').sub(/\A\uFEFF/,'')
               message=BOQLibrary.import_document(raw)
+            end
+          when 'bulk_save', 'bulk_apply'   # ADAY10: toplu fiyat — önizleme hatasızsa TEK kayıt, hata varsa hiçbiri yazılmaz
+            changes=(action=='bulk_save') ? Array(data['changes']) : BOQPriceBulk.parse_text(data['text'].to_s)
+            n=BOQPriceBulk.apply(BOQLibrary.load,changes,saver:->(rows){BOQLibrary.save(rows)})
+            message=n.zero? ? 'Değişen fiyat yok.' : "#{n} birim fiyat güncellendi (tek işlem). Geri almak için \"Son Kütüphane Değişikliğini Geri Al\"."
+            send_boq(@d) if n>0 && @d && @d.visible?
+          when 'bulk_preview'
+            pv=BOQPriceBulk.preview(BOQLibrary.load,BOQPriceBulk.parse_text(data['text'].to_s))
+            d.execute_script("setBulkPreview(#{JSON.generate(pv)});")
+            next
+          when 'import_file'
+            path=UI.openpanel('Fiyat Listesi Seç (CSV / metin)','','CSV ve metin|*.csv;*.txt||')
+            if path
+              raise 'Dosya 2 MB sınırını aşıyor.' if File.size(path)>BOQLibrary::MAX_BYTES
+              d.execute_script("setImportText(#{JSON.generate(File.read(path,encoding:'UTF-8'))});")
+            else
+              d.execute_script("setImportText(null);")
+            end
+            next
+          when 'export_csv'
+            path=UI.savepanel('Fiyat Listesini CSV Olarak Dışa Aktar','','MST_Kesif_Kutuphanesi_Fiyatlar.csv')
+            if path
+              path+='.csv' unless path.downcase.end_with?('.csv')
+              File.open(path,'wb') { |f| f.write(BOQPriceBulk.export_csv(BOQLibrary.load).encode('UTF-8').b) }
+              message='Fiyat listesi CSV olarak dışa aktarıldı (Excel\'de açıp fiyat sütununu doldurun, sonra İçe Aktar). id sütununu değiştirmeyin.'
             end
           else; raise 'Bilinmeyen işlem.'
           end

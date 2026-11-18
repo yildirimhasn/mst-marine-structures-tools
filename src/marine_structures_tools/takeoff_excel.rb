@@ -205,7 +205,7 @@ def mst_takeoff_excel
  path+='.xlsx' unless path.downcase.end_with?('.xlsx')
  names=mst_takeoff_xlsx_write(path)
  if UI.messagebox("Detaylı metraj Excel'e aktarıldı (#{names.length} sayfa):\n#{names.join(' · ')}\n\n#{path}\n\nDosya açılsın mı?",MB_YESNO)==IDYES
-  UI.openURL('file:///'+path.tr('\\','/').sub(%r{\A/+},''))
+  UI.openURL(mst_file_url(path))   # FIX-10: URL kodlu yol
  end
 rescue => e
  UI.messagebox("Excel'e aktarılamadı:\n#{e.message}")

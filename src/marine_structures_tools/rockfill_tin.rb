@@ -70,7 +70,13 @@ module RockfillTIN
    end
    locked<<target
   end
-  triangles.map{|t|t.map{|i|vertices[i]}}
+  # Consistent upward normals for the terrain preview and downstream mesh use.
+  triangles.map do |t|
+   tri=t.map{|i|vertices[i]}
+   a,b,c=tri
+   cross=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+   cross<0 ? [a,c,b] : tri
+  end
  end
 end
 end

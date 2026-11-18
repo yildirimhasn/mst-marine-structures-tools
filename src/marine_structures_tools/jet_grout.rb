@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 require 'json'
 require 'securerandom'
+require_relative 'column_geometry'
+require_relative 'jet_grout_union'
 module MAG
 module MarineStructuresTools
 JG_TYPES='jet_grout_types_v1'.freeze
@@ -31,32 +33,8 @@ def jg_metrics(d)
 end
 # v0.51.5 P5: dünya dönüşümü yalnız jet grout öğesinde hesaplanır: parent (başlangıç dünyası) üzerine ata kapsayıcılar ve öğe
 # kökten aynı sırayla, aynı formülle çarpılır → eski düğüm düğüm hesapla bit düzeyinde aynı. Gezinti kapsamı değişmedi.
-def jg_world(parent,nodes)
- nodes.each do |n|
-  tr=n.transformation.to_a if n.respond_to?(:transformation)
-  parent=parent && tr ? (0...16).map{|i|r=i%4;c=i/4;4.times.sum{|k|parent[k*4+r]*tr[c*4+k]}} : tr
- end
- parent
-end
-def jg_walk(entities,out=[],parent=nil,chain=[])
- entities.each do |e|
-  next unless e.is_a?(Sketchup::Group) || e.is_a?(Sketchup::ComponentInstance)
-  if e.get_attribute(DICT,'element_type')=='jet_grout'
-   world=jg_world(parent,chain+[e])
-   if world
-    a=world
-    axes=[a[0,3],a[4,3],a[8,3]]
-    good=axes.all?{|v|(v.sum{|x|x*x}-1).abs<1e-7} && axes[0][2].abs<1e-7 && axes[1][2].abs<1e-7 && (axes[2][2]-1).abs<1e-7 && (axes[0].zip(axes[1]).sum{|x,y|x*y}).abs<1e-7
-    raise 'Jet grout ölçeklenmiş veya eğilmiş. Çap ve kotları Jet Grout ekranından güncelleyin.' unless good
-    saved=jg_validate(JSON.parse(e.get_attribute(DICT,'jet_grout_data','{}')))
-    raise 'Jet grout model kotu kayıtlı üst kottan farklı. Kolonu okuyup kotlarını Jet Grout ekranından güncelleyin.' if (a[14]-saved['top'].m).abs>0.001.m
-   end
-   out<<e
-  else
-   jg_walk(e.is_a?(Sketchup::Group) ? e.entities : e.definition.entities,out,parent,chain+[e])
-  end
- end
- out
+def jg_walk(entities)
+ mst_column_walk(entities,'jet_grout','jet_grout_data',:jg_validate)
 end
 # v0.51.5 P5: okuma batch'inde (mst_read_batch) sonuç batch boyunca bir kez hesaplanır; hata önbelleğe alınmaz (sonraki çağrı yeniden
 # gezer ve aynı hatayı verir). Yazma batch'inde ve batch dışında eskisi gibi. Her çağrı yeni dizi alır; geçersiz öğe süzülür.
@@ -67,6 +45,15 @@ def jg_elements
  list=jg_walk(Sketchup.active_model.entities)
  @mst_jg_elements_cache={rb:rb,list:list.dup.freeze} if rb
  list
+end
+def jg_net_ground_volume
+ columns=[]
+ mst_column_walk(Sketchup.active_model.entities,'jet_grout','jet_grout_data',:jg_validate) do |d,world|
+  next unless d['enabled']
+  point=world.origin
+  columns << [point.x.to_m,point.y.to_m,d['diameter']/2000.0,d['bottom'],d['top']]
+ end
+ JetGroutUnion.volume(columns)
 end
 def jg_rows
  jg_elements.group_by{|e|e.get_attribute(DICT,'jet_grout_data','{}')}.map do |raw,els|
@@ -98,8 +85,13 @@ class JetGroutPlacement
   return UI.messagebox('Proje değişti; Jet Grout penceresini yenileyin.') unless m.object_id==@model_token
   return UI.messagebox('Önce grup düzenleme modundan çıkın.') if m.active_path
   m.start_operation('Jet Grout Yerleştir',true)
-  begin;g=m.entities.add_group;MarineStructuresTools.jg_write(g,@data,@ip.position.x,@ip.position.y);m.commit_operation;MarineStructuresTools.jg_send
+  committed=false
+  begin;g=m.entities.add_group;MarineStructuresTools.jg_write(g,@data,@ip.position.x,@ip.position.y);m.commit_operation;committed=true
   rescue=>e;m.abort_operation;UI.messagebox(e.message);end
+  # 0.52.18 ADAY: işlem kapandıktan sonra arayüz yenileme hatası kapanmış işleme abort çağırmaz (bored_pile.rb ile aynı düzeltme)
+  if committed
+   begin;MarineStructuresTools.jg_send;rescue=>e;UI.messagebox("Jet Grout yerleştirildi; liste yenilenemedi: #{e.message}");end
+  end
  end
  def onCancel(reason,v);Sketchup.active_model.select_tool(nil);end
 end
@@ -126,17 +118,18 @@ def jg_export_headers
 end
 def jg_report_html
  rows=jg_export_rows;return '' if rows.empty?
- '<h3>Jet Grout — Bağımsız Metraj</h3><p>Nominal zemin hacmi geometrik kolon toplamıdır; çakışmalar düşülmez. Beton hacmi değildir. Çimento, enjeksiyon ve çelik kullanıcı tüketim girdileridir. Boş alan belirtilmemiştir.</p><table><tr>'+jg_export_headers.map{|h|"<th>#{html_escape(h)}</th>"}.join+'</tr>'+rows.map{|row|'<tr>'+row.map{|v|"<td>#{v.nil? ? '—' : html_escape(v.is_a?(Float) ? format('%.3f',v) : v.to_s)}</td>"}.join+'</tr>'}.join+'</table>'
+ '<h3>Jet Grout — Bağımsız Metraj</h3><p>Net iyileştirilmiş zemin (model geneli): '+format('%.3f',jg_net_ground_volume)+' m³.</p><p>Nominal zemin hacmi geometrik kolon toplamıdır; çakışmalar düşülmez. Beton hacmi değildir. Çimento, enjeksiyon ve çelik kullanıcı tüketim girdileridir. Boş alan belirtilmemiştir.</p><table><tr>'+jg_export_headers.map{|h|"<th>#{html_escape(h)}</th>"}.join+'</tr>'+rows.map{|row|'<tr>'+row.map{|v|"<td>#{v.nil? ? '—' : html_escape(v.is_a?(Float) ? format('%.3f',v) : v.to_s)}</td>"}.join+'</tr>'}.join+'</table>'
 end
 def jg_send(message='')
  return unless @jg_dialog
  m=Sketchup.active_model
- @jg_dialog.execute_script("jgLoaded(#{JSON.generate({types:JSON.parse(m.get_attribute(DICT,JG_TYPES,'{}')),defaults:jg_defaults,rows:jg_rows,model_token:m.object_id.to_s,message:message})})")
+ @jg_dialog.execute_script("jgLoaded(#{JSON.generate({types:JSON.parse(m.get_attribute(DICT,JG_TYPES,'{}')),defaults:jg_defaults,rows:jg_rows,net_ground_m3:jg_net_ground_volume,model_token:m.object_id.to_s,message:message})})")
 end
 def show_jet_grout
  if @jg_dialog && @jg_dialog.visible?;@jg_dialog.bring_to_front;jg_send;return;end
  @jg_dialog=mst_html_dialog('jet_grout',dialog_title:'Jet Grout · Tip, Model ve Metraj',preferences_key:'MAG_MST_JetGrout',width:1380,height:900,resizable:true)
  @jg_dialog.set_file(File.join(__dir__,'jet_grout.html'))
+ mst_register_model_preview(@jg_dialog, 'jet')
  @jg_dialog.add_action_callback('jg_action') do |_,action,json|
   begin
    p=JSON.parse(json||'{}');m=Sketchup.active_model

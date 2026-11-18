@@ -255,6 +255,55 @@ v0.49.1 UP1
 - 0.51.4 = 0.51.3 Integrated + 5 dosya: sürüm adları; Ruby 2.5 uyumu için filter_map ve .then kaldırıldı.
 - Kaynak: 0.51.4 birleşik denetim raporu (29.10.2026). Bu iki sürüm için test sonucu kaydı yoktur.
 
+0.51.13 Kesit Onizleme TEST — ÖN1 — 12.11.2026 (kesit / boyuna / 3B önizleme; temel 0.51.12 BK Sifir Ofset TEST)
+Yeni dosya mst_preview.js (saf SVG; WebGL ve Ruby geri çağrısı yok; model DEĞİŞMEZ). Kanal Prekastı önizlemesiyle aynı izometrik
+izdüşüm (bakış yönü (−1,1,1)); görünür yüzler uzaktan yakına sıralanır, ışığa göre tonlanır. Her kart: Kesit / Boyuna / 3B düğmeleri,
+otomatik ölçekli ölçü çizgileri ve bilgi satırı. Uzun elemanlar 3B'de kısaltılarak çizilir ve not düşülür (Kanal Prekastı kuralı).
+  * Kazık sayfası (sağ sütun, en üstte): enine kesit (Ø, t, iç çap / iç beton), boyuna kesit (eğik eksen, üst / alt / beton altı kotu,
+    deniz tabanı), 3B (eğik boru + iç beton). Form alanları: diameter_mm, thickness_mm, length_m, top_elevation_m, orientation_mode,
+    batter_ratio (1/6, 1:6, 0,5 kabul), azimuth_deg, iç beton, infill_bottom_normal_m, seabed_elevation_m.
+  * Fore Kazık (bored_pile.html): eski sabit şema yerine kesit / boyuna (delgi başı, muhafaza) / 3B. Jet Grout (jet_grout.html): aynı.
+  * Başlık Kirişi: "Şematik Görünüş ve Ölçüler" kartı artık canlı; BK tipi seçici; enine kesit (kazık Ø ile), boyuna görünüş
+    (taşma, usturmaça dişi: uçta derinlik + şev; kanal cebi: üstten oyuk), 3B. BK tipi listesi ui.html sonundaki mstpvBeamState
+    köprüsünden okunur (bkTypes `let` olduğu için).
+  * Prekast: sağ sütunda tip seçici (PD / PDÖ / PV / PK); PD dikdörtgen, PDÖ / PV derin orta bölge + uç dişleri (boyuna profil),
+    PK kesiti mstPkSectionOf ile (Kanal Prekastı motoru). Boy: Kanal Prekastı formundaki BK boyu + 2 × oturma, yoksa gösterim boyu.
+  * Döşeme: enine kesit (iki BK, prekast, BK üstünden toplam kalınlık, prekast üstüne kadar dökülmeyen katman, kaplama, tretuvar)
+    ve 3B; BK aralığı gösterim 5 m (gerçek aralık modelden).
+  * Kronman: mevcut kesit canvas'ının altına istasyon aralıklarından (Tip A / Tip B sırası) 3B.
+  * Dolgu — Alternatif-02 proje geometrisi (parametrik şevli taş kesiti): kret / şevler / tabakalar (dıştan içe, şeve dik kalınlık)
+    enine kesit + 3B; gösterim tabanı kret − 8 m (gerçek taban seçili yüzeyden). Alternatif-01 sayısal kesit alanlarıdır; çizim yok.
+Kanıt: node --check; node _araclar/test/test_preview.js (45 kontrol, 0 kalan); sahte SketchUp API'si ile eklenti yüklemesi (1434
+metod); tarayıcıda (SketchUp dışı, yerel sunucu) ui.html / bored_pile.html / jet_grout.html kartları hatasız çizildi. SketchUp 2020
+içinde DENENMEDİ. Hiçbir Ruby hesap yolu değişmedi (yalnız MST_BUILD / VERSION ve mst_preview.js + 3 HTML'de script bağı).
+
+0.51.5 TB1 FIX2 — MST_FINAL_INTEGRATED — 10.11.2026 (tam kaynak kod denetimi; FIX-01 … FIX-10)
+Kanıt: statik (ruby -c, node --check, JSON, Ripper çift tanım taraması) ve sahte SketchUp API'si ile tüm eklentinin yüklenip
+15 birim / entegrasyon testinin çalıştırılması (0 kalan; FIX1 paketinde aynı testler 8 kalan). SketchUp 2020 içinde DENENMEDİ.
+Metraj / rapor sonucunu değiştirenler:
+  * FIX-01 BK kontrollü düzenleme (Çalışma Alanı → Elemanı Düzenle / Başlık Kirişi formu, headbeam_editor.rb): kazık açıklığı
+    denetimi daire formülüyle yapılıyordu; eğik kazıklı BK'da kayıtlı elips değeriyle (v0.51.5 H4b) uyuşmadığı için her
+    düzenleme "Kazık açıklığı kaydı mevcut kazık çaplarıyla uyuşmuyor" ile reddediliyordu. Artık BK oluşturma ile aynı formül.
+  * FIX-02 Model Kontrolü PILE_OPENING_MISMATCH (model_health.rb): aynı daire formülü; eğik kazıklı her BK'da sahte HATA
+    üretiyordu. Artık elips. (Eğik kazıklı modelde Model Kontrolü hata sayısı düşer; metraj değişmez.)
+  * FIX-04 pile_batter_ratio: "0,5" (ondalık virgül) ve "1:6" artık doğru okunur (önce 0 → düşey ya da 1,0 → 45°); sayı
+    olmayan metin sessiz 0 yerine Türkçe hata. pile_driving_length ve pile_qto_concrete metin kayıtlı "1/6" eğimi .to_f
+    (=1,0) yerine aynı ayrıştırıcıyla okur (MC-02). Sayısal kayıtlı değerlerde sonuç aynı.
+  * FIX-05 Eski menü "Kazık Yerleşimi - Seçili Kazığı Düzenle": kanonik Hedef Küme servisinden geçer (iç beton / tapa /
+    çember korunur, BK açıklığı + net kalıp, tip kütüphanesi eşitlenir, tek Geri Al). Eski yol kazık grubunun tüm
+    içeriğini siliyor ve yönelimi ikinci bir veri modeliyle (rake_x_hv / rake_y_hv) yazıyordu. Boy alanı eksen boyudur.
+  * FIX-06 Metraj raporu kronman donatısı tek kaynaktan (BIM çizilmişse modellenen tonaj); pursantajlı kronmanda aynı.
+  * FIX-07 Metraj raporu Bordür / Tretuvar tablosuna Donatı sütunu (Keşif ÖBF-004'e giren G4 donatısı görünür; ek sütun).
+  * FIX-08 Metraj raporu "Kazık İçi Beton" bölümü kazığın sahip olduğu betondan (Keşif ÖBF-010 ile aynı kaynak): Component
+    kazıkların paylaşılan tanımdaki iç betonu önceki raporda görünmüyordu (sahte modelde 6,108 → 12,217 m³ = ÖBF-010);
+    "iç beton YOK" (K36) kazıkların kalan alt grubu sayılmıyor. Yalnız Group kazıklı modelde satır ve toplamlar aynı.
+Değiştirmeyenler:
+  * FIX-03 main.rb'de yükleme sırasında ezilen ölü project_ano_axis_manager (v0.20.0) tanımı kaldırıldı (25 satır).
+  * FIX-09 unified_catalog.json ve records.json dosya damgası değişmedikçe önbellekten (her keşif çağrısında ≈280 KB JSON
+    ayrıştırması kalktı; sahte ölçüm: 50 çağrı 0,88 s → 0,02 s). Kayıtlar kopya verilir; save sonrası önbellek düşer.
+  * FIX-10 Excel / rapor dosyası açma (UI.openURL) yolu URL kodlu: '#', '%' ve boşluk içeren klasörlerde dosya açılır.
+Bilinen sınırlar: SketchUp 2020 kabulü (08 listesi + runner 1.2.11) bekliyor; kabul listesi §15 (N-96 … N-104) FIX2 satırları.
+
 0.51.5 TB1 FIX1 — 02.11.2026 (0.51.4 denetim bulgularının düzeltmesi)
 Kanıt: statik (Ruby 2.5 dilbilgisi, ruby -c, node --check) ve sahte nesne testleri (SketchUp dışı, 17 test, 0 kalan).
 Golden-master BOQ/QTO karşılaştırması yapılmadı. SketchUp 2020 içinde denenmedi.

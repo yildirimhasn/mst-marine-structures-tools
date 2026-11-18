@@ -104,10 +104,10 @@ module MAG
         pile=by_key.fetch(support[:key])[:entity]
         diameter=QuantityService.number(pile.get_attribute(DICT,'diameter_mm',nil),'Mesnet kazık çapı')/1000.0
         raise 'Mesnet kazık çapı sıfırdan büyük olmalı.' unless diameter>0
-        Math::PI*diameter**2/4
+        api.mst_pile_opening_m2(diameter*1000.0,api.mst_pile_opening_ratio(pile))   # FIX-02: eğik kazıkta elips (BK oluşturma / H4b ile aynı)
        end
        stored=QuantityService.number(e.get_attribute(DICT,'pile_opening_area_m2',nil),'Kayıtlı kazık açıklığı')
-       raise 'Kayıtlı kazık açıklığı mevcut mesnet kazıklarının çaplarıyla uyuşmuyor.' unless (actual-stored).abs<=1e-6
+       raise 'Kayıtlı kazık açıklığı mevcut mesnet kazıklarının çap ve eğimleriyle uyuşmuyor.' unless (actual-stored).abs<=1e-6
       end
      end
      severity=checks.any?{|c|c[:severity]=='error'} ? 'error' : checks.any?{|c|c[:severity]=='warning'} ? 'warning' : geometry=='not_checked' ? 'limited' : 'checked'

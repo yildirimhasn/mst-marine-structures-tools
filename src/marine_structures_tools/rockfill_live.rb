@@ -2,6 +2,8 @@
 require_relative 'axis_chain'
 require_relative 'rockfill_geometry_engine'
 require_relative 'rockfill_tin'
+require_relative 'bathymetry_points'
+require_relative 'bathymetry_dxf'
 require_relative 'rockfill_loft_model'
 require_relative 'rockfill_report'
 require_relative 'rockfill_templates'
@@ -230,6 +232,42 @@ def rf_live_action(action,json,dialog)
    triangles.each{|t|group.entities.add_face(t.map{|p|p.map{|v|v.m}})}
    model.commit_operation;model.selection.clear;model.selection.add(group);model.active_view.zoom(group)
   rescue;model.abort_operation;raise;end
+  return
+ when 'import_points'
+  path=UI.openpanel('Batimetri XYZ / CSV / DXF seçin',nil,'Batimetri noktaları|*.xyz;*.csv;*.dxf||')
+  return unless path
+  options=UI.inputbox(['Dosya birimi','Yerel X kökeni (m)','Yerel Y kökeni (m)','Kot referansı (m)','Z işareti'],
+   ['m',0.0,0.0,0.0,'Kot'],['m|cm|mm|ft','','','','Kot|Pozitif derinlik'],'Batimetri koordinatları')
+  return unless options
+  unit,x,y,z,sign=options
+  origin=[x,y,z].map{|value|Float(value)}
+  raise 'Köken değerleri sonlu olmalı.' unless origin.all?(&:finite?)
+  depth=sign=='Pozitif derinlik'
+  tris=if File.extname(path).downcase=='.dxf'
+   BathymetryDXF.read(path,BathymetryPoints::SCALE.fetch(unit),origin,depth)
+  else
+   BathymetryPoints.read(path,unit,origin,depth)
+  end
+  raise 'Grup düzenleme modundan çıkın.' if model.active_path
+  model.start_operation('MST Batimetri Dosyası Aktarımı',true)
+  begin
+   group=model.entities.add_group
+   group.name="MST Batimetri — #{File.basename(path)}"
+   tris.each do |tri|
+    face=group.entities.add_face(tri.map{|point|point.map(&:m)})
+    raise 'Batimetri üçgeni SketchUp geometrisine dönüştürülemedi.' unless face
+    face.reverse! if face.normal.z<0
+   end
+   state['surface_ids']=[group.persistent_id]
+   state['surface_mode']='surface'
+   state.delete('last_result')
+   model.set_attribute(DICT,RF_LIVE_KEY,JSON.generate(state))
+   model.commit_operation
+  rescue
+   model.abort_operation
+   raise
+  end
+  rf_live_send(dialog,state,"Batimetri aktarıldı: #{tris.length} üçgen.")
   return
  when 'surface','contours'
   state['surface_ids']=rf_live_selection.map(&:persistent_id);state['surface_mode']=action

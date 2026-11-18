@@ -138,8 +138,10 @@ module MAG
       piles=ProjectWorkspace.entries(model).map{|r|r[:entity]}.select{|p|p.get_attribute(DICT,'element_type')=='steel_pipe_pile'&&pile_ids.include?(api.element_visible_id(p))}
       diameters=piles.map{|p|QuantityService.number(p.get_attribute(DICT,'diameter_mm',nil),'kazık çapı')/1000.0}
       raise 'Kiriş genişliği kazık çapından küçük olamaz.' unless diameters.all?{|d|d>0&&d<=values['width_m']}
-      opening=diameters.sum{|d|Math::PI*d*d/4}
-      raise 'Kazık açıklığı kaydı mevcut kazık çaplarıyla uyuşmuyor.' if (opening-QuantityService.number(h.fetch('pile_opening_area_m2',nil),'kazık açıklığı')).abs>1e-7
+      # FIX-01: eğik kazıkta kayıtlı açıklık elipstir (BK oluşturma, H4b yönelim güncellemesi ve mst_bk_follow_plan ile aynı
+      # formül: mst_pile_opening_m2 × mst_pile_opening_ratio). Daire formülü eğik kazıklı her BK'da düzenlemeyi reddediyordu.
+      opening=piles.sum{|p|api.mst_pile_opening_m2(QuantityService.number(p.get_attribute(DICT,'diameter_mm',nil),'kazık çapı'),api.mst_pile_opening_ratio(p))}
+      raise 'Kazık açıklığı kaydı mevcut kazık çaplarıyla (ve eğimleriyle) uyuşmuyor.' if (opening-QuantityService.number(h.fetch('pile_opening_area_m2',nil),'kazık açıklığı')).abs>1e-7
      end
     end
     result=metrics(next_data,flags_now)

@@ -4,7 +4,7 @@
 </style><link rel="stylesheet" href="engineering_ui.css">
 <script src="engineering_ui.js" defer></script>
 </head><body>
-<header><div><h1>Keşif Kütüphanesi</h1><p>Projelerin keşif ve birim fiyat arşivi</p></div><span class="badge">v0.51.5</span></header>
+<header><div><h1>Keşif Kütüphanesi</h1><p>Projelerin keşif ve birim fiyat arşivi</p></div><span class="badge">v0.52.18</span></header>
 <main><div id="status" role="status">Kütüphane yükleniyor…</div>
 <section class="card"><h2 id="formTitle">Yeni kayıt</h2><form id="entryForm"><input id="id" type="hidden">
 <div class="grid">
@@ -23,6 +23,12 @@
 </div><div class="actions"><button class="primary" type="submit">Kaydı Sakla</button><button type="button" onclick="resetEntry()">Yeni Kayıt</button><button type="button" onclick="captureModel()">Tek USD Arşivini Oluştur / Güncelle</button></div></form>
 <p class="muted">Tek arşiv düğmesi katalog ile 18 keşif kalemini birleştirir; eşleşen pozların miktar ve USD fiyatlarını aktif modelden günceller. Önce Keşif sayfasındaki fiyatları kaydedin. Tarifler Kaydı Sakla ile korunur. Boş miktar veya fiyat sıfır değildir.</p></section>
 <section class="card" id="tariffPanel" hidden><h2>Kaynak Birim Fiyat Tarifleri</h2><p>Başlık eşleşmeleri yalnız adaydır. Birim, ölçü/ödeme şartları ve malzeme–işçilik kapsamını kaynak metinde kontrol edin. Seçilen tarif, Kaydı Sakla ile pozunuza kaydedilir.</p><input id="tariffSearch" placeholder="İş adı, kaynak dosya veya kaynak ÖBF kodu ara" oninput="renderTariffs()"><p id="tariffCount"></p><select id="tariffOptions" size="7" onchange="previewTariff()"></select><p id="tariffSource"></p><textarea id="tariffPreview" readonly style="height:300px"></textarea><div class="actions"><button onclick="useTariff()">Bu Tarifi Forma Aktar</button><button onclick="el('tariffPanel').hidden=true">Kapat</button></div></section><section class="card"><div class="tools"><h2 style="margin:0">Kayıtlar</h2><span id="count" class="badge">0</span><input id="search" placeholder="Proje, yıl, poz, iş kalemi veya para birimi ara" oninput="renderRows()"></div>
+<section class="card" id="bulkBar"><h2>Toplu fiyat güncelleme</h2><p class="muted">Tablodaki birim fiyat hücrelerini doğrudan yazabilir (USD kayıtlar), ya da fiyatları Excel'de düzenleyip içe aktarabilirsiniz. Önizleme hatasızsa hepsi tek işlemde yazılır; bir satırda hata varsa hiçbiri yazılmaz.</p>
+<div class="actions"><button type="button" id="pendSave" onclick="saveBulk()" disabled data-unavailable="1">Değişiklikleri Kaydet (0)</button><button type="button" id="pendDiscard" onclick="discardBulk()" disabled data-unavailable="1">Değişiklikleri At</button><button type="button" onclick="act('export_csv')">Fiyatları CSV / Excel'e Aktar</button><button type="button" onclick="openImport()">Fiyat Listesi İçe Aktar…</button></div>
+<div id="importPanel" hidden style="margin-top:10px"><p class="muted">Excel'de <b>id</b> ve <b>fiyat</b> sütunlarını seçip kopyalayın (başlık satırı dahil) ve buraya yapıştırın; ya da CSV dosyası seçin. Boş fiyat hücresi "dokunma" demektir. Ondalık için virgül veya nokta kullanabilirsiniz.</p>
+<textarea id="importText" style="width:100%;height:150px" placeholder="id&#9;fiyat&#10;..."></textarea>
+<div class="actions"><button type="button" onclick="act('import_file')">Dosyadan Seç…</button><button type="button" onclick="previewImport()">Önizle</button><button type="button" id="importApply" onclick="applyImport()" disabled data-unavailable="1">Uygula</button><button type="button" onclick="el('importPanel').hidden=true">Kapat</button></div>
+<div id="importPreview" class="muted" style="margin-top:8px"></div></div></section>
 <div class="table"><table><thead><tr><th>Proje / Yıl</th><th>Poz</th><th>İş kalemi</th><th>Miktar</th><th>Birim</th><th>Birim fiyat</th><th>Para</th><th>Tutar</th><th>Kaynak</th><th>İşlemler</th></tr></thead><tbody id="rows"></tbody></table></div>
 <div class="actions"><button onclick="act('refresh')">Yenile</button><button onclick="openTariffs()">Kaynak Tarifler</button><button onclick="act('import')">JSON İçe Aktar</button><button onclick="act('export')">JSON Dışa Aktar</button><button onclick="act('undo')">Son Kütüphane Değişikliğini Geri Al</button></div>
 <p class="muted">Kütüphane kullanıcı veri klasöründe saklanır ve diğer modellerde de açılır. Başka bilgisayara taşımak için JSON dışa aktar. Fiyat uygulama yalnız USD ve eşleşen birim/kaynak içindir; model miktarı arşiv miktarıyla değiştirilmez. Eski para birimi/fiyat ve birleştirilen kayıtlar geçmişte korunur; kur olmadan çevrilmez.</p></section><section class="card" id="historyPanel" hidden><h2 id="historyTitle">Kayıt Geçmişi</h2><pre id="historyText" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><button onclick="el('historyPanel').hidden=true">Kapat</button></section></main>
@@ -32,8 +38,9 @@ var fields=['id','project','year','date','code','name','unit','quantity','unit_p
 function el(id){return document.getElementById(id);}
 function markBusy(value){busy=value;document.querySelectorAll('button').forEach(function(b){b.disabled=value||b.getAttribute('data-unavailable')==='1';});}
 function act(action,data){if(busy)return;markBusy(true);el('status').className='';el('status').textContent='İşlem sürüyor…';if(window.sketchup&&sketchup.library_action){sketchup.library_action(action,JSON.stringify(data||{}));}else{libraryError('SketchUp bağlantısı bulunamadı.');}}
-function libraryError(message){markBusy(false);el('status').className='error';el('status').textContent=message;}
+function libraryError(message){bulkSaving=false;markBusy(false);el('status').className='error';el('status').textContent=message;}
 function setLibrary(data){
+ if(bulkSaving){pending={};bulkSaving=false;}
  libraryRows=data.records||[];modelMeta={project:data.project||'Aktif Model',date:data.date,year:data.year,currency:'USD'};
  if(!initialized){
   el('project').value=data.project||'';el('year').value=data.year;el('date').value=data.date;el('currency').value='USD';
@@ -49,15 +56,40 @@ function renderRows(){
  var query=el('search').value.toLocaleLowerCase('tr-TR').trim();var rows=libraryRows.filter(function(r){return [r.project,r.year,r.code,r.name,r.currency,r.note,r.source_file,r.source_sheet,r.section,r.rate_description].join(' ').toLocaleLowerCase('tr-TR').indexOf(query)>=0;});
  el('rows').textContent='';el('count').textContent=rows.length+' / '+libraryRows.length;
  if(!rows.length){var empty=document.createElement('tr');var td=cell(empty,'Kayıt bulunamadı. Yeni kayıt ekle veya mevcut keşfi arşivle.');td.colSpan=10;el('rows').appendChild(empty);}
- rows.forEach(function(r){var tr=document.createElement('tr');cell(tr,r.project+' / '+(r.year||'—'));cell(tr,r.code);var title=cell(tr,r.name,'item');title.title=(r.date||'')+' '+(r.note||'');cell(tr,fmt(r.quantity,r.unit==='m²'?2:(r.unit==='ad'||r.unit==='LS'?0:3)),'num');cell(tr,r.unit);cell(tr,fmt(r.unit_price,2),'num');cell(tr,r.currency||'—');cell(tr,fmt(r.quantity==null||r.unit_price==null?null:r.quantity*r.unit_price,2),'num');var provenance=cell(tr,[r.source_file,r.source_sheet,r.source_row?'Satır '+r.source_row:'',r.section].filter(Boolean).join(' / '),'item');provenance.title=r.note||'';var actions=cell(tr,'');
+ rows.forEach(function(r){var tr=document.createElement('tr');cell(tr,r.project+' / '+(r.year||'—'));cell(tr,r.code);var title=cell(tr,r.name,'item');title.title=(r.date||'')+' '+(r.note||'');cell(tr,fmt(r.quantity,r.unit==='m²'?2:(r.unit==='ad'||r.unit==='LS'?0:3)),'num');cell(tr,r.unit);priceCell(tr,r);cell(tr,r.currency||'—');cell(tr,fmt(r.quantity==null||r.unit_price==null?null:r.quantity*r.unit_price,2),'num');var provenance=cell(tr,[r.source_file,r.source_sheet,r.source_row?'Satır '+r.source_row:'',r.section].filter(Boolean).join(' / '),'item');provenance.title=r.note||'';var actions=cell(tr,'');
   button(actions,'Düzenle',function(){editEntry(r);});
   button(actions,'Tarifi Aç',function(){editEntry(r);el('rate_description').focus();});
   button(actions,'Geçmiş',function(){showHistory(r);});
   var apply=button(actions,r.target_code?'Fiyat → '+r.target_code:'Arşiv',function(){if(window.confirm(r.target_code+' birim fiyatı '+fmt(r.unit_price,2)+' USD olarak uygulansın mı?'))act('apply',{id:r.id});});apply.setAttribute('data-unavailable',r.target_code?'0':'1');apply.disabled=!r.target_code;
   button(actions,'Sil',function(){if(window.confirm(r.project+' / '+r.code+' kaydı silinsin mi?'))act('delete',{id:r.id});});el('rows').appendChild(tr);
  });
+ updatePending();
  if(busy)markBusy(true);
 }
+var pending={},bulkSaving=false;
+function trNum(v){return String(v).replace(/\s/g,'');}
+function priceCell(tr,r){
+ var td=document.createElement('td');td.className='num';
+ if(r.currency!=='USD'){td.textContent=fmt(r.unit_price,2);tr.appendChild(td);return;}
+ var inp=document.createElement('input');inp.type='text';inp.setAttribute('inputmode','decimal');inp.style.width='92px';inp.style.textAlign='right';
+ var shown=pending.hasOwnProperty(r.id)?pending[r.id]:(r.unit_price==null?'':String(r.unit_price).replace('.',','));
+ inp.value=shown;if(pending.hasOwnProperty(r.id))inp.style.background='#fff7d6';
+ inp.title='Birim fiyat (USD). Değişiklikler "Değişiklikleri Kaydet" ile tek işlemde yazılır. Boş bırakılırsa dokunulmaz.';
+ inp.onchange=function(){var orig=r.unit_price==null?'':String(r.unit_price).replace('.',',');var v=trNum(inp.value);if(v===orig){delete pending[r.id];inp.style.background='';}else{pending[r.id]=v;inp.style.background='#fff7d6';}updatePending();};
+ td.appendChild(inp);tr.appendChild(td);
+}
+function updatePending(){var n=Object.keys(pending).length;var s=el('pendSave'),d=el('pendDiscard');s.textContent='Değişiklikleri Kaydet ('+n+')';s.disabled=n===0;d.disabled=n===0;s.setAttribute('data-unavailable',n===0?'1':'0');d.setAttribute('data-unavailable',n===0?'1':'0');}
+function saveBulk(){var ch=Object.keys(pending).map(function(id){return {id:id,unit_price:pending[id]};});if(!ch.length)return;bulkSaving=true;act('bulk_save',{changes:ch});}
+function discardBulk(){pending={};updatePending();renderRows();}
+function openImport(){el('importPanel').hidden=false;el('importText').focus();}
+function setImportText(t){markBusy(false);if(t!=null){el('importText').value=t;previewImport();}}
+function setApply(on){var b=el('importApply');b.disabled=!on;b.setAttribute('data-unavailable',on?'0':'1');}
+function previewImport(){if(!el('importText').value.trim()){el('importPreview').textContent='Önce veri yapıştırın veya dosya seçin.';return;}setApply(false);act('bulk_preview',{text:el('importText').value});}
+function applyImport(){act('bulk_apply',{text:el('importText').value});setApply(false);}
+function setBulkPreview(pv){markBusy(false);var box=el('importPreview');var h='<b>'+pv.ok.length+'</b> fiyat değişecek, <b>'+pv.unchanged+'</b> değişmeyecek, <b style="color:'+(pv.errors.length?'#b42318':'#176b9c')+'">'+pv.errors.length+'</b> hatalı satır.';
+ if(pv.errors.length){h+='<ul>'+pv.errors.slice(0,12).map(function(e){return '<li>Satır '+e.row+(e.id?' ('+e.id.slice(0,8)+'…)':'')+': '+e.message+'</li>';}).join('')+(pv.errors.length>12?'<li>… +'+(pv.errors.length-12)+' hata daha</li>':'')+'</ul><b>Hata varsa hiçbir fiyat yazılmaz.</b>';}
+ else if(pv.ok.length){h+='<ul>'+pv.ok.slice(0,12).map(function(x){return '<li>'+(x.code||'')+': '+(x.old==null?'—':fmt(x.old,2))+' → '+fmt(x.new,2)+'</li>';}).join('')+(pv.ok.length>12?'<li>… +'+(pv.ok.length-12)+' kayıt daha</li>':'')+'</ul>';}
+ box.innerHTML=h;setApply(pv.errors.length===0&&pv.ok.length>0);}
 function resetEntry(){['id','code','name','note','source','rate_description'].forEach(function(k){el(k).value='';});el('quantity').value='';el('unit_price').value='';el('formTitle').textContent='Yeni kayıt';}
 function editEntry(r){fields.forEach(function(k){if((k==='currency'||k==='source')&&!Array.prototype.some.call(el(k).options,function(o){return o.value===r[k];})){var option=document.createElement('option');option.value=r[k];option.textContent=r[k];el(k).appendChild(option);}el(k).value=r[k]==null?'':r[k];});el('formTitle').textContent='Kaydı düzenle: '+r.code;window.scrollTo(0,0);}
 function captureModel(){act('capture',modelMeta);}

@@ -154,7 +154,7 @@ var ACT={
        more:['beam()','sketchup.universal_formwork_face_tool()','sketchup.rebar_paint_all()','sketchup.element_info()']},
  precast:{read:{oc:'readChannelFromBK()',label:'↻ Seçili BK\'yı Oku',when:function(){return pcTab()==='pk';}},
        create:[{oc:'createPD()',when:function(){return pcTab()==='pd';}},{oc:'createChannelPrecast()',when:function(){return pcTab()==='pk';}},{oc:'createCranePrecast()',when:function(){return pcTab()==='pv';}}],
-       more:['sketchup.sync_precast()','sketchup.kn_place()','sketchup.kn_pockets()','sketchup.precast_type_rename()','sketchup.precast_to_component()','sketchup.precast_to_group()','sketchup.precast_purge_defs()','sketchup.universal_formwork_face_tool()']},
+       more:['sketchup.sync_precast()','mstPkKnPlace()','sketchup.kn_pockets()','sketchup.precast_type_rename()','sketchup.precast_to_component()','sketchup.precast_to_group()','sketchup.precast_purge_defs()','sketchup.universal_formwork_face_tool()']},
  deck:{read:{oc:'sketchup.deck_refresh()',label:'🔄 Seçili Döşemeyi Güncelle'},preview:{oc:'previewDeck()'},create:[{oc:'createDeck()'}],
        more:['createExistingDeckTopping()','sketchup.universal_formwork_face_tool()']},
  crown:{read:{oc:'loadSelectedCrown()'},preview:{oc:'updateSelectedCrown()'},create:[{oc:'createCrownWall()'}],

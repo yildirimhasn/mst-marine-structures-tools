@@ -71,6 +71,10 @@ module MarineStructuresTools
     g.set_attribute(DICT,'mst_visual_part',kind);g
   end
   def mst_visual_refresh_pile(p,colors)
+    if p.get_attribute(DICT,'plug_enabled','0').to_s=='1'
+      has_infill=!pile_qto_infill_children(p).empty?
+      mst_validate_plug_count!(p.get_attribute(DICT,'plug_count_per_pile',1),has_infill)
+    end
     if mst_component_pile?(p)
       # v0.38 C6: colours/details live in the shared definition -> attach the matching one.
       (colors||{}).each{|k,v|p.set_attribute(DICT,"visual_color_#{k}",v) if v && VIS_DEFAULTS.key?(k)}

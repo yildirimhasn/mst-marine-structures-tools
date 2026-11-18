@@ -1,11 +1,31 @@
-Marine Structures Tools 0.51.5 TB1 FIX1 — 02.11.2026
+Marine Structures Tools 0.51.13 Kesit Onizleme TEST — ÖN1 — 12.11.2026
 
-Paket: MST_v0.51.5_TB1_FIX1_TEST.rbz (VERSION 0.51.5, MST_BUILD v0.51.5 TB1 FIX1).
-Temel: MST_v0.51.4_TB1_Ruby25_TEST.rbz. Bu paket, 0.51.4 denetiminde (29.10.2026) bulunan hataların
-düzeltmelerini içerir. Ayrıntılı değişiklik notu, metrajı değiştiren düzeltmeler, yeni kayıt alanları ve
-bilinen sınırlar sürüm notundadır (RELEASE_UI9.txt sonundaki "0.51.5 TB1 FIX1" kaydı).
+Paket: MST_v0.51.13_Kesit_Onizleme_TEST.rbz (VERSION 0.51.13, MST_BUILD v0.51.13 Kesit Onizleme TEST). Temel: MST_v0.51.12_BK_Sifir_Ofset_TEST.rbz.
+Yenilik: Kazık, Fore Kazık, Jet Grout, Başlık Kirişi, Prekast (PD / PDÖ / PV / PK), Döşeme, Kronman ve Dolgu (Alt-02 parametrik)
+sayfalarında Kanal Prekastı'ndaki gibi Kesit / Boyuna / 3B önizleme (mst_preview.js; model değişmez). Ayrıntı: RELEASE_UI9.txt "ÖN1".
+Runner 1.2.12 bu paketi bekler. SketchUp 2020 içinde denenmedi.
 
-KANIT DURUMU
+=====================================================================
+Aşağıdaki bölüm 0.51.5 TB1 FIX2 paketinin notudur (kayıt amaçlı korunmuştur).
+=====================================================================
+Marine Structures Tools 0.51.5 TB1 FIX2 — MST_FINAL_INTEGRATED — 10.11.2026
+
+Paket: MST_FINAL_INTEGRATED.rbz (VERSION 0.51.5, MST_BUILD v0.51.5 TB1 FIX2).
+Temel: MST_v0.51.5_TB1_FIX1_TEST.rbz (TESLIM_11, kaynak bf945e7, 204 dosya). Bu paket tam kaynak kod denetiminde
+(10.11.2026) doğrulanan 10 düzeltmeyi (FIX-01 … FIX-10) içerir; ayrıntı RELEASE_UI9.txt sonundaki "0.51.5 TB1 FIX2"
+kaydında ve teslim klasöründeki MST_REVIZYON_DEGISIKLIKLERI.md / MST_TEST_VE_ENTEGRASYON_RAPORU.md dosyalarındadır.
+
+KANIT DURUMU (FIX2)
+- Statik: ruby -c (69 Ruby dosyası), node --check (13 JS), JSON (7) — 0 hata; Ripper tabanlı çift tanım taraması
+  (17 → 16; kalan 16 bilinçli alias_method genişletmesi).
+- Sahte SketchUp API'si ile tüm eklenti yüklendi (1428 metod, 71 menü öğesi, 4 araç çubuğu); 15 birim / entegrasyon
+  testi, 0 kalan (aynı testler FIX1 paketinde 8 kalan). TEST-04 (Ø1016, t 15→14, L 30 m, H/V 0,50) Hedef Küme yolu
+  sahte modelde doğrulandı.
+- Golden-master BOQ/QTO karşılaştırması: yalnız Group kazıklı modelde Metraj / Keşif değerleri FIX1 ile aynı; Component
+  kazıklı ve eğik kazıklı BK'lı modellerde fark BEKLENİR (RELEASE notunda listelenir).
+- SketchUp 2020 içinde: DENENMEDİ. Kabul kullanıcı tarafından model kopyası üzerinde yapılacak.
+
+KANIT DURUMU (FIX1, 02.11.2026)
 - Statik: Ruby 2.5 dilbilgisi denetimi (66 dosya, 0 hata) ve ruby -c sözdizimi hatasız — Parti C sonrası
   ana oturum çıktısı (02.11.2026); sürüm adı değişikliğinden sonraki son paket için yeniden çalıştırılmalı.
 - Sahte nesne testleri (SketchUp dışı, yalnız mantık): A1, A2, B partilerinin 17 testi "0 kaldı".

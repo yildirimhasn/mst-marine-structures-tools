@@ -6,6 +6,8 @@
 # Verimlerin hepsi değiştirilebilir; yanında kaynağı yazar ("kaynak" / "tahmin").
 require 'json'
 require 'date'
+require_relative 'mst_schedule_sources'
+require_relative 'mst_schedule_layers'
 module MAG
 module MarineStructuresTools
 
@@ -26,6 +28,20 @@ MST_SP_RATES=[
  ['deck_rate','Döşeme betonu (m³ / gün, pompa başına)',150.0,'tahmin 100–250 m³/gün'],
  ['deck_crews','Döşeme ekibi / pompa sayısı',1,'proje'],
  ['fin_rate','Tretuvar / kronman / kaplama (m³ / gün)',40.0,'tahmin'],
+ ['bored_rate','Fore kazık delgisi (m / gün, makine başına)',30.0,'test kabulü — proje yapım yöntemi/verimi ile değiştirin'],
+ ['bored_rigs','Fore kazık makinesi sayısı',1,'proje'],
+ ['jg_rate','Jet grout iyileştirme boyu (m / gün, makine başına)',40.0,'test kabulü — proje deneyleri/verimi ile değiştirin'],
+ ['jg_rigs','Jet grout makinesi sayısı',1,'proje'],
+ ['fill_rate','Dolgu yerleştirme (m³ / gün, ekip başına)',500.0,'test kabulü — kesit aralığı toplamı; tabaka sırası değildir'],
+ ['fill_crews','Dolgu ekibi sayısı',1,'proje'],
+ ['fill_layers','Dolgu tabaka sırası (0 birleşik / 1 çekirdekten dışa)',0,'parametrik Alternatif-2; her malzeme tüm aralıklarda bitince sonraki başlar'],
+ ['excavation_rate','Kazı (m³ / gün, ekip başına)',500.0,'test kabulü — tasarım yüzeyine kadar kazı'],
+ ['excavation_crews','Kazı ekibi sayısı',1,'proje'],
+ ['crown_after_fill','Kronman aktif dolgu tamamlandıktan sonra (1 / 0)',1,'planlama kabulü — bağımsız kronman için0seçin'],
+ ['crew_bored','Fore kazık ekibi (kişi / makine)',8,'test kabulü'],
+ ['crew_jg','Jet grout ekibi (kişi / makine)',6,'test kabulü'],
+ ['crew_fill','Dolgu ekibi (kişi)',6,'test kabulü'],
+ ['crew_excavation','Kazı ekibi (kişi)',6,'test kabulü'],
  ['days_week','Haftalık çalışma günü',6,'proje'],
  ['weather','Hava / deniz kaybı (%)',15,'tahmin — Marmara / Ege 10–20, Karadeniz kışın 30–40'],
  ['crew_pile','Kazık ekibi (kişi / platform)',10,'tahmin'],
@@ -37,8 +53,8 @@ MST_SP_RATES=[
  ['crew_site','Sabit saha kadrosu: şef, teknik, güvenlik (kişi)',8,'tahmin — ÇED örnekleri: 211 m iskele 30 kişi, 410 m iskele + rıhtım 80 kişi']
 ].freeze
 MST_SP_KINDS=[['pile','Kazık çakımı'],['infill','Kazık içi donatı + beton'],['bk','Başlık kirişi'],['pcprod','Prekast üretimi'],['pc','Prekast montajı'],
- ['deck','Döşeme'],['fin','Tretuvar / kronman / kaplama']].freeze
-MST_SP_TYPES={'steel_pipe_pile'=>'pile','bored_pile'=>'pile','pile_infill_concrete'=>'infill','head_beam'=>'bk','flat_precast'=>'pc','channel_precast'=>'pc',
+ ['deck','Döşeme'],['fin','Tretuvar / kronman / kaplama'],['bored','Fore kazık delgi + beton'],['jet','Jet grout'],['excavation','Kazı'],['fill','Dolgu / taş — kesit aralığı']].freeze
+MST_SP_TYPES={'steel_pipe_pile'=>'pile','pile_infill_concrete'=>'infill','head_beam'=>'bk','flat_precast'=>'pc','channel_precast'=>'pc',
  'crane_precast'=>'pc','deck_slab'=>'deck','curb'=>'fin','crown_wall'=>'fin','deck_topping'=>'fin'}.freeze
 # BOQ kalemi → faaliyet türü (hakediş tahmini dağıtımı)
 MST_SP_BOQ_MAP={'MOBILIZATION'=>:start,'FORMWORK_CAST'=>%w[bk deck],'FORMWORK_PRECAST'=>%w[pcprod],'REBAR'=>:rebar,'HB_DECK_CONCRETE'=>%w[bk deck],
@@ -86,7 +102,7 @@ def mst_sp_box(e)
 end
 def mst_sp_overlap?(a,b,pad=0.3);a[0]-pad<b[2] && b[0]-pad<a[2] && a[1]-pad<b[3] && b[1]-pad<a[3];end
 def mst_sp_items(all)
- all.map do |e|
+ items=all.map do |e|   # 0.52.18 ADAY3: sonuç atanmıyordu; aşağıdaki items.find / items<< / items+ NameError veriyordu (iş programı çalışmıyordu)
   k=MST_SP_TYPES[e.get_attribute(DICT,'element_type','').to_s];next nil unless k
   vol=(qto3_quantity(e,:concrete_m3) rescue e.get_attribute(DICT,'concrete_volume_m3',0).to_f).to_f
   it={e:e,kind:k,id:element_visible_id(e),c:mst_sp_center(e),box:mst_sp_box(e),vol:vol,rebar_kg:(mst_element_rebar(e)['kg'] rescue 0.0).to_f}
@@ -96,6 +112,25 @@ def mst_sp_items(all)
   end
   it
  end.compact
+ # A Component's infill lives in its shared definition. Its local child PID
+ # cannot identify the physical occurrence and is intentionally not collected
+ # as a second top-level BIM element. Schedule one infill task per real pile.
+ all.select{|e|e.get_attribute(DICT,'element_type','')=='steel_pipe_pile'}.each do |pile|
+  children=pile_qto_infill_children(pile)
+  next if children.any?{|child|all.include?(child)}
+  volume=pile_qto_concrete(pile);next unless volume>0
+  kg=if respond_to?(:mst_pile_rebar_active) && mst_pile_rebar_active(pile)
+   mst_pile_rebar_t(pile)*1000.0
+  elsif children.empty?
+   volume*rebar_rate('pile')
+  else
+   children.sum{|child|qto3_quantity(child,:rebar_t)*1000.0}
+  end
+  parent=items.find{|item|item[:e]==pile};parent[:rebar_kg]=0.0 if parent
+  items<<{e:pile,kind:'infill',id:element_visible_id(pile)+' / Kazık içi',c:mst_sp_center(pile),box:mst_sp_box(pile),
+   vol:volume,rebar_kg:kg,source_parent_uid:ensure_uid(pile),quantity_basis:'infill_per_physical_pile_occurrence'}
+ end
+ items+mst_sp_ground_items+mst_sp_fill_items
 end
 # ana ilerleme ekseni: elemanların plan dağılımının uzun yönü; reverse=1 ters yönden
 def mst_sp_axis(items,reverse=false)
@@ -108,7 +143,9 @@ end
 
 # seri yerleşim: her türde elemanlar eksen sırasıyla; başlama = max(öncüller hazır, en erken boş ekip)
 def mst_sp_schedule(items,prm)
- ax=mst_sp_axis(items,prm['reverse'].to_i==1)
+ prm=mst_sp_defaults.merge(prm)
+ items=mst_sp_layer_items(items,prm)
+ ax=mst_sp_axis(items.select{|i|i[:e]},prm['reverse'].to_i==1)
  st=->(i){i[:c][0]*ax[0]+i[:c][1]*ax[1]}
  by=items.group_by{|i|i[:kind]};by.each_value{|a|a.sort_by!{|i|st.(i)}}
  pool=->(n){Array.new([n.to_i,1].max,0.0)}
@@ -117,6 +154,8 @@ def mst_sp_schedule(items,prm)
  end
  acts=[]
  put=->(i,kind,s,f,unit,qty,unit_name){a={id:i ? i[:id] : '',kind:kind,s:s,f:f,unit:unit,qty:qty,qty_unit:unit_name,item:i};acts << a;a}
+ ground_finishes=mst_sp_add_ground_activities(by,prm,take,put,pool)
+ mst_sp_add_fill_activities(by,prm,take,put,pool)
  # kazık
  pl=pool.(prm['pile_rigs']);pdur=1.0/[prm['pile_rate'],0.01].max
  pfin={}
@@ -127,11 +166,11 @@ def mst_sp_schedule(items,prm)
  (by['infill'] || []).each do |i|
   near=(by['pile'] || []).min_by{|p|(p[:c][0]-i[:c][0])**2+(p[:c][1]-i[:c][1])**2}
   rd=near ? pfin[near].to_f+prm['infill_lag'] : 0.0
-  s,f,u=take.(pl,rd,idur);put.(i,'infill',s,f,u,i[:vol].round(2),'m³');ifin[i]=f
+  s,f,u=take.(pl,rd,idur);put.(i,'infill',s,f,u,i[:vol],'m³');ifin[i]=f
  end
  piles_done=->(box){
   ps=(by['pile'] || []).select{|p|mst_sp_overlap?(box,p[:box])};is=(by['infill'] || []).select{|p|mst_sp_overlap?(box,p[:box])}
-  (ps.map{|p|pfin[p]+(is.empty? ? prm['infill_lag']+idur : 0.0)}+is.map{|p|ifin[p]}).max || 0.0}
+  (ground_finishes.select{|p,f|mst_sp_overlap?(box,p[:box])}.map(&:last)+ps.map{|p|pfin[p]+(is.empty? ? prm['infill_lag']+idur : 0.0)}+is.map{|p|ifin[p]}).max || 0.0}
  # BK
  pl=pool.(prm['bk_crews']);bfin={}
  bks,links=(by['bk'] || []).partition{|i|!%w[VK BBK].include?(i[:role].to_s)}
@@ -140,10 +179,10 @@ def mst_sp_schedule(items,prm)
   if st   # v0.50 KD2: iki kademe (her biri döngünün %60'ı) + kademe arası bekleme
    d=prm['bk_cycle']*0.6;sh=i[:vol]>0 ? st['v1']/i[:vol] : 0.5
    i1=i.merge(id:"#{i[:id]} (1. kademe)",vol:st['v1'],rebar_kg:i[:rebar_kg]*sh);i2=i.merge(id:"#{i[:id]} (2. kademe)",vol:st['v2'],rebar_kg:i[:rebar_kg]*(1-sh))
-   s,f,u=take.(pl,ready,d);put.(i1,'bk',s,f,u,st['v1'].round(2),'m³')
-   s,f,u=take.(pl,f+st['gap'].to_f,d);put.(i2,'bk',s,f,u,st['v2'].round(2),'m³');bfin[i]=f
+   s,f,u=take.(pl,ready,d);put.(i1,'bk',s,f,u,st['v1'],'m³')
+   s,f,u=take.(pl,f+st['gap'].to_f,d);put.(i2,'bk',s,f,u,st['v2'],'m³');bfin[i]=f
   else
-   s,f,u=take.(pl,ready,prm['bk_cycle']);put.(i,'bk',s,f,u,i[:vol].round(2),'m³');bfin[i]=f
+   s,f,u=take.(pl,ready,prm['bk_cycle']);put.(i,'bk',s,f,u,i[:vol],'m³');bfin[i]=f
   end
  end
  bks.each{|i|bk_one.(i,piles_done.(i[:box]))}
@@ -163,53 +202,95 @@ def mst_sp_schedule(items,prm)
  (by['deck'] || []).each do |i|
   rd=([bk_done.(i[:box])]+pcs.select{|p|mst_sp_overlap?(i[:box],p[:box],0.0)}.map{|p|cfin[p]}).compact.max || 0.0
   dur=[i[:vol]/[prm['deck_rate'],0.1].max,1.0].max
-  s,f,u=take.(pl,rd,dur);put.(i,'deck',s,f,u,i[:vol].round(2),'m³');dfin[i]=f
+  s,f,u=take.(pl,rd,dur);put.(i,'deck',s,f,u,i[:vol],'m³');dfin[i]=f
  end
  # bitiş işleri: döşemeden sonra
  pl=pool.(1)
  (by['fin'] || []).each do |i|
   rd=(by['deck'] || []).select{|d|mst_sp_overlap?(i[:box],d[:box],0.0)}.map{|d|dfin[d]}.max || (dfin.values.max || 0.0)
+  if i[:e].get_attribute(DICT,'element_type')=='crown_wall' && prm['crown_after_fill'].to_i==1
+   rd=[rd,acts.select{|a|a[:kind]=='fill'}.map{|a|a[:f]}.max.to_f].max
+  end
   dur=[i[:vol]/[prm['fin_rate'],0.1].max,0.5].max
-  s,f,u=take.(pl,rd,dur);put.(i,'fin',s,f,u,i[:vol].round(2),'m³')
+  s,f,u=take.(pl,rd,dur);put.(i,'fin',s,f,u,i[:vol],'m³')
  end
  total=acts.map{|a|a[:f]}.max || 0.0
  cal=mst_sp_calendar(prm['start'],prm['days_week'],prm['weather'],total.ceil+2)
  acts.each{|a|a[:sd]=cal[a[:s].floor];a[:fd]=cal[[a[:f].ceil-1,a[:s].floor].max]}
- {acts:acts,days:total,cal:cal,axis:ax,finish:(acts.empty? ? nil : cal[[total.ceil-1,0].max]),start:cal[0]}
+ {acts:acts,fill_layer_mode:prm['fill_layers'].to_i,days:total,cal:cal,axis:ax,finish:(acts.empty? ? nil : cal[[total.ceil-1,0].max]),start:cal[0]}
 end
 
 # ---------------------------------------------------------------- haftalık / aylık
 def mst_sp_weekly(sch,prm)
- crew={'pile'=>prm['crew_pile'],'infill'=>prm['crew_infill'],'bk'=>prm['crew_bk'],'pcprod'=>0,'pc'=>prm['crew_pc'],'deck'=>prm['crew_deck'],'fin'=>prm['crew_fin']}
- wk=Hash.new{|h,k|h[k]={'concrete'=>0.0,'rebar_t'=>0.0,'piles'=>0,'precast'=>0,'crew'=>Hash.new{|x,y|x[y]=[]}}}
+ crew={'pile'=>prm['crew_pile'],'infill'=>prm['crew_infill'],'bk'=>prm['crew_bk'],'pcprod'=>0,'pc'=>prm['crew_pc'],'deck'=>prm['crew_deck'],'fin'=>prm['crew_fin'],'bored'=>prm['crew_bored'],'jet'=>prm['crew_jg'],'fill'=>prm['crew_fill'],'excavation'=>prm['crew_excavation']}
+ wk=Hash.new{|h,k|h[k]={'concrete'=>0.0,'rebar_t'=>0.0,'piles'=>0,'precast'=>0,'crew'=>Hash.new{|x,y|x[y]=[]},'bored'=>0,'bored_drill_m'=>0.0,'jg_length_m'=>0.0,'jg_ground_m3'=>0.0,'bored_rebar_estimated_t'=>0.0,'bored_rebar_supplied_t'=>0.0,'jg_cement_missing'=>0,'jg_grout_missing'=>0,'jg_steel_missing'=>0,'jg_steel_t'=>0.0,'jg_cement_t'=>0.0,'jg_grout_m3'=>0.0,'fill_m3'=>0.0,'fill_t'=>0.0,'excavation_m3'=>0.0,'materials'=>Hash.new{|x,y|x[y]={volume_m3:0.0,tonnage_t:0.0}}}}
  sch[:acts].each do |a|
   w=a[:fd].strftime('%G-H%V')
-  if a[:item] && %w[infill bk deck fin].include?(a[:kind])
+  if a[:item] && %w[infill bk pcprod deck fin bored].include?(a[:kind])
    wk[w]['concrete']+=a[:item][:vol];wk[w]['rebar_t']+=a[:item][:rebar_kg]/1000.0
   end
+  i=a[:item]
+  if a[:kind]=='bored';wk[w]['bored']+=1;wk[w]['bored_drill_m']+=i[:drilling_m];wk[w]['bored_rebar_estimated_t']+=i[:rebar_estimated_kg]/1000.0;wk[w]['bored_rebar_supplied_t']+=i[:rebar_supplied_kg]/1000.0;end
+  if a[:kind]=='jet'
+   wk[w]['jg_length_m']+=i[:length_m];wk[w]['jg_ground_m3']+=i[:ground_m3]
+   wk[w]['jg_cement_t']+=i[:cement_t].to_f;wk[w]['jg_grout_m3']+=i[:grout_m3].to_f;wk[w]['jg_steel_t']+=i[:jg_steel_t].to_f
+   wk[w]['jg_cement_missing']+=1 if i[:cement_t].nil?;wk[w]['jg_grout_missing']+=1 if i[:grout_m3].nil?;wk[w]['jg_steel_missing']+=1 if i[:jg_steel_t].nil?
+  end
+  if a[:kind]=='fill'
+   wk[w]['fill_m3']+=i[:fill_m3];wk[w]['fill_t']+=i[:fill_t]
+   i[:materials].each{|m|z=wk[w]['materials'][m[:code]];z[:volume_m3]+=m[:volume_m3];z[:tonnage_t]+=m[:tonnage_t]}
+  end
+  wk[w]['excavation_m3']+=i[:excavation_m3] if a[:kind]=='excavation'
   wk[w]['piles']+=1 if a[:kind]=='pile'
   wk[w]['precast']+=1 if a[:kind]=='pc'
   (a[:s].floor..[a[:f].ceil-1,a[:s].floor].max).each{|d|dd=sch[:cal][d];next unless dd;wk[dd.strftime('%G-H%V')]['crew'][[a[:kind],a[:unit]]] << 1} unless a[:kind]=='pcprod'
  end
  wk.keys.sort.map do |w|
   x=wk[w];men=x['crew'].keys.sum{|k,_|crew[k].to_f}+prm['crew_site']
-  {'week'=>w,'concrete_m3'=>x['concrete'],'rebar_t'=>x['rebar_t'],'piles'=>x['piles'],'precast'=>x['precast'],'crews'=>x['crew'].keys.length,'workers'=>men.round}
+  {'week'=>w,'concrete_m3'=>x['concrete'],'rebar_t'=>x['rebar_t'],'piles'=>x['piles'],'precast'=>x['precast'],'crews'=>x['crew'].keys.length,'workers'=>men.round,'bored'=>x['bored'],'bored_drill_m'=>x['bored_drill_m'],'jg_length_m'=>x['jg_length_m'],'jg_ground_m3'=>x['jg_ground_m3'],'jg_cement_missing'=>x['jg_cement_missing'],'jg_grout_missing'=>x['jg_grout_missing'],'jg_steel_missing'=>x['jg_steel_missing'],'jg_steel_t'=>x['jg_steel_t'],'bored_rebar_estimated_t'=>x['bored_rebar_estimated_t'],'bored_rebar_supplied_t'=>x['bored_rebar_supplied_t'],'jg_cement_t'=>x['jg_cement_t'],'jg_grout_m3'=>x['jg_grout_m3'],'fill_m3'=>x['fill_m3'],'fill_t'=>x['fill_t'],'excavation_m3'=>x['excavation_m3'],'materials'=>x['materials']}
  end
 end
 # BOQ satırları (tutarlı olanlar) faaliyetlere dağıtılır; ay = faaliyetin bittiği ay
 def mst_sp_monthly(sch,boq)
- acts=sch[:acts];return [] if acts.empty?
+ acts=sch[:acts];sch[:unallocated_boq]=[];sch[:unpriced_boq]=[];sch[:boq_allocation_basis]=[]
  mon=Hash.new(0.0)
  wsum=->(list,f){s=list.sum{|a|f.(a)};s}
  boq.each do |r|
-  tot=r[:total].to_f;next if tot<=0
-  m=mst_sp_boq_kinds(r[:source])
+  source=r[:source].to_s
+  if r[:total].nil?
+   sch[:unpriced_boq]<<{source:source,quantity:r[:quantity],unit:r[:unit],reason:'Birim fiyat/eşleştirme yok; bedel sıfır varsayılmadı.'} if r[:quantity].to_f>0
+   next
+  end
+  tot=Float(r[:total]);raise 'İş programı BOQ tutarı sonlu olmalı.' unless tot.finite?;next if tot==0
+  if tot<0
+   sch[:unallocated_boq]<<{source:source,total:tot,reason:'Negatif düzeltme planlanan üretim bedeline dağıtılmadı.'};next
+  end
+  exact=source.start_with?('BORED:','JETGROUT:','ROCKFILL:') || source=='LIVE_EXCAVATION'
+  m=MST_SP_BOQ_MAP[source]
   if m==:start then mon[sch[:start].strftime('%Y-%m')]+=tot;next end
-  list,f=if m==:rebar then [acts.select{|a|a[:item] && a[:kind]!='pcprod'},->(a){a[:item][:rebar_kg]}]
-   elsif m.is_a?(Array) then [acts.select{|a|m.include?(a[:kind])},->(a){a[:item] ? [a[:item][:vol],(a[:qty_unit]=='adet' ? 1.0 : 0.0)].max : 1.0}]
-   else [acts,->(_){1.0}] end
-  list=acts if list.empty?;ws=wsum.(list,f);ws=list.length.to_f if ws<=0
-  list.each{|a|w=f.(a);w=1.0 if ws==list.length.to_f && w<=0;mon[a[:fd].strftime('%Y-%m')]+=tot*w/ws}
+  if exact
+   list,weights=mst_sp_exact_weights(acts,source);basis='exact_source_quantity'
+  elsif m==:rebar
+   list=acts.select{|a|a[:item] && a[:kind]!='pc'};weights=list.map{|a|a[:item][:rebar_kg]};basis='rebar_kg'
+  elsif m.is_a?(Array)
+   list=acts.select{|a|m.include?(a[:kind])};weights=list.map{|a|a[:item] ? [a[:item][:vol],(a[:qty_unit]=='adet' ? 1.0 : 0.0)].max : 1.0};basis='concrete_volume_or_item_count'
+  else
+   sch[:unallocated_boq]<<{source:source,total:tot,reason:'Faaliyet türü eşleştirmesi tanımlanmamış.'};next
+  end
+  if list.empty?
+   sch[:unallocated_boq]<<{source:source,total:tot,reason:'Eşleşen fiziksel veya miktara bağlı faaliyet bulunamadı.'};next
+  end
+  weights=weights.map{|w|Float(w)}
+  raise 'İş programı dağıtım ağırlığı sonlu ve negatif olmayan sayı olmalı.' unless weights.all?{|w|w.finite?&&w>=0}
+  ws=weights.sum
+  if ws<=0
+   if exact
+    sch[:unallocated_boq]<<{source:source,total:tot,reason:'Kaynak miktarı sıfır; bedel başka imalata taşınmadı.'};next
+   end
+   weights=Array.new(list.size,1.0);ws=list.size.to_f;basis='equal_activity_count_zero_weights'
+  end
+  sch[:boq_allocation_basis]<<{source:source,method:basis,weight_sum:ws,activity_count:list.size,boq_quantity:r[:quantity],unit:r[:unit]}
+  list.zip(weights).each{|a,w|mon[a[:fd].strftime('%Y-%m')]+=tot*w/ws if w>0}
  end
  cum=0.0;all=mon.values.sum
  mon.keys.sort.map{|k|cum+=mon[k];{'month'=>k,'amount'=>mon[k],'cum'=>cum,'pct'=>all>0 ? 100.0*cum/all : 0.0}}
@@ -223,7 +304,7 @@ def mst_sp_gantt_svg(sch)
  rows=MST_SP_KINDS.map{|k,l|as=acts.select{|a|a[:kind]==k};as.empty? ? nil : [k,l,as]}.compact
  h=40+rows.length*(rh*2+10)
  x=->(d){lw+(w-lw-rm)*d/days}
- col={'pile'=>'#6c757d','infill'=>'#8e5ea2','bk'=>'#073f73','pcprod'=>'#c9a227','pc'=>'#e07b00','deck'=>'#2e8b57','fin'=>'#b03a2e'}
+ col={'pile'=>'#6c757d','infill'=>'#8e5ea2','bk'=>'#073f73','pcprod'=>'#c9a227','pc'=>'#e07b00','deck'=>'#2e8b57','fin'=>'#b03a2e','bored'=>'#795548','jet'=>'#8e44ad','fill'=>'#947230','excavation'=>'#607d8b'}
  g=+"<svg xmlns='http://www.w3.org/2000/svg' width='#{w.round}' height='#{h.round}' style='background:#fff'>"
  # ay çizgileri
  last=nil
@@ -243,13 +324,14 @@ def mst_sp_gantt_svg(sch)
  g << '</svg>'
 end
 def mst_sp_report(model=Sketchup.active_model,prm=nil,dir=nil)
- prm||=mst_sp_params(model)
+ raise 'İş programı için önce ilgili SketchUp modelini etkinleştirin.' unless model==Sketchup.active_model
+ prm=mst_sp_defaults.merge(prm||mst_sp_params(model))
  all=[];collect_elements(model.entities,all)
  items=mst_sp_items(all)
- raise 'Modelde iş programına girecek eleman yok (kazık, BK, prekast, döşeme…).' if items.empty?
+ raise 'İş programına girecek yapı elemanı veya aktif dolgu miktarı yok.' if items.empty?
  sch=mst_sp_schedule(items,prm)
  wk=mst_sp_weekly(sch,prm)
- boq=(boq_rows(false) rescue [])
+ boq=boq_rows(false)
  mon=mst_sp_monthly(sch,boq)
  cur=(respond_to?(:boq2_currency) ? (boq2_currency rescue 'USD') : 'USD')
  sum=MST_SP_KINDS.map do |k,l|
@@ -264,17 +346,21 @@ def mst_sp_report(model=Sketchup.active_model,prm=nil,dir=nil)
  sh2=[['Hafta','Beton (m³)','Donatı (t)','Kazık (adet)','Prekast (adet)','Aktif ekip','Tahmini kişi']]+wk.map{|r|[r['week'],r['concrete_m3'].round(1),r['rebar_t'].round(2),r['piles'],r['precast'],r['crews'],r['workers']]}
  sh3=[['Ay',"Hakediş tahmini (#{cur})","Kümülatif (#{cur})",'Kümülatif %']]+mon.map{|r|[r['month'],r['amount'].round(0),r['cum'].round(0),r['pct'].round(1)]}
  sh4=[['Parametre','Değer','Kaynak']]+MST_SP_RATES.map{|k,l,_,src|[l,prm[k],src]}+[['Başlangıç tarihi',prm['start'],'proje'],['İlerleme yönü',prm['reverse'].to_i==1 ? 'ters' : 'düz','proje']]
- mst_rt_write_xlsx("#{base}.xlsx",[['Faaliyetler',sh1],['Haftalık İhtiyaç',sh2],['Aylık Hakediş',sh3],['Parametreler',sh4]])
+ unallocated=sch[:unallocated_boq]||[]
+ sh5=[['Kaynak','Dağıtılmayan tutar','Neden']]+unallocated.map{|r|[r[:source],r[:total],r[:reason]]}
+ mst_rt_write_xlsx("#{base}.xlsx",[['Faaliyetler',sh1],['Haftalık İhtiyaç',sh2],['Aylık Hakediş',sh3],['Parametreler',sh4],['Dağıtılmayan BOQ',sh5]]+mst_sp_source_tables(sch,wk))
  peak=wk.map{|r|r['workers']}.max || 0
  html=mst_rt_html_page('İş Programı',
   "<p>Başlangıç <b>#{sch[:start].strftime('%d.%m.%Y')}</b> · bitiş <b>#{sch[:finish] ? sch[:finish].strftime('%d.%m.%Y') : '-'}</b> · #{sch[:days].ceil} iş günü · #{sch[:acts].count{|a|a[:kind]!='pcprod'}} faaliyet · en yoğun haftada ~#{peak} kişi.</p>"+
-  "<p class='small'>Süre = miktar / verim; sıra: kazık → kazık içi → BK → #{prm['bk_cure'].round} gün bekleme → prekast → döşeme → bitiş işleri. Haftada #{prm['days_week'].round} gün, hava / deniz kaybı %#{prm['weather'].round}. Verimler varsayılan; Ayarlar'dan değiştirin (kaynakları en altta).</p>"+
+  "<p class='small'>Süre = miktar / verim; sıra: kazık → kazık içi → BK → #{prm['bk_cure'].round} gün bekleme → prekast → döşeme → bitiş işleri. Haftada #{prm['days_week'].round} gün, hava / deniz kaybı %#{prm['weather'].round}. Verimler varsayılan; Ayarlar'dan değiştirin (kaynakları en altta). Aylık tutarlar faaliyet bitiş ayına dağıtılır: fore/JG/dolgu/kazı kendi kaynak miktarıyla, donatı kg ile, diğer eşleşen kalemler beton hacmi/adet ağırlığıyla; bütün ağırlıklar sıfırsa eşit faaliyet sayısıyla. Bu dağıtım tahmindir; onaylı gerçekleşen hakediş değildir.</p>"+
+  (unallocated.empty? ? '' : "<h2>Programa dağıtılmayan BOQ</h2><p>Aşağıdaki tutarlar aylık tahmine dahil değildir. Faaliyet kapsamı/eşleştirmesi tamamlanmadan bu program proje toplamını temsil etmez.</p><table><tr><th>Kaynak</th><th>Tutar</th><th>Neden</th></tr>"+unallocated.map{|r|"<tr><td>#{mst_rt_h(r[:source])}</td><td>#{format('%.2f',r[:total])}</td><td>#{mst_rt_h(r[:reason])}</td></tr>"}.join+'</table>')+
   mst_sp_gantt_svg(sch)+
   "<h2>Özet</h2><table><tr><th class='l'>Faaliyet</th><th>Adet</th><th>Başlangıç</th><th>Bitiş</th><th>Süre (iş günü)</th></tr>"+sum.map{|l,n,s,f,d|"<tr><td class='l'>#{mst_rt_h(l)}</td><td>#{n}</td><td>#{s.strftime('%d.%m.%Y')}</td><td>#{f.strftime('%d.%m.%Y')}</td><td>#{d}</td></tr>"}.join+'</table>'+
   "<h2>Haftalık malzeme ve ekip</h2><table><tr><th class='l'>Hafta</th><th>Beton (m³)</th><th>Donatı (t)</th><th>Kazık</th><th>Prekast</th><th>Aktif ekip</th><th>Kişi</th></tr>"+wk.map{|r|"<tr><td class='l'>#{r['week']}</td><td>#{format('%.1f',r['concrete_m3'])}</td><td>#{format('%.2f',r['rebar_t'])}</td><td>#{r['piles']}</td><td>#{r['precast']}</td><td>#{r['crews']}</td><td>#{r['workers']}</td></tr>"}.join+'</table>'+
   (mon.empty? ? "<p class='small'>Hakediş tahmini için keşif birim fiyatları gerekli.</p>" :
    "<h2>Aylık hakediş tahmini (#{mst_rt_h(cur)})</h2><table><tr><th class='l'>Ay</th><th>Tutar</th><th>Kümülatif</th><th>%</th></tr>"+mon.map{|r|"<tr><td class='l'>#{r['month']}</td><td>#{format('%.0f',r['amount'])}</td><td>#{format('%.0f',r['cum'])}</td><td>#{format('%.1f',r['pct'])}</td></tr>"}.join+'</table>')+
   "<h2>Parametreler</h2><table><tr><th class='l'>Parametre</th><th>Değer</th><th class='l'>Kaynak</th></tr>"+MST_SP_RATES.map{|k,l,_,src|"<tr><td class='l'>#{mst_rt_h(l)}</td><td>#{prm[k]}</td><td class='l'>#{mst_rt_h(src)}</td></tr>"}.join+'</table>')
+ html=html.sub('</body>',mst_sp_source_report_html(sch,wk)+'</body>')
  File.write("#{base}.html",html)
  # v0.51.5 H3c: yalnız değer farklıysa, kendi normal işlemiyle (rapor yeniden üretimi Geri Al geçmişini doldurmaz)
  sp_last=JSON.generate(sch[:acts].map{|a|[a[:item] ? (a[:item][:e].persistent_id rescue 0) : 0,a[:kind],a[:sd].to_s,a[:fd].to_s]})
@@ -335,7 +421,7 @@ def mst_sp_4d_apply!(model,sch,week=nil)
  n=0
  sch[:acts].each do |a|
   i=a[:item];next unless i && a[:kind]!='pcprod'
-  e=i[:e];next unless e.valid?
+  e=i[:e];next unless e && e.valid?
   if e.get_attribute(DICT,'sp4d_saved').nil?
    e.set_attribute(DICT,'sp4d_saved',1);e.set_attribute(DICT,'sp4d_mat',e.material ? e.material.name : '');e.set_attribute(DICT,'sp4d_hidden',e.hidden? ? 1 : 0)
   end

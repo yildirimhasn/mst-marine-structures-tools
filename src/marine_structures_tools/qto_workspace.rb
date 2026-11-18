@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 module MAG
   module MarineStructuresTools
-    VERSION = '0.51.5'.freeze unless const_defined?(:VERSION)
+    VERSION = '0.52.18'.freeze unless const_defined?(:VERSION)
 
     def normalize_pile_inputs!(data)
       numeric = %w[diameter_mm thickness_mm length_m top_elevation_m seabed_elevation_m driving_length_m
@@ -55,6 +55,18 @@ module MAG
       data
     end
 
+    def mst_validate_plug_count!(count, has_infill)
+      raw=count.nil? || count.to_s.strip.empty? ? 1 : count
+      n=Float(raw)
+      maximum=has_infill ? 2 : 1
+      unless n.finite? && n==n.to_i && n>=1 && n<=maximum
+        raise "Tapa adedi geçersiz. Mevcut modelleyici #{has_infill ? 'iç beton altı ve kazık ucu için en fazla 2' : 'iç beton yokken yalnız kazık ucu için 1'} tapa destekler; pozitif tam sayı girin."
+      end
+      n.to_i
+    rescue ArgumentError, TypeError
+      raise 'Tapa adedi pozitif tam sayı olmalı.'
+    end
+
     def validate_pile_section!(data)
       d = data['diameter_mm'].to_f
       t = data['thickness_mm'].to_f
@@ -62,6 +74,7 @@ module MAG
       raise 'Çap ve et kalınlığı pozitif olmalı; çap, et kalınlığının iki katından büyük olmalı.' unless d > 0 && t > 0 && d > 2 * t
       raise 'Kazık boyu sıfırdan büyük olmalı.' unless length > 0
       raise 'Eğim oranı negatif olamaz.' if data['batter_ratio'].to_f < 0
+      mst_validate_plug_count!(data['plug_count_per_pile'],data['infill_enabled'].to_s=='1') if data['plug_enabled'].to_s=='1'
       true
     end
 
@@ -108,7 +121,7 @@ module MAG
       od = pile.get_attribute(DICT, 'diameter_mm', 0).to_f / 1000.0
       wt = pile.get_attribute(DICT, 'thickness_mm', 0).to_f / 1000.0
       top = pile.get_attribute(DICT, 'top_elevation_m', 0).to_f
-      ratio = pile.get_attribute(DICT, 'batter_ratio', 0).to_f
+      ratio = pile_batter_ratio(pile.get_attribute(DICT, 'batter_ratio', 0))   # FIX-04 / MC-02: metin kayıtlı "1/6" artık 1.0 okunmaz
       Math::PI / 4.0 * [od - 2.0 * wt, 0.0].max**2 * [top - bottom.to_f, 0.0].max * Math.sqrt(1.0 + ratio**2)
     end
 

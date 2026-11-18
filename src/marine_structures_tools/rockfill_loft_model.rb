@@ -11,6 +11,11 @@ def rf_live_create_loft(state,dialog)
  raise '200000 yüzey sınırı aşıldı; bölgeyi ayırın veya aralığı büyütün.' if count>200000
  model.start_operation('Alternatif-02 Kapalı Katılar Oluştur',true)
  begin
+  # Önceki üretimin kapalı katı grubu (yeni kesitle çift hacim olmasın) bu işlemde silinir; tek Geri Al ile döner.
+  # Kapsam: üst düzey, üretim özniteliği taşıyan VE adı "ALT02 KATILAR" ile başlayan gruplar (yeniden adlandırılmış kullanıcı grubu silinmez).
+  eski_katilar=model.entities.grep(Sketchup::Group).select{|g|g.valid? && !g.get_attribute(DICT,'rf02_generated_snapshot').nil? && g.name.to_s.start_with?('ALT02 KATILAR')}
+  silinen_katilar=eski_katilar.size
+  eski_katilar.each(&:erase!)
   parent=model.entities.add_group;parent.name="ALT02 KATILAR #{Time.now.strftime('%Y%m%d %H%M%S')}"
   parent.set_attribute(DICT,'rf02_generated_snapshot',result['fingerprint'])
   output['pieces'].each do |piece|
@@ -44,7 +49,7 @@ def rf_live_create_loft(state,dialog)
  rescue
   model.abort_operation;raise
  end
- rf_live_send(dialog,state,'Kapalı katılar oluşturuldu. Malzeme/aralık grupları anlık geometri kopyasıdır; keşif kaynağı değiştirilmedi.')
+ rf_live_send(dialog,state,"Kapalı katılar oluşturuldu#{silinen_katilar>0 ? " (önceki üretimin #{silinen_katilar} katı grubu silindi)" : ''}. Malzeme/aralık grupları anlık geometri kopyasıdır; keşif kaynağı değiştirilmedi.")
 end
 end
 end
